@@ -16,7 +16,7 @@ type FilterType = 'all' | 'todo' | 'inProgress' | 'completed' | 'overdue';
 type SortType = 'dueDate' | 'priority' | 'created' | 'alphabetical';
 
 export const Tasks: React.FC = () => {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, dataService } = useApp();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
@@ -81,10 +81,10 @@ export const Tasks: React.FC = () => {
     return filtered;
   }, [state.tasks, searchTerm, filterType, sortType]);
 
-  const handleCreateTask = () => {
+  const handleCreateTask = async () => {
     if (!newTask.title.trim()) return;
 
-    const task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> = {
+    const taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> = {
       userId: state.user?.id || '',
       title: newTask.title,
       description: newTask.description || undefined,
@@ -107,21 +107,25 @@ export const Tasks: React.FC = () => {
       dependencies: [],
     };
 
-    // In a real app, this would call the data service
-    console.log('Creating task:', task);
-    setShowCreateModal(false);
-    setNewTask({
-      title: '',
-      description: '',
-      priority: 'medium',
-      category: '',
-      tags: [],
-      dueDate: '',
-      estimatedTime: '',
-    });
+    try {
+      const createdTask = await dataService.createTask(taskData);
+      dispatch({ type: 'ADD_TASK', payload: createdTask });
+      setShowCreateModal(false);
+      setNewTask({
+        title: '',
+        description: '',
+        priority: 'medium',
+        category: '',
+        tags: [],
+        dueDate: '',
+        estimatedTime: '',
+      });
+    } catch (error) {
+      console.error('Failed to create task:', error);
+    }
   };
 
-  const toggleTaskStatus = (task: Task) => {
+  const toggleTaskStatus = async (task: Task) => {
     const newStatus = task.status.type === 'completed' ? 'todo' : 'completed';
     const updatedTask = {
       ...task,
@@ -129,10 +133,25 @@ export const Tasks: React.FC = () => {
         type: newStatus,
         label: newStatus === 'completed' ? 'Completed' : 'To Do',
         color: newStatus === 'completed' ? '#10B981' : '#6B7280'
-      }
+      },
+      completedAt: newStatus === 'completed' ? new Date() : undefined
     };
-    // In a real app, this would update the task
-    console.log('Toggling task status:', updatedTask);
+    
+    try {
+      await dataService.updateTask(updatedTask);
+      dispatch({ type: 'UPDATE_TASK', payload: updatedTask });
+    } catch (error) {
+      console.error('Failed to update task status:', error);
+    }
+  };
+
+  const deleteTask = async (taskId: string) => {
+    try {
+      await dataService.deleteTask(taskId);
+      dispatch({ type: 'DELETE_TASK', payload: taskId });
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+    }
   };
 
   const getPriorityIcon = (priority: string) => {
@@ -204,7 +223,7 @@ export const Tasks: React.FC = () => {
                   variant="ghost"
                   size="sm"
                   icon={Trash2}
-                  onClick={() => console.log('Delete task:', task.id)}
+                  onClick={() => deleteTask(task.id)}
                 />
               </div>
             </div>

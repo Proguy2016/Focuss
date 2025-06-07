@@ -1,12 +1,14 @@
 import React from 'react';
 import { motion, HTMLMotionProps } from 'framer-motion';
-import { DivideIcon as LucideIcon } from 'lucide-react';
+import { LucideProps } from 'lucide-react';
+
+type IconComponent = React.FC<LucideProps>;
 
 interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
   children?: React.ReactNode;
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'glass' | 'outline';
   size?: 'sm' | 'md' | 'lg';
-  icon?: LucideIcon;
+  icon?: IconComponent;
   iconPosition?: 'left' | 'right';
   loading?: boolean;
   fullWidth?: boolean;
@@ -39,6 +41,10 @@ export const Button: React.FC<ButtonProps> = ({
         return 'bg-gradient-to-r from-error-500 to-error-600 text-white hover:from-error-600 hover:to-error-700';
       case 'success':
         return 'bg-gradient-to-r from-success-500 to-success-600 text-white hover:from-success-600 hover:to-success-700';
+      case 'glass':
+        return 'bg-white/10 backdrop-blur-md border border-white/10 text-white hover:bg-white/20';
+      case 'outline':
+        return 'bg-transparent border border-white/20 text-white hover:bg-white/10';
       default:
         return 'glass text-white hover:bg-white/20';
     }

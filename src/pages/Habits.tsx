@@ -1,57 +1,113 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Plus, Calendar, Flame, Target, TrendingUp, CheckCircle2, 
-  Circle, Edit, Trash2, MoreHorizontal, Star, Clock, Zap
+  Plus, Check, Calendar, MoreHorizontal, Edit, Trash2, 
+  Zap, ChevronRight, Filter, Search, CheckCircle2, Circle
 } from 'lucide-react';
+import { format, addDays, isToday, isPast, isSameDay } from 'date-fns';
 import { useApp } from '../contexts/AppContext';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
-import { Habit, HabitFrequency } from '../types';
+import { Habit, HabitCategory, HabitCompletion } from '../types';
+
+type FilterType = 'all' | 'completed' | 'incomplete' | 'high' | 'medium' | 'low';
 
 export const Habits: React.FC = () => {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, dataService } = useApp();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState<FilterType>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [completingHabit, setCompletingHabit] = useState<Habit | null>(null);
+  const [completionCount, setCompletionCount] = useState(1);
+  const [completionNote, setCompletionNote] = useState('');
 
   const [newHabit, setNewHabit] = useState({
     name: '',
     description: '',
     category: 'Wellness',
-    frequency: 'daily' as const,
+    frequency: 'daily',
     targetCount: 1,
+    priority: 'medium' as 'low' | 'medium' | 'high',
     color: '#10B981',
-    icon: 'Heart',
-    priority: 'medium' as const,
-    reminderTime: '09:00',
-    reminderEnabled: true,
+    icon: 'Zap',
+    reminders: [{
+      time: '09:00',
+      enabled: true,
+      message: 'Time for your habit!',
+    }]
   });
 
-  const categories = [
-    { name: 'Wellness', color: '#10B981', icon: 'Heart' },
-    { name: 'Learning', color: '#3B82F6', icon: 'Book' },
-    { name: 'Fitness', color: '#F59E0B', icon: 'Zap' },
-    { name: 'Productivity', color: '#8B5CF6', icon: 'Target' },
-    { name: 'Social', color: '#EC4899', icon: 'Users' },
-    { name: 'Creative', color: '#06B6D4', icon: 'Palette' },
+  // Available categories
+  const categories: HabitCategory[] = [
+    { id: '1', name: 'Wellness', color: '#10B981', icon: 'Heart' },
+    { id: '2', name: 'Learning', color: '#3B82F6', icon: 'Book' },
+    { id: '3', name: 'Fitness', color: '#F59E0B', icon: 'Zap' },
+    { id: '4', name: 'Productivity', color: '#8B5CF6', icon: 'Briefcase' },
+    { id: '5', name: 'Mindfulness', color: '#EC4899', icon: 'Brain' },
   ];
 
-  const handleCreateHabit = () => {
+  // Filter and sort habits
+  const filteredHabits = useMemo(() => {
+    return state.habits.filter(habit => {
+      // Search filter
+      if (searchTerm && !habit.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+        return false;
+      }
+
+      // Status filter
+      switch (filterType) {
+        case 'completed':
+          // Check if habit is completed for the selected date
+          return isHabitCompletedForDate(habit, selectedDate);
+        case 'incomplete':
+          return !isHabitCompletedForDate(habit, selectedDate);
+        case 'high':
+          return habit.priority === 'high';
+        case 'medium':
+          return habit.priority === 'medium';
+        case 'low':
+          return habit.priority === 'low';
+        default:
+          return true;
+      }
+    });
+  }, [state.habits, searchTerm, filterType, selectedDate]);
+
+  // Check if a habit is completed for a specific date
+  const isHabitCompletedForDate = (habit: Habit, date: Date): boolean => {
+    // This would typically check the habit completions in the database
+    // For now, we'll simulate based on the current streak and a random factor
+    if (habit.currentStreak > 0) {
+      // If the date is today, use the streak as an indicator
+      if (isToday(date)) {
+        return true;
+      }
+      
+      // If the date is in the past, there's a high chance it was completed if the streak is good
+      if (isPast(date) && !isToday(date)) {
+        const dayDiff = Math.floor((new Date().getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+        return dayDiff <= habit.currentStreak;
+      }
+    }
+    
+    return false;
+  };
+
+  const handleCreateHabit = async () => {
     if (!newHabit.name.trim()) return;
 
-    const habit: Omit<Habit, 'id'> = {
-      userId: state.user?.id || '',
+    const categoryObj = categories.find(cat => cat.name === newHabit.category) || categories[0];
+    
+    const habitData: Omit<Habit, 'id'> = {
+      userId: state.user?.id || 'user-1',
       name: newHabit.name,
       description: newHabit.description || undefined,
-      category: {
-        id: '1',
-        name: newHabit.category,
-        color: newHabit.color,
-        icon: newHabit.icon,
-      },
-      frequency: { type: newHabit.frequency },
+      category: categoryObj,
+      frequency: { type: newHabit.frequency as 'daily' | 'weekly' | 'custom' },
       targetCount: newHabit.targetCount,
       currentStreak: 0,
       bestStreak: 0,
@@ -60,370 +116,286 @@ export const Habits: React.FC = () => {
       icon: newHabit.icon,
       priority: newHabit.priority,
       createdAt: new Date(),
-      reminders: newHabit.reminderEnabled ? [{
-        id: '1',
-        time: newHabit.reminderTime,
-        enabled: true,
-        message: `Time for ${newHabit.name}`,
-      }] : [],
+      reminders: newHabit.reminders,
     };
 
-    console.log('Creating habit:', habit);
-    setShowCreateModal(false);
+    try {
+      const createdHabit = await dataService.createHabit(habitData);
+      dispatch({ type: 'ADD_HABIT', payload: createdHabit });
+      setShowCreateModal(false);
+      resetNewHabitForm();
+    } catch (error) {
+      console.error('Failed to create habit:', error);
+    }
+  };
+
+  const handleUpdateHabit = async () => {
+    if (!editingHabit) return;
+    
+    try {
+      await dataService.updateHabit(editingHabit);
+      dispatch({ type: 'UPDATE_HABIT', payload: editingHabit });
+      setEditingHabit(null);
+    } catch (error) {
+      console.error('Failed to update habit:', error);
+    }
+  };
+
+  const handleDeleteHabit = async (habitId: string) => {
+    try {
+      await dataService.deleteHabit(habitId);
+      dispatch({ type: 'DELETE_HABIT', payload: habitId });
+    } catch (error) {
+      console.error('Failed to delete habit:', error);
+    }
+  };
+
+  const handleCompleteHabit = async () => {
+    if (!completingHabit) return;
+    
+    try {
+      const updatedHabit = {
+        ...completingHabit,
+        currentStreak: completingHabit.currentStreak + 1,
+        bestStreak: Math.max(completingHabit.bestStreak, completingHabit.currentStreak + 1),
+        totalCompletions: completingHabit.totalCompletions + completionCount
+      };
+      
+      // Create a habit completion record
+      const completion: HabitCompletion = {
+        id: `completion-${Date.now()}`,
+        habitId: completingHabit.id,
+        date: new Date(),
+        count: completionCount,
+        notes: completionNote || undefined
+      };
+      
+      // In a real app, you would save this completion record
+      // dataService.saveHabitCompletion(completion);
+      
+      await dataService.updateHabit(updatedHabit);
+      dispatch({ type: 'UPDATE_HABIT', payload: updatedHabit });
+      
+      setShowCompletionModal(false);
+      setCompletingHabit(null);
+      setCompletionCount(1);
+      setCompletionNote('');
+    } catch (error) {
+      console.error('Failed to complete habit:', error);
+    }
+  };
+
+  const resetNewHabitForm = () => {
     setNewHabit({
       name: '',
       description: '',
       category: 'Wellness',
       frequency: 'daily',
       targetCount: 1,
-      color: '#10B981',
-      icon: 'Heart',
       priority: 'medium',
-      reminderTime: '09:00',
-      reminderEnabled: true,
+      color: '#10B981',
+      icon: 'Zap',
+      reminders: [{
+        time: '09:00',
+        enabled: true,
+        message: 'Time for your habit!',
+      }]
     });
   };
 
-  const toggleHabitCompletion = (habit: Habit) => {
-    // In a real app, this would track completion for today
-    console.log('Toggling habit completion:', habit.id);
-  };
-
-  const getStreakColor = (streak: number) => {
-    if (streak >= 30) return 'text-purple-400';
-    if (streak >= 14) return 'text-primary-400';
-    if (streak >= 7) return 'text-success-400';
-    return 'text-white/60';
-  };
-
-  const generateCalendarDays = () => {
-    const year = selectedDate.getFullYear();
-    const month = selectedDate.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const startDate = new Date(firstDay);
-    startDate.setDate(startDate.getDate() - firstDay.getDay());
-    
-    const days = [];
-    const current = new Date(startDate);
-    
-    for (let i = 0; i < 42; i++) {
-      days.push(new Date(current));
-      current.setDate(current.getDate() + 1);
-    }
-    
-    return days;
-  };
-
-  const isToday = (date: Date) => {
-    const today = new Date();
-    return date.toDateString() === today.toDateString();
-  };
-
-  const isCurrentMonth = (date: Date) => {
-    return date.getMonth() === selectedDate.getMonth();
-  };
-
-  const HabitCard: React.FC<{ habit: Habit; index: number }> = ({ habit, index }) => {
-    const isCompletedToday = Math.random() > 0.3; // Mock completion status
-
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: index * 0.1 }}
-        className="group"
-      >
-        <Card variant="glass" hover className="p-6">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div 
-                className="w-12 h-12 rounded-xl flex items-center justify-center"
-                style={{ backgroundColor: `${habit.color}20` }}
-              >
-                <Zap className="w-6 h-6" style={{ color: habit.color }} />
-              </div>
-              <div>
-                <h3 className="font-semibold text-white">{habit.name}</h3>
-                <p className="text-white/60 text-sm">{habit.category.name}</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={Edit}
-                onClick={() => setEditingHabit(habit)}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={Trash2}
-                onClick={() => console.log('Delete habit:', habit.id)}
-              />
-            </div>
-          </div>
-
-          {habit.description && (
-            <p className="text-white/70 text-sm mb-4">{habit.description}</p>
-          )}
-
-          <div className="grid grid-cols-3 gap-4 mb-4">
-            <div className="text-center">
-              <div className={`text-2xl font-bold ${getStreakColor(habit.currentStreak)}`}>
-                {habit.currentStreak}
-              </div>
-              <div className="text-white/60 text-xs">Current Streak</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-accent-400">
-                {habit.bestStreak}
-              </div>
-              <div className="text-white/60 text-xs">Best Streak</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-secondary-400">
-                {habit.totalCompletions}
-              </div>
-              <div className="text-white/60 text-xs">Total</div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Flame className={`w-4 h-4 ${habit.currentStreak > 0 ? 'text-orange-400' : 'text-white/40'}`} />
-              <span className="text-white/60 text-sm">
-                {habit.frequency.type === 'daily' ? 'Daily' : 'Weekly'}
-              </span>
-            </div>
-            
-            <Button
-              variant={isCompletedToday ? 'success' : 'secondary'}
-              size="sm"
-              icon={isCompletedToday ? CheckCircle2 : Circle}
-              onClick={() => toggleHabitCompletion(habit)}
-            >
-              {isCompletedToday ? 'Done' : 'Mark Done'}
-            </Button>
-          </div>
-
-          {/* Progress bar for weekly habits */}
-          {habit.frequency.type === 'weekly' && (
-            <div className="mt-4">
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-white/60">This week</span>
-                <span className="text-white/60">3/7</span>
-              </div>
-              <div className="w-full bg-white/10 rounded-full h-2">
-                <div
-                  className="bg-gradient-to-r from-primary-500 to-secondary-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: '43%' }}
-                />
-              </div>
-            </div>
-          )}
-        </Card>
-      </motion.div>
-    );
-  };
+  // Generate dates for the date selector
+  const dates = Array.from({ length: 7 }).map((_, index) => {
+    return addDays(new Date(), index - 3); // 3 days before, today, and 3 days after
+  });
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-8">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+        className="text-center"
       >
-        <div>
-          <h1 className="text-4xl font-bold text-gradient mb-2">Habits</h1>
-          <p className="text-white/60">
-            Build lasting habits and track your progress
-          </p>
-        </div>
-        <Button
-          variant="primary"
-          icon={Plus}
-          onClick={() => setShowCreateModal(true)}
-        >
-          New Habit
-        </Button>
+        <h1 className="text-4xl font-bold text-gradient mb-2">Habit Tracker</h1>
+        <p className="text-white/60 text-lg">
+          Build consistency and track your progress over time
+        </p>
       </motion.div>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card variant="glass" className="p-6 text-center">
-          <div className="text-3xl font-bold text-primary-400 mb-2">
-            {state.habits.length}
-          </div>
-          <div className="text-white/60 text-sm">Active Habits</div>
-        </Card>
-        
-        <Card variant="glass" className="p-6 text-center">
-          <div className="text-3xl font-bold text-success-400 mb-2">
-            {Math.round(state.analytics?.habits.completionRate || 0)}%
-          </div>
-          <div className="text-white/60 text-sm">Completion Rate</div>
-        </Card>
-        
-        <Card variant="glass" className="p-6 text-center">
-          <div className="text-3xl font-bold text-accent-400 mb-2">
-            {Math.round(state.analytics?.habits.averageStreak || 0)}
-          </div>
-          <div className="text-white/60 text-sm">Avg Streak</div>
-        </Card>
-        
-        <Card variant="glass" className="p-6 text-center">
-          <div className="text-3xl font-bold text-warning-400 mb-2">
-            {state.user?.streak || 0}
-          </div>
-          <div className="text-white/60 text-sm">Current Streak</div>
-        </Card>
+      {/* Date Selector */}
+      <div className="flex justify-center mb-8">
+        <div className="inline-flex bg-white/5 rounded-xl p-2 overflow-auto">
+          {dates.map((date, index) => (
+            <motion.button
+              key={index}
+              className={`flex flex-col items-center px-4 py-2 rounded-lg transition-colors
+                ${isSameDay(date, selectedDate) ? 'bg-gradient-to-r from-primary-500/30 to-secondary-500/30 text-white' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
+              onClick={() => setSelectedDate(date)}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <span className="text-xs font-medium uppercase">
+                {format(date, 'EEE')}
+              </span>
+              <span className={`text-xl font-bold ${isToday(date) ? 'text-primary-400' : ''}`}>
+                {format(date, 'd')}
+              </span>
+            </motion.button>
+          ))}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Habits List */}
-        <div className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-white">Your Habits</h2>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm">All</Button>
-              <Button variant="ghost" size="sm">Today</Button>
-              <Button variant="ghost" size="sm">Overdue</Button>
-            </div>
+      {/* Filters and Search */}
+      <div className="flex flex-wrap gap-4 items-center justify-between">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={filterType === 'all' ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => setFilterType('all')}
+          >
+            All
+          </Button>
+          <Button
+            variant={filterType === 'completed' ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => setFilterType('completed')}
+            icon={Check}
+          >
+            Completed
+          </Button>
+          <Button
+            variant={filterType === 'incomplete' ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => setFilterType('incomplete')}
+          >
+            Incomplete
+          </Button>
+          <Button
+            variant={filterType === 'high' ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => setFilterType('high')}
+          >
+            High Priority
+          </Button>
+        </div>
+
+        <div className="flex gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/40 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search habits..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="bg-white/10 border border-white/20 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-primary-500 w-full md:w-64"
+            />
           </div>
+          <Button
+            variant="primary"
+            icon={Plus}
+            onClick={() => setShowCreateModal(true)}
+          >
+            New Habit
+          </Button>
+        </div>
+      </div>
 
-          {state.habits.length === 0 ? (
+      {/* Habits List */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <AnimatePresence>
+          {filteredHabits.map((habit, index) => (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center py-12"
+              key={habit.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ delay: index * 0.05 }}
             >
-              <Target className="w-16 h-16 text-white/20 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white/60 mb-2">No habits yet</h3>
-              <p className="text-white/40 mb-6">
-                Create your first habit to start building better routines
-              </p>
-              <Button
-                variant="primary"
-                icon={Plus}
-                onClick={() => setShowCreateModal(true)}
+              <Card
+                variant="glass"
+                className="p-5 border-l-4"
+                style={{ borderLeftColor: habit.color }}
               >
-                Create Your First Habit
-              </Button>
-            </motion.div>
-          ) : (
-            <div className="space-y-4">
-              {state.habits.map((habit, index) => (
-                <HabitCard key={habit.id} habit={habit} index={index} />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Calendar and Analytics */}
-        <div className="space-y-6">
-          {/* Mini Calendar */}
-          <Card variant="glass" className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">
-                {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-              </h3>
-              <div className="flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1))}
-                >
-                  ‹
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1))}
-                >
-                  ›
-                </Button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-7 gap-1 mb-2">
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(day => (
-                <div key={day} className="text-center text-white/60 text-sm py-2">
-                  {day}
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-7 gap-1">
-              {generateCalendarDays().map((date, index) => {
-                const hasCompletions = Math.random() > 0.7; // Mock data
-                return (
-                  <button
-                    key={index}
-                    className={`
-                      aspect-square text-sm rounded-lg transition-colors relative
-                      ${isCurrentMonth(date) ? 'text-white hover:bg-white/10' : 'text-white/30'}
-                      ${isToday(date) ? 'bg-primary-500 text-white' : ''}
-                    `}
-                  >
-                    {date.getDate()}
-                    {hasCompletions && isCurrentMonth(date) && (
-                      <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-success-400 rounded-full" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </Card>
-
-          {/* Category Breakdown */}
-          <Card variant="glass" className="p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Categories</h3>
-            <div className="space-y-3">
-              {state.analytics?.habits.categoryBreakdown.map(category => (
-                <div key={category.category} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-center gap-3">
                     <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: category.color }}
-                    />
-                    <span className="text-white/80 text-sm">{category.category}</span>
+                      className="w-10 h-10 rounded-lg flex items-center justify-center"
+                      style={{ backgroundColor: `${habit.color}30` }}
+                    >
+                      <Zap className="w-5 h-5" style={{ color: habit.color }} />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-white text-lg">{habit.name}</h3>
+                      <p className="text-white/60 text-sm">{habit.category.name}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-white font-semibold text-sm">{category.count}</div>
-                    <div className="text-white/60 text-xs">{category.completionRate}%</div>
+
+                  <div className="flex items-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="p-1"
+                      onClick={() => {
+                        setCompletingHabit(habit);
+                        setShowCompletionModal(true);
+                      }}
+                    >
+                      {isHabitCompletedForDate(habit, selectedDate) ? (
+                        <CheckCircle2 className="w-5 h-5 text-success-400" />
+                      ) : (
+                        <Circle className="w-5 h-5 text-white/40" />
+                      )}
+                    </Button>
+                    
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="p-1"
+                      icon={MoreHorizontal}
+                      onClick={() => setEditingHabit(habit)}
+                    />
                   </div>
                 </div>
-              ))}
-            </div>
-          </Card>
 
-          {/* Weekly Pattern */}
-          <Card variant="glass" className="p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Weekly Pattern</h3>
-            <div className="space-y-2">
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, index) => {
-                const pattern = state.analytics?.habits.weeklyPatterns[index];
-                return (
-                  <div key={day} className="flex items-center gap-3">
-                    <div className="w-8 text-white/60 text-sm">{day}</div>
-                    <div className="flex-1 bg-white/10 rounded-full h-2">
-                      <div
-                        className="bg-gradient-to-r from-primary-500 to-secondary-500 h-2 rounded-full"
-                        style={{ width: `${pattern?.completionRate || 0}%` }}
-                      />
-                    </div>
-                    <div className="text-white/60 text-sm w-8 text-right">
-                      {pattern?.completionRate || 0}%
-                    </div>
+                {habit.description && (
+                  <p className="text-white/70 text-sm mb-3">{habit.description}</p>
+                )}
+
+                <div className="flex justify-between items-center text-sm text-white/60">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-4 h-4" />
+                    <span>{habit.frequency.type}</span>
                   </div>
-                );
-              })}
-            </div>
-          </Card>
-        </div>
+                  <div className="flex items-center gap-1">
+                    <Zap className="w-4 h-4" />
+                    <span>{habit.currentStreak} day streak</span>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="mt-4">
+                  <div className="flex justify-between text-xs text-white/60 mb-1">
+                    <span>Progress</span>
+                    <span>
+                      {isHabitCompletedForDate(habit, selectedDate) ? habit.targetCount : 0} / {habit.targetCount}
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full"
+                      style={{ backgroundColor: habit.color }}
+                      initial={{ width: 0 }}
+                      animate={{ 
+                        width: isHabitCompletedForDate(habit, selectedDate) ? '100%' : '0%' 
+                      }}
+                      transition={{ duration: 0.5 }}
+                    />
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
 
       {/* Create Habit Modal */}
@@ -431,136 +403,290 @@ export const Habits: React.FC = () => {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         title="Create New Habit"
-        size="lg"
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-white/60 text-sm mb-2">Habit Name *</label>
+            <label className="block text-white mb-2">Habit Name</label>
             <input
               type="text"
               value={newHabit.name}
-              onChange={(e) => setNewHabit(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="e.g., Morning meditation"
-              className="input-field w-full"
-              autoFocus
+              onChange={(e) => setNewHabit({...newHabit, name: e.target.value})}
+              className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
+              placeholder="e.g., Morning Meditation"
             />
           </div>
-
+          
           <div>
-            <label className="block text-white/60 text-sm mb-2">Description</label>
+            <label className="block text-white mb-2">Description (Optional)</label>
             <textarea
               value={newHabit.description}
-              onChange={(e) => setNewHabit(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Describe your habit..."
-              className="input-field w-full h-20 resize-none"
+              onChange={(e) => setNewHabit({...newHabit, description: e.target.value})}
+              className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
+              placeholder="Why is this habit important to you?"
+              rows={3}
             />
           </div>
-
+          
+          <div>
+            <label className="block text-white mb-2">Category</label>
+            <select
+              value={newHabit.category}
+              onChange={(e) => setNewHabit({...newHabit, category: e.target.value})}
+              className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
+            >
+              {categories.map(category => (
+                <option key={category.id} value={category.name}>{category.name}</option>
+              ))}
+            </select>
+          </div>
+          
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-white/60 text-sm mb-2">Category</label>
-              <select
-                value={newHabit.category}
-                onChange={(e) => {
-                  const category = categories.find(c => c.name === e.target.value);
-                  setNewHabit(prev => ({ 
-                    ...prev, 
-                    category: e.target.value,
-                    color: category?.color || '#10B981',
-                    icon: category?.icon || 'Heart'
-                  }));
-                }}
-                className="input-field w-full"
-              >
-                {categories.map(category => (
-                  <option key={category.name} value={category.name}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-white/60 text-sm mb-2">Frequency</label>
+              <label className="block text-white mb-2">Frequency</label>
               <select
                 value={newHabit.frequency}
-                onChange={(e) => setNewHabit(prev => ({ ...prev, frequency: e.target.value as any }))}
-                className="input-field w-full"
+                onChange={(e) => setNewHabit({...newHabit, frequency: e.target.value})}
+                className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
               >
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
+                <option value="custom">Custom</option>
               </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-white/60 text-sm mb-2">Target Count</label>
-              <input
-                type="number"
-                value={newHabit.targetCount}
-                onChange={(e) => setNewHabit(prev => ({ ...prev, targetCount: parseInt(e.target.value) }))}
-                className="input-field w-full"
-                min="1"
-              />
-            </div>
-
-            <div>
-              <label className="block text-white/60 text-sm mb-2">Priority</label>
-              <select
-                value={newHabit.priority}
-                onChange={(e) => setNewHabit(prev => ({ ...prev, priority: e.target.value as any }))}
-                className="input-field w-full"
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-white/60 text-sm">Daily Reminder</label>
-              <input
-                type="checkbox"
-                checked={newHabit.reminderEnabled}
-                onChange={(e) => setNewHabit(prev => ({ ...prev, reminderEnabled: e.target.checked }))}
-                className="w-4 h-4"
-              />
             </div>
             
-            {newHabit.reminderEnabled && (
-              <div>
-                <label className="block text-white/60 text-sm mb-2">Reminder Time</label>
-                <input
-                  type="time"
-                  value={newHabit.reminderTime}
-                  onChange={(e) => setNewHabit(prev => ({ ...prev, reminderTime: e.target.value }))}
-                  className="input-field w-full"
-                />
-              </div>
-            )}
+            <div>
+              <label className="block text-white mb-2">Target Count</label>
+              <input
+                type="number"
+                min="1"
+                value={newHabit.targetCount}
+                onChange={(e) => setNewHabit({...newHabit, targetCount: parseInt(e.target.value) || 1})}
+                className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
+              />
+            </div>
           </div>
-
-          <div className="flex gap-3 pt-4">
+          
+          <div>
+            <label className="block text-white mb-2">Priority</label>
+            <div className="flex gap-2">
+              <Button
+                variant={newHabit.priority === 'low' ? 'primary' : 'outline'}
+                size="sm"
+                fullWidth
+                onClick={() => setNewHabit({...newHabit, priority: 'low'})}
+              >
+                Low
+              </Button>
+              <Button
+                variant={newHabit.priority === 'medium' ? 'primary' : 'outline'}
+                size="sm"
+                fullWidth
+                onClick={() => setNewHabit({...newHabit, priority: 'medium'})}
+              >
+                Medium
+              </Button>
+              <Button
+                variant={newHabit.priority === 'high' ? 'primary' : 'outline'}
+                size="sm"
+                fullWidth
+                onClick={() => setNewHabit({...newHabit, priority: 'high'})}
+              >
+                High
+              </Button>
+            </div>
+          </div>
+          
+          <div className="pt-4 flex justify-end gap-2">
             <Button
-              variant="primary"
-              onClick={handleCreateHabit}
-              fullWidth
-              disabled={!newHabit.name.trim()}
-            >
-              Create Habit
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => setShowCreateModal(false)}
-              fullWidth
+              variant="outline"
+              onClick={() => {
+                setShowCreateModal(false);
+                resetNewHabitForm();
+              }}
             >
               Cancel
             </Button>
+            <Button
+              variant="primary"
+              onClick={handleCreateHabit}
+            >
+              Create Habit
+            </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Edit Habit Modal */}
+      <Modal
+        isOpen={!!editingHabit}
+        onClose={() => setEditingHabit(null)}
+        title="Edit Habit"
+      >
+        {editingHabit && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-white mb-2">Habit Name</label>
+              <input
+                type="text"
+                value={editingHabit.name}
+                onChange={(e) => setEditingHabit({...editingHabit, name: e.target.value})}
+                className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-white mb-2">Description</label>
+              <textarea
+                value={editingHabit.description || ''}
+                onChange={(e) => setEditingHabit({...editingHabit, description: e.target.value})}
+                className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
+                rows={3}
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-white mb-2">Priority</label>
+                <select
+                  value={editingHabit.priority}
+                  onChange={(e) => setEditingHabit({
+                    ...editingHabit, 
+                    priority: e.target.value as 'low' | 'medium' | 'high'
+                  })}
+                  className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-white mb-2">Target Count</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={editingHabit.targetCount}
+                  onChange={(e) => setEditingHabit({
+                    ...editingHabit,
+                    targetCount: parseInt(e.target.value) || 1
+                  })}
+                  className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
+                />
+              </div>
+            </div>
+            
+            <div className="pt-4 flex justify-between">
+              <Button
+                variant="danger"
+                onClick={() => {
+                  handleDeleteHabit(editingHabit.id);
+                  setEditingHabit(null);
+                }}
+              >
+                Delete
+              </Button>
+              
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setEditingHabit(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleUpdateHabit}
+                >
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Complete Habit Modal */}
+      <Modal
+        isOpen={showCompletionModal}
+        onClose={() => {
+          setShowCompletionModal(false);
+          setCompletingHabit(null);
+        }}
+        title="Complete Habit"
+      >
+        {completingHabit && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: `${completingHabit.color}30` }}
+              >
+                <Zap className="w-5 h-5" style={{ color: completingHabit.color }} />
+              </div>
+              <div>
+                <h3 className="font-semibold text-white">{completingHabit.name}</h3>
+                <p className="text-white/60 text-sm">{completingHabit.category.name}</p>
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-white mb-2">Count (How many times?)</label>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCompletionCount(Math.max(1, completionCount - 1))}
+                >
+                  -
+                </Button>
+                <input
+                  type="number"
+                  min="1"
+                  value={completionCount}
+                  onChange={(e) => setCompletionCount(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-20 text-center px-2 py-1 bg-white/10 rounded-lg text-white"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCompletionCount(completionCount + 1)}
+                >
+                  +
+                </Button>
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-white mb-2">Notes (Optional)</label>
+              <textarea
+                value={completionNote}
+                onChange={(e) => setCompletionNote(e.target.value)}
+                className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
+                rows={3}
+                placeholder="How did it go? Any observations?"
+              />
+            </div>
+            
+            <div className="pt-4 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowCompletionModal(false);
+                  setCompletingHabit(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleCompleteHabit}
+              >
+                Mark as Complete
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

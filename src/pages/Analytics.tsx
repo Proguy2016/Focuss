@@ -5,7 +5,7 @@ import {
   BarChart3, PieChart, Activity, Brain, Filter, Download
 } from 'lucide-react';
 import { 
-  LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart as RechartsPieChart, Cell,
+  LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Legend
 } from 'recharts';
 import { useApp } from '../contexts/AppContext';

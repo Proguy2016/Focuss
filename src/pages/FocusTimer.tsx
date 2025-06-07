@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, Square, RotateCcw, Settings, Volume2, VolumeX, Brain, Target, Clock, Zap } from 'lucide-react';
+import { Play, Pause, RotateCcw, Settings, Volume2, VolumeX, Brain, Target, Clock, Zap, SkipForward, RefreshCw } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
+import { FocusSession } from '../types';
 
 type SessionType = 'work' | 'shortBreak' | 'longBreak';
 
@@ -20,7 +21,7 @@ interface TimerSettings {
 }
 
 export const FocusTimer: React.FC = () => {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, dataService } = useApp();
   const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes in seconds
   const [isRunning, setIsRunning] = useState(false);
   const [sessionType, setSessionType] = useState<SessionType>('work');
@@ -28,18 +29,25 @@ export const FocusTimer: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [distractions, setDistractions] = useState(0);
   const [currentTask, setCurrentTask] = useState<string>('');
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+  const [currentSession, setCurrentSession] = useState<FocusSession | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   const [settings, setSettings] = useState<TimerSettings>({
-    workDuration: 25,
-    shortBreakDuration: 5,
-    longBreakDuration: 15,
-    sessionsUntilLongBreak: 4,
+    workDuration: state.user?.preferences.workDuration || 25,
+    shortBreakDuration: state.user?.preferences.shortBreakDuration || 5,
+    longBreakDuration: state.user?.preferences.longBreakDuration || 15,
+    sessionsUntilLongBreak: state.user?.preferences.sessionsUntilLongBreak || 4,
     autoStartBreaks: false,
     autoStartWork: false,
-    soundEnabled: true,
-    volume: 50,
+    soundEnabled: state.user?.preferences.soundEnabled || true,
+    volume: state.user?.preferences.ambientVolume || 50,
   });
+
+  useEffect(() => {
+    // Initialize timer based on session type
+    resetTimer();
+  }, [sessionType]);
 
   useEffect(() => {
     if (isRunning && timeLeft > 0) {
@@ -57,10 +65,28 @@ export const FocusTimer: React.FC = () => {
     };
   }, [isRunning, timeLeft]);
 
-  const handleSessionComplete = () => {
+  const handleSessionComplete = async () => {
     setIsRunning(false);
     
-    if (sessionType === 'work') {
+    if (sessionType === 'work' && currentSession) {
+      // Complete current work session
+      const completedSession: FocusSession = {
+        ...currentSession,
+        completed: true,
+        endTime: new Date(),
+        actualDuration: Math.floor((new Date().getTime() - new Date(currentSession.startTime).getTime()) / 60000),
+        distractions,
+        productivity: 10 // Can implement user rating here
+      };
+      
+      try {
+        await dataService.updateFocusSession(completedSession);
+        dispatch({ type: 'SET_CURRENT_SESSION', payload: null });
+        setCurrentSession(null);
+      } catch (error) {
+        console.error('Failed to save focus session:', error);
+      }
+      
       const newSessionsCompleted = sessionsCompleted + 1;
       setSessionsCompleted(newSessionsCompleted);
       
@@ -81,9 +107,10 @@ export const FocusTimer: React.FC = () => {
     } else {
       setSessionType('work');
       setTimeLeft(settings.workDuration * 60);
+      setDistractions(0);
       
       if (settings.autoStartWork) {
-        setIsRunning(true);
+        startNewWorkSession();
       }
     }
 
@@ -93,12 +120,44 @@ export const FocusTimer: React.FC = () => {
     }
   };
 
-  const playNotificationSound = () => {
-    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT');
+  const startNewWorkSession = async () => {
+    if (sessionType !== 'work') {
+      setSessionType('work');
+      setTimeLeft(settings.workDuration * 60);
+    }
+    
+    const now = new Date();
+    setSessionStartTime(now);
+    
+    // Create a new focus session
+    try {
+      const newSession: Omit<FocusSession, 'id'> = {
+        userId: state.user?.id || 'user-1',
+        type: 'work',
+        duration: settings.workDuration,
+        actualDuration: 0,
+        startTime: now,
+        completed: false,
+        distractions: 0,
+        productivity: 0,
+        tags: currentTask ? [currentTask] : []
+      };
+      
+      const createdSession = await dataService.createFocusSession(newSession);
+      setCurrentSession(createdSession);
+      dispatch({ type: 'SET_CURRENT_SESSION', payload: createdSession });
+      setIsRunning(true);
+    } catch (error) {
+      console.error('Failed to create focus session:', error);
+    }
   };
 
   const toggleTimer = () => {
-    setIsRunning(!isRunning);
+    if (!isRunning && !currentSession && sessionType === 'work') {
+      startNewWorkSession();
+    } else {
+      setIsRunning(!isRunning);
+    }
   };
 
   const resetTimer = () => {
@@ -109,10 +168,39 @@ export const FocusTimer: React.FC = () => {
         ? settings.shortBreakDuration * 60 
         : settings.longBreakDuration * 60
     );
+    
+    if (currentSession) {
+      // Cancel current session
+      dispatch({ type: 'SET_CURRENT_SESSION', payload: null });
+      setCurrentSession(null);
+    }
+    
+    setDistractions(0);
   };
 
   const skipSession = () => {
-    setTimeLeft(0);
+    setTimeLeft(sessionType === 'work' ? settings.workDuration * 60 : sessionType === 'shortBreak' ? settings.shortBreakDuration * 60 : settings.longBreakDuration * 60); 
+    handleSessionComplete();// Setting time to 0 will trigger the handleSessionComplete function
+  };
+
+  const addDistraction = () => {
+    if (isRunning && sessionType === 'work') {
+      setDistractions(prev => prev + 1);
+    }
+  };
+
+  const updateSettings = (newSettings: TimerSettings) => {
+    setSettings(newSettings);
+    setShowSettings(false);
+    
+    // Reset timer with new durations
+    resetTimer();
+  };
+
+  const playNotificationSound = () => {
+    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIG2m98OScTgwOUarm7blmGgU7k9n1unEiBC13yO/eizEIHWq+8+OWT');
+    audio.volume = settings.volume / 100;
+    audio.play();
   };
 
   const formatTime = (seconds: number) => {
@@ -154,6 +242,8 @@ export const FocusTimer: React.FC = () => {
       : ((settings.longBreakDuration * 60 - timeLeft) / (settings.longBreakDuration * 60)) * 100;
 
   const SessionIcon = getSessionIcon();
+  
+  const sessionsUntilLongBreak = settings.sessionsUntilLongBreak - (sessionsCompleted % settings.sessionsUntilLongBreak);
 
   return (
     <div className="p-6 space-y-8">
@@ -165,24 +255,23 @@ export const FocusTimer: React.FC = () => {
       >
         <h1 className="text-4xl font-bold text-gradient mb-2">Focus Timer</h1>
         <p className="text-white/60 text-lg">
-          {sessionType === 'work' ? 'Time to focus and get things done' : 'Take a well-deserved break'}
+          Time to focus and get things done
         </p>
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Timer */}
         <div className="lg:col-span-2">
-          <Card variant="glass" className="p-8 text-center">
+          <Card variant="glass" className="p-8 flex flex-col items-center">
             <div className="flex items-center justify-center gap-4 mb-6">
               <SessionIcon className="w-8 h-8 text-white" />
               <h2 className="text-2xl font-semibold text-white capitalize">
-                {sessionType === 'shortBreak' ? 'Short Break' : 
-                 sessionType === 'longBreak' ? 'Long Break' : 'Focus Session'}
+                Focus Session
               </h2>
             </div>
 
             {/* Circular Progress */}
-            <div className="relative w-80 h-80 mx-auto mb-8">
+            <div className="relative w-72 h-72 mx-auto mb-8">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                 <circle
                   cx="50"
@@ -200,77 +289,67 @@ export const FocusTimer: React.FC = () => {
                   strokeWidth="3"
                   fill="none"
                   strokeLinecap="round"
-                  strokeDasharray={`${2 * Math.PI * 45}`}
-                  strokeDashoffset={`${2 * Math.PI * 45 * (1 - progress / 100)}`}
-                  initial={{ strokeDashoffset: 2 * Math.PI * 45 }}
-                  animate={{ strokeDashoffset: 2 * Math.PI * 45 * (1 - progress / 100) }}
-                  transition={{ duration: 0.5 }}
+                  strokeDasharray="282.6"
+                  strokeDashoffset={282.6 - (progress / 100) * 282.6}
                 />
                 <defs>
                   <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                     <stop offset="0%" stopColor="#8B5CF6" />
-                    <stop offset="100%" stopColor="#3B82F6" />
+                    <stop offset="100%" stopColor="#EC4899" />
                   </linearGradient>
                 </defs>
               </svg>
-              
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <motion.div
-                    className="text-6xl font-bold text-white mb-2"
-                    animate={{ scale: isRunning ? [1, 1.05, 1] : 1 }}
-                    transition={{ duration: 1, repeat: isRunning ? Infinity : 0 }}
-                  >
-                    {formatTime(timeLeft)}
-                  </motion.div>
-                  <p className="text-white/60 text-lg">
-                    Session {sessionsCompleted + 1}
-                  </p>
-                </div>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <h3 className="text-6xl font-bold text-white font-mono">
+                  {formatTime(timeLeft)}
+                </h3>
+                <p className="text-white/60 mt-2">
+                  Session {sessionsCompleted + 1}
+                </p>
               </div>
             </div>
 
-            {/* Controls */}
-            <div className="flex items-center justify-center gap-4 mb-6">
+            {/* Timer Controls */}
+            <div className="flex items-center justify-center gap-4">
               <Button
                 variant="primary"
                 size="lg"
-                icon={isRunning ? Pause : Play}
+                className="rounded-full px-10"
                 onClick={toggleTimer}
-                className={`bg-gradient-to-r ${getSessionColor()}`}
+                icon={isRunning ? Pause : Play}
               >
                 {isRunning ? 'Pause' : 'Start'}
               </Button>
-              
               <Button
                 variant="secondary"
                 size="lg"
-                icon={RotateCcw}
+                icon={RefreshCw}
                 onClick={resetTimer}
               >
                 Reset
               </Button>
-              
               <Button
-                variant="ghost"
+                variant="secondary"
                 size="lg"
-                icon={Square}
+                icon={SkipForward}
                 onClick={skipSession}
               >
                 Skip
               </Button>
             </div>
-
+            
             {/* Current Task */}
-            <div className="glass p-4 rounded-xl">
-              <label className="block text-white/60 text-sm mb-2">Current Task (Optional)</label>
-              <input
-                type="text"
-                value={currentTask}
-                onChange={(e) => setCurrentTask(e.target.value)}
-                placeholder="What are you working on?"
-                className="w-full bg-transparent text-white placeholder-white/40 focus:outline-none text-lg"
-              />
+            <div className="w-full mt-8">
+              <div className="glass p-4 rounded-xl">
+                <h3 className="text-white mb-2">Current Task (Optional)</h3>
+                <input
+                  type="text"
+                  placeholder="What are you working on?"
+                  value={currentTask}
+                  onChange={(e) => setCurrentTask(e.target.value)}
+                  className="w-full px-4 py-3 bg-white/10 rounded-xl text-white placeholder-white/50 border border-white/20 focus:outline-none"
+                />
+              </div>
             </div>
           </Card>
         </div>
@@ -279,27 +358,25 @@ export const FocusTimer: React.FC = () => {
         <div className="space-y-6">
           {/* Session Progress */}
           <Card variant="glass" className="p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Session Progress</h3>
+            <h3 className="text-xl font-semibold text-white mb-4">Session Progress</h3>
             <div className="space-y-4">
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between">
                 <span className="text-white/60">Completed Sessions</span>
                 <span className="text-white font-semibold">{sessionsCompleted}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between">
                 <span className="text-white/60">Until Long Break</span>
-                <span className="text-white font-semibold">
-                  {settings.sessionsUntilLongBreak - (sessionsCompleted % settings.sessionsUntilLongBreak)}
-                </span>
+                <span className="text-white font-semibold">{sessionsUntilLongBreak}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between items-center">
                 <span className="text-white/60">Distractions</span>
                 <div className="flex items-center gap-2">
                   <span className="text-white font-semibold">{distractions}</span>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    onClick={() => setDistractions(prev => prev + 1)}
-                    className="text-xs px-2 py-1"
+                    onClick={addDistraction}
+                    disabled={!isRunning || sessionType !== 'work'}
                   >
                     +1
                   </Button>
@@ -311,7 +388,7 @@ export const FocusTimer: React.FC = () => {
           {/* Quick Settings */}
           <Card variant="glass" className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Quick Settings</h3>
+              <h3 className="text-xl font-semibold text-white">Quick Settings</h3>
               <Button
                 variant="ghost"
                 size="sm"
@@ -322,7 +399,7 @@ export const FocusTimer: React.FC = () => {
             
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-white/60 text-sm">Sound</span>
+                <span className="text-white/60">Sound</span>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -352,7 +429,7 @@ export const FocusTimer: React.FC = () => {
           <Card variant="glass" className="p-6">
             <div className="flex items-center gap-2 mb-4">
               <Brain className="w-5 h-5 text-primary-400" />
-              <h3 className="text-lg font-semibold text-white">AI Insights</h3>
+              <h3 className="text-xl font-semibold text-white">AI Insights</h3>
             </div>
             
             <div className="space-y-3 text-sm">
@@ -375,52 +452,51 @@ export const FocusTimer: React.FC = () => {
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
         title="Timer Settings"
-        size="md"
       >
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-white/60 text-sm mb-2">Work Duration (minutes)</label>
+              <label className="block text-white mb-2">Work Duration (minutes)</label>
               <input
                 type="number"
-                value={settings.workDuration}
-                onChange={(e) => setSettings(prev => ({ ...prev, workDuration: parseInt(e.target.value) }))}
-                className="input-field w-full"
                 min="1"
                 max="120"
+                value={settings.workDuration}
+                onChange={(e) => setSettings({...settings, workDuration: parseInt(e.target.value) || 25})}
+                className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
               />
             </div>
             <div>
-              <label className="block text-white/60 text-sm mb-2">Short Break (minutes)</label>
+              <label className="block text-white mb-2">Short Break (minutes)</label>
               <input
                 type="number"
-                value={settings.shortBreakDuration}
-                onChange={(e) => setSettings(prev => ({ ...prev, shortBreakDuration: parseInt(e.target.value) }))}
-                className="input-field w-full"
                 min="1"
                 max="30"
+                value={settings.shortBreakDuration}
+                onChange={(e) => setSettings({...settings, shortBreakDuration: parseInt(e.target.value) || 5})}
+                className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
               />
             </div>
             <div>
-              <label className="block text-white/60 text-sm mb-2">Long Break (minutes)</label>
+              <label className="block text-white mb-2">Long Break (minutes)</label>
               <input
                 type="number"
-                value={settings.longBreakDuration}
-                onChange={(e) => setSettings(prev => ({ ...prev, longBreakDuration: parseInt(e.target.value) }))}
-                className="input-field w-full"
                 min="1"
                 max="60"
+                value={settings.longBreakDuration}
+                onChange={(e) => setSettings({...settings, longBreakDuration: parseInt(e.target.value) || 15})}
+                className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
               />
             </div>
             <div>
-              <label className="block text-white/60 text-sm mb-2">Sessions Until Long Break</label>
+              <label className="block text-white mb-2">Sessions Until Long Break</label>
               <input
                 type="number"
-                value={settings.sessionsUntilLongBreak}
-                onChange={(e) => setSettings(prev => ({ ...prev, sessionsUntilLongBreak: parseInt(e.target.value) }))}
-                className="input-field w-full"
-                min="2"
+                min="1"
                 max="10"
+                value={settings.sessionsUntilLongBreak}
+                onChange={(e) => setSettings({...settings, sessionsUntilLongBreak: parseInt(e.target.value) || 4})}
+                className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
               />
             </div>
           </div>
@@ -430,8 +506,9 @@ export const FocusTimer: React.FC = () => {
               <span className="text-white">Auto-start breaks</span>
               <input
                 type="checkbox"
+                id="autoStartBreaks"
                 checked={settings.autoStartBreaks}
-                onChange={(e) => setSettings(prev => ({ ...prev, autoStartBreaks: e.target.checked }))}
+                onChange={(e) => setSettings({...settings, autoStartBreaks: e.target.checked})}
                 className="w-4 h-4"
               />
             </div>
@@ -439,8 +516,9 @@ export const FocusTimer: React.FC = () => {
               <span className="text-white">Auto-start work sessions</span>
               <input
                 type="checkbox"
+                id="autoStartWork"
                 checked={settings.autoStartWork}
-                onChange={(e) => setSettings(prev => ({ ...prev, autoStartWork: e.target.checked }))}
+                onChange={(e) => setSettings({...settings, autoStartWork: e.target.checked})}
                 className="w-4 h-4"
               />
             </div>
@@ -449,16 +527,7 @@ export const FocusTimer: React.FC = () => {
           <div className="flex gap-3 pt-4">
             <Button
               variant="primary"
-              onClick={() => {
-                // Apply settings and reset timer
-                setTimeLeft(sessionType === 'work' 
-                  ? settings.workDuration * 60 
-                  : sessionType === 'shortBreak' 
-                    ? settings.shortBreakDuration * 60 
-                    : settings.longBreakDuration * 60
-                );
-                setShowSettings(false);
-              }}
+              onClick={() => updateSettings(settings)}
               fullWidth
             >
               Apply Settings
