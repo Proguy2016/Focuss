@@ -17,6 +17,7 @@ import { AICoach } from './pages/AICoach';
 import { Achievements } from './pages/Achievements';
 import { Settings } from './pages/Settings';
 import Auth from './pages/Auth';
+import PDFViewer from './pages/PDFViewer';
 
 // Layout components
 const AppLayout = ({ children }: { children: React.ReactNode }) => (
@@ -33,7 +34,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => (
 
 function App() {
   // This would normally be determined by your auth service
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   
   // Simple function to log in - accepts any credentials
   const handleLogin = () => {
@@ -99,6 +100,13 @@ function App() {
                 isAuthenticated ? 
                 <AppLayout>
                   <Social />
+                </AppLayout> : 
+                <Navigate to="/auth" />
+              } />
+              <Route path="/pdf-viewer" element={
+                isAuthenticated ? 
+                <AppLayout>
+                  <PDFViewer />
                 </AppLayout> : 
                 <Navigate to="/auth" />
               } />

@@ -7,4 +7,5 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  assetsInclude: ['**/*.pdf'], // Allow PDF files to be imported as assets
 });
