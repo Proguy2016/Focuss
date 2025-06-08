@@ -11,6 +11,7 @@ import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/avatar';
+import { useLocation } from 'react-router-dom';
 
 type SettingsTab = 'profile' | 'preferences' | 'notifications' | 'appearance' | 'privacy' | 'data' | 'about';
 
@@ -72,10 +73,14 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profileData, setProfi
             <div className="flex items-center gap-6">
                 <Avatar className="w-24 h-24 border-2 border-border shadow-md bg-transparent">
                     {profileData.avatar ? (
-                        <AvatarImage src={profileData.avatar} alt="Avatar" />
+                        <img
+                            src={profileData.avatar}
+                            alt="Avatar"
+                            className="w-full h-full object-cover rounded-full"
+                        />
                     ) : (
                         <AvatarFallback className="text-3xl">
-                            {profileData.name.charAt(0)}
+                            {profileData.name.trim().charAt(0).toUpperCase()}
                         </AvatarFallback>
                     )}
                 </Avatar>
@@ -216,7 +221,7 @@ const PreferencesSettings: React.FC<PreferencesSettingsProps> = ({ preferences, 
                     <input
                         type="number"
                         value={preferences.workDuration}
-                        onChange={(e) => setPreferences(prev => ({ ...prev, workDuration: parseInt(e.target.value) }))}
+                        onChange={e => setPreferences(prev => ({ ...prev, workDuration: parseInt(e.target.value) }))}
                         className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
                         min="1"
                         max="120"
@@ -228,7 +233,7 @@ const PreferencesSettings: React.FC<PreferencesSettingsProps> = ({ preferences, 
                     <input
                         type="number"
                         value={preferences.shortBreakDuration}
-                        onChange={(e) => setPreferences(prev => ({ ...prev, shortBreakDuration: parseInt(e.target.value) }))}
+                        onChange={e => setPreferences(prev => ({ ...prev, shortBreakDuration: parseInt(e.target.value) }))}
                         className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
                         min="1"
                         max="30"
@@ -240,7 +245,7 @@ const PreferencesSettings: React.FC<PreferencesSettingsProps> = ({ preferences, 
                     <input
                         type="number"
                         value={preferences.longBreakDuration}
-                        onChange={(e) => setPreferences(prev => ({ ...prev, longBreakDuration: parseInt(e.target.value) }))}
+                        onChange={e => setPreferences(prev => ({ ...prev, longBreakDuration: parseInt(e.target.value) }))}
                         className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
                         min="1"
                         max="60"
@@ -252,7 +257,7 @@ const PreferencesSettings: React.FC<PreferencesSettingsProps> = ({ preferences, 
                     <input
                         type="number"
                         value={preferences.sessionsUntilLongBreak}
-                        onChange={(e) => setPreferences(prev => ({ ...prev, sessionsUntilLongBreak: parseInt(e.target.value) }))}
+                        onChange={e => setPreferences(prev => ({ ...prev, sessionsUntilLongBreak: parseInt(e.target.value) }))}
                         className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
                         min="2"
                         max="10"
@@ -978,12 +983,21 @@ const AboutSettings = () => (
 
 export const Settings: React.FC = () => {
     const { state, dispatch } = useApp();
+    const location = useLocation();
     const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showExportModal, setShowExportModal] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
 
     const [profileData, setProfileData] = useState<ProfileData>(() => getInitialProfileData(state.user));
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const tab = params.get('tab');
+        if (tab && ['profile', 'preferences', 'notifications', 'appearance', 'privacy', 'data', 'about'].includes(tab)) {
+            setActiveTab(tab as SettingsTab);
+        }
+    }, [location.search]);
 
     useEffect(() => {
         // If user logs out or changes, reset to their info or defaults
@@ -1062,9 +1076,21 @@ export const Settings: React.FC = () => {
             type: 'SET_USER',
             payload: {
                 ...state.user,
-                name: profileData.name,
-                email: profileData.email,
-                avatar: profileData.avatar || undefined,
+                id: state.user?.id || 'user-1',
+                name: state.user?.name || 'Focus Master',
+                email: state.user?.email || 'focus@ritual.com',
+                avatar: state.user?.avatar || '',
+                level: state.user?.level || 1,
+                xp: state.user?.xp || 0,
+                totalFocusTime: state.user?.totalFocusTime || 0,
+                streak: state.user?.streak || 0,
+                joinDate: state.user?.joinDate || new Date('2024-01-01'),
+                preferences: {
+                    ...state.user?.preferences,
+                    ...preferences,
+                    theme: state.user?.preferences.theme || 'dark',
+                    notificationsEnabled: state.user?.preferences.notificationsEnabled ?? true,
+                },
             },
         });
         // Optionally show a success message or feedback
@@ -1080,6 +1106,34 @@ export const Settings: React.FC = () => {
         console.log('Deleting account...');
         // In a real app, this would delete the user account
         setShowDeleteModal(false);
+    };
+
+    const handlePreferenceChange = (key: keyof Preferences, value: any) => {
+        setPreferences(prev => {
+            const updated = { ...prev, [key]: value };
+            dispatch({
+                type: 'SET_USER',
+                payload: {
+                    ...state.user,
+                    id: state.user?.id || 'user-1',
+                    name: state.user?.name || 'Focus Master',
+                    email: state.user?.email || 'focus@ritual.com',
+                    avatar: state.user?.avatar || '',
+                    level: state.user?.level || 1,
+                    xp: state.user?.xp || 0,
+                    totalFocusTime: state.user?.totalFocusTime || 0,
+                    streak: state.user?.streak || 0,
+                    joinDate: state.user?.joinDate || new Date('2024-01-01'),
+                    preferences: {
+                        ...state.user?.preferences,
+                        ...updated,
+                        theme: state.user?.preferences.theme || 'dark',
+                        notificationsEnabled: state.user?.preferences.notificationsEnabled ?? true,
+                    },
+                },
+            });
+            return updated;
+        });
     };
 
     const renderTabContent = () => {

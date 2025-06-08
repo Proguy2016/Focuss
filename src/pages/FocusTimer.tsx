@@ -6,6 +6,7 @@ import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { FocusSession } from '../types';
+import { useNavigate } from 'react-router-dom';
 
 type SessionType = 'work' | 'shortBreak' | 'longBreak';
 
@@ -22,6 +23,7 @@ interface TimerSettings {
 
 export const FocusTimer: React.FC = () => {
   const { state, dispatch, dataService } = useApp();
+  const navigate = useNavigate();
   const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes in seconds
   const [isRunning, setIsRunning] = useState(false);
   const [sessionType, setSessionType] = useState<SessionType>('work');
@@ -32,17 +34,32 @@ export const FocusTimer: React.FC = () => {
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const [currentSession, setCurrentSession] = useState<FocusSession | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  
+
   const [settings, setSettings] = useState<TimerSettings>({
-    workDuration: state.user?.preferences.workDuration || 25,
-    shortBreakDuration: state.user?.preferences.shortBreakDuration || 5,
-    longBreakDuration: state.user?.preferences.longBreakDuration || 15,
-    sessionsUntilLongBreak: state.user?.preferences.sessionsUntilLongBreak || 4,
+    workDuration: state.user?.preferences?.workDuration || 25,
+    shortBreakDuration: state.user?.preferences?.shortBreakDuration || 5,
+    longBreakDuration: state.user?.preferences?.longBreakDuration || 15,
+    sessionsUntilLongBreak: state.user?.preferences?.sessionsUntilLongBreak || 4,
     autoStartBreaks: false,
     autoStartWork: false,
-    soundEnabled: state.user?.preferences.soundEnabled || true,
-    volume: state.user?.preferences.ambientVolume || 50,
+    soundEnabled: state.user?.preferences?.soundEnabled ?? true,
+    volume: state.user?.preferences?.ambientVolume || 50,
   });
+
+  // Sync settings with global preferences
+  useEffect(() => {
+    if (state.user?.preferences) {
+      setSettings(prev => ({
+        ...prev,
+        workDuration: state.user?.preferences?.workDuration || 25,
+        shortBreakDuration: state.user?.preferences?.shortBreakDuration || 5,
+        longBreakDuration: state.user?.preferences?.longBreakDuration || 15,
+        sessionsUntilLongBreak: state.user?.preferences?.sessionsUntilLongBreak || 4,
+        soundEnabled: state.user?.preferences?.soundEnabled ?? true,
+        volume: state.user?.preferences?.ambientVolume || 50,
+      }));
+    }
+  }, [state.user?.preferences]);
 
   useEffect(() => {
     // Initialize timer based on session type
@@ -67,7 +84,7 @@ export const FocusTimer: React.FC = () => {
 
   const handleSessionComplete = async () => {
     setIsRunning(false);
-    
+
     if (sessionType === 'work' && currentSession) {
       // Complete current work session
       const completedSession: FocusSession = {
@@ -78,7 +95,7 @@ export const FocusTimer: React.FC = () => {
         distractions,
         productivity: 10 // Can implement user rating here
       };
-      
+
       try {
         await dataService.updateFocusSession(completedSession);
         dispatch({ type: 'SET_CURRENT_SESSION', payload: null });
@@ -86,21 +103,21 @@ export const FocusTimer: React.FC = () => {
       } catch (error) {
         console.error('Failed to save focus session:', error);
       }
-      
+
       const newSessionsCompleted = sessionsCompleted + 1;
       setSessionsCompleted(newSessionsCompleted);
-      
+
       // Determine next session type
-      const nextType = newSessionsCompleted % settings.sessionsUntilLongBreak === 0 
-        ? 'longBreak' 
+      const nextType = newSessionsCompleted % settings.sessionsUntilLongBreak === 0
+        ? 'longBreak'
         : 'shortBreak';
-      
+
       setSessionType(nextType);
-      setTimeLeft(nextType === 'longBreak' 
-        ? settings.longBreakDuration * 60 
+      setTimeLeft(nextType === 'longBreak'
+        ? settings.longBreakDuration * 60
         : settings.shortBreakDuration * 60
       );
-      
+
       if (settings.autoStartBreaks) {
         setIsRunning(true);
       }
@@ -108,7 +125,7 @@ export const FocusTimer: React.FC = () => {
       setSessionType('work');
       setTimeLeft(settings.workDuration * 60);
       setDistractions(0);
-      
+
       if (settings.autoStartWork) {
         startNewWorkSession();
       }
@@ -125,10 +142,10 @@ export const FocusTimer: React.FC = () => {
       setSessionType('work');
       setTimeLeft(settings.workDuration * 60);
     }
-    
+
     const now = new Date();
     setSessionStartTime(now);
-    
+
     // Create a new focus session
     try {
       const newSession: Omit<FocusSession, 'id'> = {
@@ -142,7 +159,7 @@ export const FocusTimer: React.FC = () => {
         productivity: 0,
         tags: currentTask ? [currentTask] : []
       };
-      
+
       const createdSession = await dataService.createFocusSession(newSession);
       setCurrentSession(createdSession);
       dispatch({ type: 'SET_CURRENT_SESSION', payload: createdSession });
@@ -162,24 +179,24 @@ export const FocusTimer: React.FC = () => {
 
   const resetTimer = () => {
     setIsRunning(false);
-    setTimeLeft(sessionType === 'work' 
-      ? settings.workDuration * 60 
-      : sessionType === 'shortBreak' 
-        ? settings.shortBreakDuration * 60 
+    setTimeLeft(sessionType === 'work'
+      ? settings.workDuration * 60
+      : sessionType === 'shortBreak'
+        ? settings.shortBreakDuration * 60
         : settings.longBreakDuration * 60
     );
-    
+
     if (currentSession) {
       // Cancel current session
       dispatch({ type: 'SET_CURRENT_SESSION', payload: null });
       setCurrentSession(null);
     }
-    
+
     setDistractions(0);
   };
 
   const skipSession = () => {
-    setTimeLeft(sessionType === 'work' ? settings.workDuration * 60 : sessionType === 'shortBreak' ? settings.shortBreakDuration * 60 : settings.longBreakDuration * 60); 
+    setTimeLeft(sessionType === 'work' ? settings.workDuration * 60 : sessionType === 'shortBreak' ? settings.shortBreakDuration * 60 : settings.longBreakDuration * 60);
     handleSessionComplete();// Setting time to 0 will trigger the handleSessionComplete function
   };
 
@@ -192,7 +209,7 @@ export const FocusTimer: React.FC = () => {
   const updateSettings = (newSettings: TimerSettings) => {
     setSettings(newSettings);
     setShowSettings(false);
-    
+
     // Reset timer with new durations
     resetTimer();
   };
@@ -235,14 +252,14 @@ export const FocusTimer: React.FC = () => {
     }
   };
 
-  const progress = sessionType === 'work' 
+  const progress = sessionType === 'work'
     ? ((settings.workDuration * 60 - timeLeft) / (settings.workDuration * 60)) * 100
     : sessionType === 'shortBreak'
       ? ((settings.shortBreakDuration * 60 - timeLeft) / (settings.shortBreakDuration * 60)) * 100
       : ((settings.longBreakDuration * 60 - timeLeft) / (settings.longBreakDuration * 60)) * 100;
 
   const SessionIcon = getSessionIcon();
-  
+
   const sessionsUntilLongBreak = settings.sessionsUntilLongBreak - (sessionsCompleted % settings.sessionsUntilLongBreak);
 
   return (
@@ -257,6 +274,13 @@ export const FocusTimer: React.FC = () => {
         <p className="text-white/60 text-lg">
           Time to focus and get things done
         </p>
+        <Button
+          variant="secondary"
+          className="mt-4"
+          onClick={() => navigate('/settings?tab=preferences')}
+        >
+          Edit Session Time
+        </Button>
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -337,7 +361,7 @@ export const FocusTimer: React.FC = () => {
                 Skip
               </Button>
             </div>
-            
+
             {/* Current Task */}
             <div className="w-full mt-8">
               <div className="glass p-4 rounded-xl">
@@ -396,7 +420,7 @@ export const FocusTimer: React.FC = () => {
                 onClick={() => setShowSettings(true)}
               />
             </div>
-            
+
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-white/60">Sound</span>
@@ -407,7 +431,7 @@ export const FocusTimer: React.FC = () => {
                   onClick={() => setSettings(prev => ({ ...prev, soundEnabled: !prev.soundEnabled }))}
                 />
               </div>
-              
+
               <div>
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-white/60">Volume</span>
@@ -431,7 +455,7 @@ export const FocusTimer: React.FC = () => {
               <Brain className="w-5 h-5 text-primary-400" />
               <h3 className="text-xl font-semibold text-white">AI Insights</h3>
             </div>
-            
+
             <div className="space-y-3 text-sm">
               <p className="text-white/80">
                 Your focus is strongest between 9-11 AM. Consider scheduling important tasks during this time.
@@ -462,7 +486,7 @@ export const FocusTimer: React.FC = () => {
                 min="1"
                 max="120"
                 value={settings.workDuration}
-                onChange={(e) => setSettings({...settings, workDuration: parseInt(e.target.value) || 25})}
+                onChange={(e) => setSettings({ ...settings, workDuration: parseInt(e.target.value) || 25 })}
                 className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
               />
             </div>
@@ -473,7 +497,7 @@ export const FocusTimer: React.FC = () => {
                 min="1"
                 max="30"
                 value={settings.shortBreakDuration}
-                onChange={(e) => setSettings({...settings, shortBreakDuration: parseInt(e.target.value) || 5})}
+                onChange={(e) => setSettings({ ...settings, shortBreakDuration: parseInt(e.target.value) || 5 })}
                 className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
               />
             </div>
@@ -484,7 +508,7 @@ export const FocusTimer: React.FC = () => {
                 min="1"
                 max="60"
                 value={settings.longBreakDuration}
-                onChange={(e) => setSettings({...settings, longBreakDuration: parseInt(e.target.value) || 15})}
+                onChange={(e) => setSettings({ ...settings, longBreakDuration: parseInt(e.target.value) || 15 })}
                 className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
               />
             </div>
@@ -495,7 +519,7 @@ export const FocusTimer: React.FC = () => {
                 min="1"
                 max="10"
                 value={settings.sessionsUntilLongBreak}
-                onChange={(e) => setSettings({...settings, sessionsUntilLongBreak: parseInt(e.target.value) || 4})}
+                onChange={(e) => setSettings({ ...settings, sessionsUntilLongBreak: parseInt(e.target.value) || 4 })}
                 className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
               />
             </div>
@@ -508,7 +532,7 @@ export const FocusTimer: React.FC = () => {
                 type="checkbox"
                 id="autoStartBreaks"
                 checked={settings.autoStartBreaks}
-                onChange={(e) => setSettings({...settings, autoStartBreaks: e.target.checked})}
+                onChange={(e) => setSettings({ ...settings, autoStartBreaks: e.target.checked })}
                 className="w-4 h-4"
               />
             </div>
@@ -518,7 +542,7 @@ export const FocusTimer: React.FC = () => {
                 type="checkbox"
                 id="autoStartWork"
                 checked={settings.autoStartWork}
-                onChange={(e) => setSettings({...settings, autoStartWork: e.target.checked})}
+                onChange={(e) => setSettings({ ...settings, autoStartWork: e.target.checked })}
                 className="w-4 h-4"
               />
             </div>
