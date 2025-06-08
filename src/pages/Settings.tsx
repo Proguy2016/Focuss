@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
     Settings as SettingsIcon, User, Bell, Palette, Shield,
@@ -21,6 +21,7 @@ interface ProfileData {
     bio: string;
     timezone: string;
     language: string;
+    avatar?: string | null;
 }
 
 interface ProfileSettingsProps {
@@ -30,90 +31,160 @@ interface ProfileSettingsProps {
     setShowPasswordModal: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profileData, setProfileData, handleSaveProfile, setShowPasswordModal }) => (
-    <div className="space-y-6">
-        <div className="flex items-center gap-6">
-            <Avatar className="w-24 h-24 border-2 border-border shadow-md bg-background">
-                <AvatarFallback className="text-3xl">
-                    {profileData.name.charAt(0)}
-                </AvatarFallback>
-            </Avatar>
-            <div>
-                <Button variant="secondary" size="sm">Change Avatar</Button>
-                <p className="text-white/60 text-sm mt-2">JPG, PNG or GIF. Max size 2MB.</p>
-            </div>
-        </div>
+const LOCAL_STORAGE_KEY = 'focus-ritual-profile';
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+const getInitialProfileData = (stateUser: any): ProfileData => {
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (saved) {
+        try {
+            return JSON.parse(saved);
+        } catch {
+            // fallback to defaults
+        }
+    }
+    return {
+        name: stateUser?.name || 'Focus Master',
+        email: stateUser?.email || 'focus@ritual.com',
+        bio: '',
+        timezone: 'UTC-8',
+        language: 'en',
+        avatar: stateUser?.avatar || '',
+    };
+};
+
+const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profileData, setProfileData, handleSaveProfile, setShowPasswordModal }) => {
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                setProfileData(prev => ({ ...prev, avatar: (ev.target?.result as string) || '' }));
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+    const handleRemoveAvatar = () => {
+        setProfileData(prev => ({ ...prev, avatar: '' }));
+    };
+    return (
+        <div className="space-y-6">
+            <div className="flex items-center gap-6">
+                <Avatar className="w-24 h-24 border-2 border-border shadow-md bg-transparent">
+                    {profileData.avatar ? (
+                        <AvatarImage src={profileData.avatar} alt="Avatar" />
+                    ) : (
+                        <AvatarFallback className="text-3xl">
+                            {profileData.name.charAt(0)}
+                        </AvatarFallback>
+                    )}
+                </Avatar>
+                <div className="flex flex-row gap-2 items-center">
+                    <Button variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}>Change Avatar</Button>
+                    <input
+                        type="file"
+                        accept="image/*"
+                        ref={fileInputRef}
+                        className="hidden"
+                        onChange={handleAvatarChange}
+                    />
+                    <Button variant="danger" size="sm" onClick={handleRemoveAvatar}>Remove</Button>
+                </div>
+            </div>
+            <p className="text-white/60 text-sm mt-2">JPG, PNG or GIF. Max size 2MB.</p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-white/60 text-sm mb-2">Full Name</label>
+                    <input
+                        type="text"
+                        value={profileData.name}
+                        onChange={e => setProfileData(prev => ({ ...prev, name: e.target.value }))}
+
+                        className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
+                        style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                    />
+                </div>
+                <div>
+                    <label className="block text-white/60 text-sm mb-2">Email</label>
+                    <input
+                        type="email"
+                        value={profileData.email}
+                        onChange={e => setProfileData(prev => ({ ...prev, email: e.target.value }))}
+
+                        className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
+                        style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                    />
+                </div>
+            </div>
+
             <div>
-                <label className="block text-white/60 text-sm mb-2">Full Name</label>
-                <input
-                    type="text"
-                    value={profileData.name}
-                    onChange={e => setProfileData(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full h-9 rounded-md border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
+                <label className="block text-white/60 text-sm mb-2">Bio</label>
+                <textarea
+                    value={profileData.bio}
+                    onChange={e => setProfileData(prev => ({ ...prev, bio: e.target.value }))}
+                    placeholder="Tell us about yourself..."
+                    className="w-full h-20 resize-none rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-2"
+                    style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
                 />
             </div>
-            <div>
-                <label className="block text-white/60 text-sm mb-2">Email</label>
-                <input
-                    type="email"
-                    value={profileData.email}
-                    onChange={e => setProfileData(prev => ({ ...prev, email: e.target.value }))}
-                    className="w-full h-9 rounded-md border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
-                />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-white/60 text-sm mb-2">Timezone</label>
+                    <div className="relative w-full">
+                        <select
+                            value={profileData.timezone}
+                            onChange={e => setProfileData(prev => ({ ...prev, timezone: e.target.value }))}
+                            className="w-full h-9 rounded-md border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1 pr-8 appearance-none"
+                            style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                        >
+                            <option value="UTC-8">Pacific Time (UTC-8)</option>
+                            <option value="UTC-5">Eastern Time (UTC-5)</option>
+                            <option value="UTC+0">UTC</option>
+                            <option value="UTC+1">Central European Time (UTC+1)</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                            <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label className="block text-white/60 text-sm mb-2">Language</label>
+                    <div className="relative w-full">
+                        <select
+                            value={profileData.language}
+                            onChange={e => setProfileData(prev => ({ ...prev, language: e.target.value }))}
+                            className="w-full h-9 rounded-md border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1 pr-8 appearance-none"
+                            style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                        >
+                            <option value="en">English</option>
+                            <option value="es">Spanish</option>
+                            <option value="fr">French</option>
+                            <option value="de">German</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                            <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex gap-3">
+                <Button variant="primary" onClick={handleSaveProfile}>
+                    Save Changes
+                </Button>
+                <Button variant="secondary" onClick={() => setShowPasswordModal(true)}>
+                    Change Password
+                </Button>
             </div>
         </div>
-
-        <div>
-            <label className="block text-white/60 text-sm mb-2">Bio</label>
-            <textarea
-                value={profileData.bio}
-                onChange={e => setProfileData(prev => ({ ...prev, bio: e.target.value }))}
-                placeholder="Tell us about yourself..."
-                className="w-full h-20 resize-none rounded-md border border-gray-700 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-emerald-400 transition px-3 py-2"
-            />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label className="block text-white/60 text-sm mb-2">Timezone</label>
-                <select
-                    value={profileData.timezone}
-                    onChange={e => setProfileData(prev => ({ ...prev, timezone: e.target.value }))}
-                    className="w-full h-9 rounded-md border border-gray-700 bg-gray-800 text-white focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
-                >
-                    <option value="UTC-8">Pacific Time (UTC-8)</option>
-                    <option value="UTC-5">Eastern Time (UTC-5)</option>
-                    <option value="UTC+0">UTC</option>
-                    <option value="UTC+1">Central European Time (UTC+1)</option>
-                </select>
-            </div>
-            <div>
-                <label className="block text-white/60 text-sm mb-2">Language</label>
-                <select
-                    value={profileData.language}
-                    onChange={e => setProfileData(prev => ({ ...prev, language: e.target.value }))}
-                    className="w-full h-9 rounded-md border border-gray-700 bg-gray-800 text-white focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
-                >
-                    <option value="en">English</option>
-                    <option value="es">Spanish</option>
-                    <option value="fr">French</option>
-                    <option value="de">German</option>
-                </select>
-            </div>
-        </div>
-
-        <div className="flex gap-3">
-            <Button variant="primary" onClick={handleSaveProfile}>
-                Save Changes
-            </Button>
-            <Button variant="secondary" onClick={() => setShowPasswordModal(true)}>
-                Change Password
-            </Button>
-        </div>
-    </div>
-);
+    );
+};
 
 interface Preferences {
     workDuration: number;
@@ -146,9 +217,10 @@ const PreferencesSettings: React.FC<PreferencesSettingsProps> = ({ preferences, 
                         type="number"
                         value={preferences.workDuration}
                         onChange={(e) => setPreferences(prev => ({ ...prev, workDuration: parseInt(e.target.value) }))}
-                        className="w-full h-9 rounded-md border border-emerald-500/30 bg-emerald-900/50 text-white placeholder-white/60 focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
+                        className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
                         min="1"
                         max="120"
+                        style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
                     />
                 </div>
                 <div>
@@ -157,9 +229,10 @@ const PreferencesSettings: React.FC<PreferencesSettingsProps> = ({ preferences, 
                         type="number"
                         value={preferences.shortBreakDuration}
                         onChange={(e) => setPreferences(prev => ({ ...prev, shortBreakDuration: parseInt(e.target.value) }))}
-                        className="w-full h-9 rounded-md border border-emerald-500/30 bg-emerald-900/50 text-white placeholder-white/60 focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
+                        className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
                         min="1"
                         max="30"
+                        style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
                     />
                 </div>
                 <div>
@@ -168,9 +241,10 @@ const PreferencesSettings: React.FC<PreferencesSettingsProps> = ({ preferences, 
                         type="number"
                         value={preferences.longBreakDuration}
                         onChange={(e) => setPreferences(prev => ({ ...prev, longBreakDuration: parseInt(e.target.value) }))}
-                        className="w-full h-9 rounded-md border border-emerald-500/30 bg-emerald-900/50 text-white placeholder-white/60 focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
+                        className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
                         min="1"
                         max="60"
+                        style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
                     />
                 </div>
                 <div>
@@ -179,9 +253,10 @@ const PreferencesSettings: React.FC<PreferencesSettingsProps> = ({ preferences, 
                         type="number"
                         value={preferences.sessionsUntilLongBreak}
                         onChange={(e) => setPreferences(prev => ({ ...prev, sessionsUntilLongBreak: parseInt(e.target.value) }))}
-                        className="w-full h-9 rounded-md border border-emerald-500/30 bg-emerald-900/50 text-white placeholder-white/60 focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
+                        className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
                         min="2"
                         max="10"
+                        style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
                     />
                 </div>
             </div>
@@ -235,22 +310,31 @@ const PreferencesSettings: React.FC<PreferencesSettingsProps> = ({ preferences, 
                         value={preferences.ambientVolume}
                         onChange={(e) => setPreferences(prev => ({ ...prev, ambientVolume: parseInt(e.target.value) }))}
                         className="w-full"
+                        style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
                     />
                 </div>
 
                 <div>
                     <label className="block text-white/60 text-sm mb-2">Default Focus Music</label>
-                    <select
-                        value={preferences.focusMusic}
-                        onChange={(e) => setPreferences(prev => ({ ...prev, focusMusic: e.target.value }))}
-                        className="w-full h-9 rounded-md border border-emerald-500/30 bg-emerald-900/50 text-white focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
-                    >
-                        <option value="nature">Nature Sounds</option>
-                        <option value="rain">Rain</option>
-                        <option value="ocean">Ocean Waves</option>
-                        <option value="coffee">Coffee Shop</option>
-                        <option value="silence">Silence</option>
-                    </select>
+                    <div className="relative w-full">
+                        <select
+                            value={preferences.focusMusic}
+                            onChange={(e) => setPreferences(prev => ({ ...prev, focusMusic: e.target.value }))}
+                            className="w-full h-9 rounded-md border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1 pr-8 appearance-none"
+                            style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                        >
+                            <option value="nature">Nature Sounds</option>
+                            <option value="rain">Rain</option>
+                            <option value="ocean">Ocean Waves</option>
+                            <option value="coffee">Coffee Shop</option>
+                            <option value="silence">Silence</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                            <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -260,37 +344,61 @@ const PreferencesSettings: React.FC<PreferencesSettingsProps> = ({ preferences, 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <label className="block text-white/60 text-sm mb-2">Week Starts On</label>
-                    <select
-                        value={preferences.weekStartsOn}
-                        onChange={(e) => setPreferences(prev => ({ ...prev, weekStartsOn: e.target.value }))}
-                        className="w-full h-9 rounded-md border border-emerald-500/30 bg-emerald-900/50 text-white focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
-                    >
-                        <option value="sunday">Sunday</option>
-                        <option value="monday">Monday</option>
-                    </select>
+                    <div className="relative w-full">
+                        <select
+                            value={preferences.weekStartsOn}
+                            onChange={(e) => setPreferences(prev => ({ ...prev, weekStartsOn: e.target.value }))}
+                            className="w-full h-9 rounded-md border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1 pr-8 appearance-none"
+                            style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                        >
+                            <option value="sunday">Sunday</option>
+                            <option value="monday">Monday</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                            <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <label className="block text-white/60 text-sm mb-2">Time Format</label>
-                    <select
-                        value={preferences.timeFormat}
-                        onChange={(e) => setPreferences(prev => ({ ...prev, timeFormat: e.target.value }))}
-                        className="w-full h-9 rounded-md border border-emerald-500/30 bg-emerald-900/50 text-white focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
-                    >
-                        <option value="12h">12 Hour</option>
-                        <option value="24h">24 Hour</option>
-                    </select>
+                    <div className="relative w-full">
+                        <select
+                            value={preferences.timeFormat}
+                            onChange={(e) => setPreferences(prev => ({ ...prev, timeFormat: e.target.value }))}
+                            className="w-full h-9 rounded-md border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1 pr-8 appearance-none"
+                            style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                        >
+                            <option value="12h">12 Hour</option>
+                            <option value="24h">24 Hour</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                            <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <label className="block text-white/60 text-sm mb-2">Date Format</label>
-                    <select
-                        value={preferences.dateFormat}
-                        onChange={(e) => setPreferences(prev => ({ ...prev, dateFormat: e.target.value }))}
-                        className="w-full h-9 rounded-md border border-emerald-500/30 bg-emerald-900/50 text-white focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
-                    >
-                        <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                        <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                        <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                    </select>
+                    <div className="relative w-full">
+                        <select
+                            value={preferences.dateFormat}
+                            onChange={(e) => setPreferences(prev => ({ ...prev, dateFormat: e.target.value }))}
+                            className="w-full h-9 rounded-md border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1 pr-8 appearance-none"
+                            style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                        >
+                            <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                            <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                            <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                            <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -448,7 +556,8 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({ notificatio
                                     ...prev,
                                     quietHours: { ...prev.quietHours, start: e.target.value }
                                 }))}
-                                className="w-full h-9 rounded-md border border-emerald-500/30 bg-emerald-900/50 text-white placeholder-white/60 focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
+                                className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
+                                style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
                             />
                         </div>
                         <div>
@@ -460,7 +569,8 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({ notificatio
                                     ...prev,
                                     quietHours: { ...prev.quietHours, end: e.target.value }
                                 }))}
-                                className="w-full h-9 rounded-md border border-emerald-500/30 bg-emerald-900/50 text-white placeholder-white/60 focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
+                                className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
+                                style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
                             />
                         </div>
                     </div>
@@ -538,16 +648,24 @@ const AppearanceSettings: React.FC<AppearanceSettingsProps> = ({ appearance, set
 
         <div>
             <h3 className="text-lg font-semibold text-white mb-4">Background Animation</h3>
-            <select
-                value={appearance.backgroundAnimation}
-                onChange={(e) => setAppearance(prev => ({ ...prev, backgroundAnimation: e.target.value }))}
-                className="w-full h-9 rounded-md border border-emerald-500/30 bg-emerald-900/50 text-white focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
-            >
-                <option value="particles">Particles</option>
-                <option value="waves">Waves</option>
-                <option value="gradient">Gradient</option>
-                <option value="none">None</option>
-            </select>
+            <div className="relative w-full">
+                <select
+                    value={appearance.backgroundAnimation}
+                    onChange={(e) => setAppearance(prev => ({ ...prev, backgroundAnimation: e.target.value }))}
+                    className="w-full h-9 rounded-md border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1 pr-8 appearance-none"
+                    style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                >
+                    <option value="particles">Particles</option>
+                    <option value="waves">Waves</option>
+                    <option value="gradient">Gradient</option>
+                    <option value="none">None</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                    <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
+            </div>
         </div>
 
         <div>
@@ -585,16 +703,24 @@ const AppearanceSettings: React.FC<AppearanceSettingsProps> = ({ appearance, set
 
         <div>
             <h3 className="text-lg font-semibold text-white mb-4">Font Size</h3>
-            <select
-                value={appearance.fontSize}
-                onChange={(e) => setAppearance(prev => ({ ...prev, fontSize: e.target.value }))}
-                className="w-full h-9 rounded-md border border-emerald-500/30 bg-emerald-900/50 text-white focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
-            >
-                <option value="small">Small</option>
-                <option value="medium">Medium</option>
-                <option value="large">Large</option>
-                <option value="extra-large">Extra Large</option>
-            </select>
+            <div className="relative w-full">
+                <select
+                    value={appearance.fontSize}
+                    onChange={(e) => setAppearance(prev => ({ ...prev, fontSize: e.target.value }))}
+                    className="w-full h-9 rounded-md border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1 pr-8 appearance-none"
+                    style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                >
+                    <option value="small">Small</option>
+                    <option value="medium">Medium</option>
+                    <option value="large">Large</option>
+                    <option value="extra-large">Extra Large</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                    <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
+            </div>
         </div>
     </div>
 );
@@ -618,28 +744,44 @@ const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacy, setPrivacy }
     <div className="space-y-6">
         <div>
             <h3 className="text-lg font-semibold text-white mb-4">Profile Visibility</h3>
-            <select
-                value={privacy.profileVisibility}
-                onChange={(e) => setPrivacy(prev => ({ ...prev, profileVisibility: e.target.value }))}
-                className="w-full h-9 rounded-md border border-emerald-500/30 bg-emerald-900/50 text-white focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
-            >
-                <option value="public">Public</option>
-                <option value="friends">Friends Only</option>
-                <option value="private">Private</option>
-            </select>
+            <div className="relative w-full">
+                <select
+                    value={privacy.profileVisibility}
+                    onChange={(e) => setPrivacy(prev => ({ ...prev, profileVisibility: e.target.value }))}
+                    className="w-full h-9 rounded-md border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1 pr-8 appearance-none"
+                    style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                >
+                    <option value="public">Public</option>
+                    <option value="friends">Friends Only</option>
+                    <option value="private">Private</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                    <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
+            </div>
         </div>
 
         <div>
             <h3 className="text-lg font-semibold text-white mb-4">Activity Visibility</h3>
-            <select
-                value={privacy.activityVisibility}
-                onChange={(e) => setPrivacy(prev => ({ ...prev, activityVisibility: e.target.value }))}
-                className="w-full h-9 rounded-md border border-emerald-500/30 bg-emerald-900/50 text-white focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
-            >
-                <option value="public">Public</option>
-                <option value="friends">Friends Only</option>
-                <option value="private">Private</option>
-            </select>
+            <div className="relative w-full">
+                <select
+                    value={privacy.activityVisibility}
+                    onChange={(e) => setPrivacy(prev => ({ ...prev, activityVisibility: e.target.value }))}
+                    className="w-full h-9 rounded-md border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1 pr-8 appearance-none"
+                    style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                >
+                    <option value="public">Public</option>
+                    <option value="friends">Friends Only</option>
+                    <option value="private">Private</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                    <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
+            </div>
         </div>
 
         <div>
@@ -841,13 +983,13 @@ export const Settings: React.FC = () => {
     const [showExportModal, setShowExportModal] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
 
-    const [profileData, setProfileData] = useState({
-        name: state.user?.name || '',
-        email: state.user?.email || '',
-        bio: '',
-        timezone: 'UTC-8',
-        language: 'en',
-    });
+    const [profileData, setProfileData] = useState<ProfileData>(() => getInitialProfileData(state.user));
+
+    useEffect(() => {
+        // If user logs out or changes, reset to their info or defaults
+        setProfileData(getInitialProfileData(state.user));
+        // eslint-disable-next-line
+    }, [state.user]);
 
     const [preferences, setPreferences] = useState({
         workDuration: 25,
@@ -913,8 +1055,19 @@ export const Settings: React.FC = () => {
     ];
 
     const handleSaveProfile = () => {
-        console.log('Saving profile:', profileData);
-        // In a real app, this would update the user profile
+        if (!state.user) return;
+        // Save to localStorage
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(profileData));
+        dispatch({
+            type: 'SET_USER',
+            payload: {
+                ...state.user,
+                name: profileData.name,
+                email: profileData.email,
+                avatar: profileData.avatar || undefined,
+            },
+        });
+        // Optionally show a success message or feedback
     };
 
     const handleExportData = () => {
@@ -975,17 +1128,26 @@ export const Settings: React.FC = () => {
                         <nav className="space-y-1">
                             {tabs.map(tab => {
                                 const IconComponent = tab.icon;
+                                const isActive = activeTab === tab.id;
                                 return (
                                     <button
                                         key={tab.id}
                                         onClick={() => setActiveTab(tab.id as SettingsTab)}
-                                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${activeTab === tab.id
+                                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors relative ${isActive
                                             ? 'bg-primary-500/20 text-primary-300 border border-primary-500/30'
                                             : 'text-white/70 hover:text-white hover:bg-white/5'
                                             }`}
                                     >
                                         <IconComponent className="w-5 h-5" />
-                                        <span className="font-medium">{tab.label}</span>
+                                        <span className="font-medium relative">
+                                            {tab.label}
+                                            {isActive && (
+                                                <motion.div
+                                                    layoutId="settings-underline"
+                                                    className="absolute -bottom-1 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent"
+                                                />
+                                            )}
+                                        </span>
                                     </button>
                                 );
                             })}
@@ -1103,7 +1265,7 @@ export const Settings: React.FC = () => {
                         <label className="block text-white/60 text-sm mb-2">Current Password</label>
                         <input
                             type="password"
-                            className="w-full h-9 rounded-md border border-emerald-500/30 bg-emerald-900/50 text-white placeholder-white/60 focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
+                            className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
                             placeholder="Enter current password"
                         />
                     </div>
@@ -1111,7 +1273,7 @@ export const Settings: React.FC = () => {
                         <label className="block text-white/60 text-sm mb-2">New Password</label>
                         <input
                             type="password"
-                            className="w-full h-9 rounded-md border border-emerald-500/30 bg-emerald-900/50 text-white placeholder-white/60 focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
+                            className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
                             placeholder="Enter new password"
                         />
                     </div>
@@ -1119,7 +1281,7 @@ export const Settings: React.FC = () => {
                         <label className="block text-white/60 text-sm mb-2">Confirm New Password</label>
                         <input
                             type="password"
-                            className="w-full h-9 rounded-md border border-emerald-500/30 bg-emerald-900/50 text-white placeholder-white/60 focus:ring-2 focus:ring-emerald-400 transition px-3 py-1"
+                            className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
                             placeholder="Confirm new password"
                         />
                     </div>

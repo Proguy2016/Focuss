@@ -58,10 +58,10 @@ export const Sidebar: React.FC = () => {
                   <img
                     src="/images/logo.png"
                     alt="Focus Ritual Logo"
-                    className="w-14 h-14 rounded-xl transition-all duration-300 hover:rotate-[-3deg] hover:shadow-glow"
+                    className="w-14 h-14 rounded-xl transition-all duration-300 hover:rotate-[-3deg]"
                   />
                   <div>
-                    <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-400 via-green-400 to-emerald-500">
+                    <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-400 via-green-400 to-emerald">
                       Focus Ritual
                     </h1>
                     <p className="text-sm text-gray-400">Productivity Suite</p>
