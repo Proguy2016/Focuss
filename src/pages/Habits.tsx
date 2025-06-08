@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Plus, Check, Calendar, MoreHorizontal, Edit, Trash2, 
-  Zap, ChevronRight, Filter, Search, CheckCircle2, Circle
+import {
+  Plus, Check, Calendar, MoreHorizontal, Edit, Trash2,
+  Zap, ChevronRight, Filter, Search, CheckCircle2, Circle,
+  Heart, Book, Briefcase, Brain, Dumbbell
 } from 'lucide-react';
 import { format, addDays, isToday, isPast, isSameDay } from 'date-fns';
 import { useApp } from '../contexts/AppContext';
@@ -12,6 +13,20 @@ import { Modal } from '../components/common/Modal';
 import { Habit, HabitCategory, HabitCompletion } from '../types';
 
 type FilterType = 'all' | 'completed' | 'incomplete' | 'high' | 'medium' | 'low';
+
+const iconMap: { [key: string]: React.ElementType } = {
+  Heart,
+  Book,
+  Zap,
+  Briefcase,
+  Brain,
+  Dumbbell,
+};
+
+const HabitIcon: React.FC<{ name: string; className?: string; style?: React.CSSProperties }> = ({ name, ...props }) => {
+  const IconComponent = iconMap[name];
+  return IconComponent ? <IconComponent {...props} /> : <Zap {...props} />;
+};
 
 export const Habits: React.FC = () => {
   const { state, dispatch, dataService } = useApp();
@@ -45,10 +60,15 @@ export const Habits: React.FC = () => {
   const categories: HabitCategory[] = [
     { id: '1', name: 'Wellness', color: '#10B981', icon: 'Heart' },
     { id: '2', name: 'Learning', color: '#3B82F6', icon: 'Book' },
-    { id: '3', name: 'Fitness', color: '#F59E0B', icon: 'Zap' },
+    { id: '3', name: 'Fitness', color: '#F59E0B', icon: 'Dumbbell' },
     { id: '4', name: 'Productivity', color: '#8B5CF6', icon: 'Briefcase' },
     { id: '5', name: 'Mindfulness', color: '#EC4899', icon: 'Brain' },
   ];
+
+  const getCategoryColor = (categoryName: string) => {
+    const category = categories.find(c => c.name === categoryName);
+    return category ? category.color : '#6B7280'; // Default gray
+  };
 
   // Filter and sort habits
   const filteredHabits = useMemo(() => {
@@ -86,14 +106,14 @@ export const Habits: React.FC = () => {
       if (isToday(date)) {
         return true;
       }
-      
+
       // If the date is in the past, there's a high chance it was completed if the streak is good
       if (isPast(date) && !isToday(date)) {
         const dayDiff = Math.floor((new Date().getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
         return dayDiff <= habit.currentStreak;
       }
     }
-    
+
     return false;
   };
 
@@ -101,7 +121,7 @@ export const Habits: React.FC = () => {
     if (!newHabit.name.trim()) return;
 
     const categoryObj = categories.find(cat => cat.name === newHabit.category) || categories[0];
-    
+
     const habitData: Omit<Habit, 'id'> = {
       userId: state.user?.id || 'user-1',
       name: newHabit.name,
@@ -112,8 +132,8 @@ export const Habits: React.FC = () => {
       currentStreak: 0,
       bestStreak: 0,
       totalCompletions: 0,
-      color: newHabit.color,
-      icon: newHabit.icon,
+      color: getCategoryColor(newHabit.category),
+      icon: categoryObj.icon,
       priority: newHabit.priority,
       createdAt: new Date(),
       reminders: newHabit.reminders,
@@ -131,10 +151,18 @@ export const Habits: React.FC = () => {
 
   const handleUpdateHabit = async () => {
     if (!editingHabit) return;
-    
+
+    const categoryObj = categories.find(cat => cat.name === editingHabit.category.name) || categories[0];
+    const updatedHabit = {
+      ...editingHabit,
+      category: categoryObj,
+      color: getCategoryColor(editingHabit.category.name),
+      icon: categoryObj.icon,
+    };
+
     try {
-      await dataService.updateHabit(editingHabit);
-      dispatch({ type: 'UPDATE_HABIT', payload: editingHabit });
+      await dataService.updateHabit(updatedHabit);
+      dispatch({ type: 'UPDATE_HABIT', payload: updatedHabit });
       setEditingHabit(null);
     } catch (error) {
       console.error('Failed to update habit:', error);
@@ -152,7 +180,7 @@ export const Habits: React.FC = () => {
 
   const handleCompleteHabit = async () => {
     if (!completingHabit) return;
-    
+
     try {
       const updatedHabit = {
         ...completingHabit,
@@ -160,7 +188,7 @@ export const Habits: React.FC = () => {
         bestStreak: Math.max(completingHabit.bestStreak, completingHabit.currentStreak + 1),
         totalCompletions: completingHabit.totalCompletions + completionCount
       };
-      
+
       // Create a habit completion record
       const completion: HabitCompletion = {
         id: `completion-${Date.now()}`,
@@ -169,13 +197,13 @@ export const Habits: React.FC = () => {
         count: completionCount,
         notes: completionNote || undefined
       };
-      
+
       // In a real app, you would save this completion record
       // dataService.saveHabitCompletion(completion);
-      
+
       await dataService.updateHabit(updatedHabit);
       dispatch({ type: 'UPDATE_HABIT', payload: updatedHabit });
-      
+
       setShowCompletionModal(false);
       setCompletingHabit(null);
       setCompletionCount(1);
@@ -322,7 +350,7 @@ export const Habits: React.FC = () => {
                       className="w-10 h-10 rounded-lg flex items-center justify-center"
                       style={{ backgroundColor: `${habit.color}30` }}
                     >
-                      <Zap className="w-5 h-5" style={{ color: habit.color }} />
+                      <HabitIcon name={habit.icon} className="w-5 h-5" style={{ color: habit.color }} />
                     </div>
                     <div>
                       <h3 className="font-semibold text-white text-lg">{habit.name}</h3>
@@ -346,7 +374,7 @@ export const Habits: React.FC = () => {
                         <Circle className="w-5 h-5 text-white/40" />
                       )}
                     </Button>
-                    
+
                     <Button
                       variant="ghost"
                       size="sm"
@@ -385,8 +413,8 @@ export const Habits: React.FC = () => {
                       className="h-full"
                       style={{ backgroundColor: habit.color }}
                       initial={{ width: 0 }}
-                      animate={{ 
-                        width: isHabitCompletedForDate(habit, selectedDate) ? '100%' : '0%' 
+                      animate={{
+                        width: isHabitCompletedForDate(habit, selectedDate) ? '100%' : '0%'
                       }}
                       transition={{ duration: 0.5 }}
                     />
@@ -410,28 +438,28 @@ export const Habits: React.FC = () => {
             <input
               type="text"
               value={newHabit.name}
-              onChange={(e) => setNewHabit({...newHabit, name: e.target.value})}
+              onChange={(e) => setNewHabit({ ...newHabit, name: e.target.value })}
               className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
               placeholder="e.g., Morning Meditation"
             />
           </div>
-          
+
           <div>
             <label className="block text-white mb-2">Description (Optional)</label>
             <textarea
               value={newHabit.description}
-              onChange={(e) => setNewHabit({...newHabit, description: e.target.value})}
+              onChange={(e) => setNewHabit({ ...newHabit, description: e.target.value })}
               className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
               placeholder="Why is this habit important to you?"
               rows={3}
             />
           </div>
-          
+
           <div>
             <label className="block text-white mb-2">Category</label>
             <select
               value={newHabit.category}
-              onChange={(e) => setNewHabit({...newHabit, category: e.target.value})}
+              onChange={(e) => setNewHabit({ ...newHabit, category: e.target.value })}
               className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
             >
               {categories.map(category => (
@@ -439,13 +467,13 @@ export const Habits: React.FC = () => {
               ))}
             </select>
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-white mb-2">Frequency</label>
               <select
                 value={newHabit.frequency}
-                onChange={(e) => setNewHabit({...newHabit, frequency: e.target.value})}
+                onChange={(e) => setNewHabit({ ...newHabit, frequency: e.target.value })}
                 className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
               >
                 <option value="daily">Daily</option>
@@ -453,19 +481,19 @@ export const Habits: React.FC = () => {
                 <option value="custom">Custom</option>
               </select>
             </div>
-            
+
             <div>
               <label className="block text-white mb-2">Target Count</label>
               <input
                 type="number"
                 min="1"
                 value={newHabit.targetCount}
-                onChange={(e) => setNewHabit({...newHabit, targetCount: parseInt(e.target.value) || 1})}
+                onChange={(e) => setNewHabit({ ...newHabit, targetCount: parseInt(e.target.value) || 1 })}
                 className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
               />
             </div>
           </div>
-          
+
           <div>
             <label className="block text-white mb-2">Priority</label>
             <div className="flex gap-2">
@@ -473,7 +501,7 @@ export const Habits: React.FC = () => {
                 variant={newHabit.priority === 'low' ? 'primary' : 'outline'}
                 size="sm"
                 fullWidth
-                onClick={() => setNewHabit({...newHabit, priority: 'low'})}
+                onClick={() => setNewHabit({ ...newHabit, priority: 'low' })}
               >
                 Low
               </Button>
@@ -481,7 +509,7 @@ export const Habits: React.FC = () => {
                 variant={newHabit.priority === 'medium' ? 'primary' : 'outline'}
                 size="sm"
                 fullWidth
-                onClick={() => setNewHabit({...newHabit, priority: 'medium'})}
+                onClick={() => setNewHabit({ ...newHabit, priority: 'medium' })}
               >
                 Medium
               </Button>
@@ -489,13 +517,13 @@ export const Habits: React.FC = () => {
                 variant={newHabit.priority === 'high' ? 'primary' : 'outline'}
                 size="sm"
                 fullWidth
-                onClick={() => setNewHabit({...newHabit, priority: 'high'})}
+                onClick={() => setNewHabit({ ...newHabit, priority: 'high' })}
               >
                 High
               </Button>
             </div>
           </div>
-          
+
           <div className="pt-4 flex justify-end gap-2">
             <Button
               variant="outline"
@@ -529,28 +557,28 @@ export const Habits: React.FC = () => {
               <input
                 type="text"
                 value={editingHabit.name}
-                onChange={(e) => setEditingHabit({...editingHabit, name: e.target.value})}
+                onChange={(e) => setEditingHabit({ ...editingHabit, name: e.target.value })}
                 className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
               />
             </div>
-            
+
             <div>
               <label className="block text-white mb-2">Description</label>
               <textarea
                 value={editingHabit.description || ''}
-                onChange={(e) => setEditingHabit({...editingHabit, description: e.target.value})}
+                onChange={(e) => setEditingHabit({ ...editingHabit, description: e.target.value })}
                 className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
                 rows={3}
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-white mb-2">Priority</label>
                 <select
                   value={editingHabit.priority}
                   onChange={(e) => setEditingHabit({
-                    ...editingHabit, 
+                    ...editingHabit,
                     priority: e.target.value as 'low' | 'medium' | 'high'
                   })}
                   className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
@@ -560,7 +588,7 @@ export const Habits: React.FC = () => {
                   <option value="high">High</option>
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-white mb-2">Target Count</label>
                 <input
@@ -575,7 +603,7 @@ export const Habits: React.FC = () => {
                 />
               </div>
             </div>
-            
+
             <div className="pt-4 flex justify-between">
               <Button
                 variant="danger"
@@ -586,7 +614,7 @@ export const Habits: React.FC = () => {
               >
                 Delete
               </Button>
-              
+
               <div className="flex gap-2">
                 <Button
                   variant="outline"
@@ -622,14 +650,14 @@ export const Habits: React.FC = () => {
                 className="w-10 h-10 rounded-lg flex items-center justify-center"
                 style={{ backgroundColor: `${completingHabit.color}30` }}
               >
-                <Zap className="w-5 h-5" style={{ color: completingHabit.color }} />
+                <HabitIcon name={completingHabit.icon} className="w-5 h-5" style={{ color: completingHabit.color }} />
               </div>
               <div>
                 <h3 className="font-semibold text-white">{completingHabit.name}</h3>
                 <p className="text-white/60 text-sm">{completingHabit.category.name}</p>
               </div>
             </div>
-            
+
             <div>
               <label className="block text-white mb-2">Count (How many times?)</label>
               <div className="flex items-center gap-2">
@@ -656,7 +684,7 @@ export const Habits: React.FC = () => {
                 </Button>
               </div>
             </div>
-            
+
             <div>
               <label className="block text-white mb-2">Notes (Optional)</label>
               <textarea
@@ -667,7 +695,7 @@ export const Habits: React.FC = () => {
                 placeholder="How did it go? Any observations?"
               />
             </div>
-            
+
             <div className="pt-4 flex justify-end gap-2">
               <Button
                 variant="outline"
