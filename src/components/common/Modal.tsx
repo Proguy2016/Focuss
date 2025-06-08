@@ -65,12 +65,13 @@ export const Modal: React.FC<ModalProps> = ({
             exit={{ opacity: 0 }}
             onClick={closeOnOverlayClick ? onClose : undefined}
           />
-          
+
           {/* Modal */}
           <motion.div
             className={`
               relative w-full ${getSizeClasses()} max-h-[90vh] overflow-hidden
-              glass rounded-2xl shadow-2xl
+              bg-gradient-to-b from-dark to-darker border border-primary-dark
+              rounded-2xl shadow-2xl
               ${className}
             `}
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -80,7 +81,7 @@ export const Modal: React.FC<ModalProps> = ({
           >
             {/* Header */}
             {(title || showCloseButton) && (
-              <div className="flex items-center justify-between p-6 border-b border-white/10">
+              <div className="flex items-center justify-between p-6 border-b border-primary-dark">
                 {title && (
                   <h2 className="text-xl font-semibold text-white">{title}</h2>
                 )}
@@ -95,9 +96,9 @@ export const Modal: React.FC<ModalProps> = ({
                 )}
               </div>
             )}
-            
+
             {/* Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-8rem)]">
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-8rem)] scrollbar-hide">
               {children}
             </div>
           </motion.div>
