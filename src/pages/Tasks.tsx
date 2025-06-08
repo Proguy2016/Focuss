@@ -1,15 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Plus, Search, Filter, Calendar, Clock, Flag, CheckCircle2, 
-  Circle, MoreHorizontal, Edit, Trash2, Star, Target, 
-  ArrowUp, ArrowDown, Minus, Grid, List, Kanban
+import {
+  Plus, Search, Filter, Calendar, Clock, Flag, CheckCircle2,
+  Circle, MoreHorizontal, Edit, Trash2, Star, Target,
+  ArrowUp, ArrowDown, Minus, Grid, List, Kanban, X
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
-import { Task, TaskStatus, TaskPriority } from '../types';
+import { Task, TaskStatus, TaskPriority, SubTask } from '../types';
 
 type ViewMode = 'list' | 'grid' | 'kanban';
 type FilterType = 'all' | 'todo' | 'inProgress' | 'completed' | 'overdue';
@@ -24,13 +24,16 @@ export const Tasks: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+  const [subtaskTitle, setSubtaskTitle] = useState('');
+  const [tagInput, setTagInput] = useState('');
 
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
-    priority: 'medium' as const,
+    priority: 'medium' as TaskPriority['level'],
     category: '',
     tags: [] as string[],
+    subtasks: [] as { title: string }[],
     dueDate: '',
     estimatedTime: '',
   });
@@ -39,7 +42,7 @@ export const Tasks: React.FC = () => {
     let filtered = state.tasks.filter(task => {
       // Search filter
       if (searchTerm && !task.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
-          !task.description?.toLowerCase().includes(searchTerm.toLowerCase())) {
+        !task.description?.toLowerCase().includes(searchTerm.toLowerCase())) {
         return false;
       }
 
@@ -81,6 +84,20 @@ export const Tasks: React.FC = () => {
     return filtered;
   }, [state.tasks, searchTerm, filterType, sortType]);
 
+  const getPriorityColor = (level: TaskPriority['level']) => {
+    switch (level) {
+      case 'urgent':
+      case 'high':
+        return '#EF4444'; // Red
+      case 'medium':
+        return '#F59E0B'; // Orange
+      case 'low':
+        return '#10B981'; // Green
+      default:
+        return '#6B7280'; // Gray
+    }
+  };
+
   const handleCreateTask = async () => {
     if (!newTask.title.trim()) return;
 
@@ -90,20 +107,18 @@ export const Tasks: React.FC = () => {
       description: newTask.description || undefined,
       priority: {
         level: newTask.priority,
-        color: newTask.priority === 'high' ? '#EF4444' : 
-               newTask.priority === 'medium' ? '#F59E0B' : '#10B981'
+        color: getPriorityColor(newTask.priority)
       },
       urgency: {
         level: newTask.priority,
-        color: newTask.priority === 'high' ? '#EF4444' : 
-               newTask.priority === 'medium' ? '#F59E0B' : '#10B981'
+        color: getPriorityColor(newTask.priority)
       },
       status: { type: 'todo', label: 'To Do', color: '#6B7280' },
       category: newTask.category || 'General',
       tags: newTask.tags,
       dueDate: newTask.dueDate ? new Date(newTask.dueDate) : undefined,
       estimatedTime: newTask.estimatedTime ? parseInt(newTask.estimatedTime) : undefined,
-      subtasks: [],
+      subtasks: newTask.subtasks.map(st => ({ id: Date.now().toString() + st.title, title: st.title, completed: false })),
       dependencies: [],
     };
 
@@ -117,6 +132,7 @@ export const Tasks: React.FC = () => {
         priority: 'medium',
         category: '',
         tags: [],
+        subtasks: [],
         dueDate: '',
         estimatedTime: '',
       });
@@ -125,18 +141,30 @@ export const Tasks: React.FC = () => {
     }
   };
 
+  const handleUpdateTask = async () => {
+    if (!editingTask) return;
+
+    try {
+      await dataService.updateTask(editingTask);
+      dispatch({ type: 'UPDATE_TASK', payload: editingTask });
+      setEditingTask(null);
+    } catch (error) {
+      console.error('Failed to update task:', error);
+    }
+  };
+
   const toggleTaskStatus = async (task: Task) => {
-    const newStatus = task.status.type === 'completed' ? 'todo' : 'completed';
-    const updatedTask = {
+    const newStatusType: TaskStatus['type'] = task.status.type === 'completed' ? 'todo' : 'completed';
+    const updatedTask: Task = {
       ...task,
       status: {
-        type: newStatus,
-        label: newStatus === 'completed' ? 'Completed' : 'To Do',
-        color: newStatus === 'completed' ? '#10B981' : '#6B7280'
+        type: newStatusType,
+        label: newStatusType === 'completed' ? 'Completed' : 'To Do',
+        color: newStatusType === 'completed' ? '#10B981' : '#6B7280'
       },
-      completedAt: newStatus === 'completed' ? new Date() : undefined
+      completedAt: newStatusType === 'completed' ? new Date() : undefined
     };
-    
+
     try {
       await dataService.updateTask(updatedTask);
       dispatch({ type: 'UPDATE_TASK', payload: updatedTask });
@@ -172,7 +200,7 @@ export const Tasks: React.FC = () => {
   const formatDueDate = (date: Date) => {
     const now = new Date();
     const diffInDays = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     if (diffInDays < 0) return 'Overdue';
     if (diffInDays === 0) return 'Due today';
     if (diffInDays === 1) return 'Due tomorrow';
@@ -186,12 +214,12 @@ export const Tasks: React.FC = () => {
       transition={{ delay: index * 0.05 }}
       className="group"
     >
-      <Card 
-        variant="glass" 
-        hover 
-        className={`p-4 cursor-pointer transition-all duration-200 ${
-          task.status.type === 'completed' ? 'opacity-60' : ''
-        }`}
+      <Card
+        variant="glass"
+        hover
+        className={`p-4 cursor-pointer transition-all duration-200 ${task.status.type === 'completed' ? 'opacity-60' : ''
+          }`}
+        style={{ borderLeft: `4px solid ${getPriorityColor(task.priority.level)}` }}
       >
         <div className="flex items-start gap-3">
           <button
@@ -207,9 +235,8 @@ export const Tasks: React.FC = () => {
 
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
-              <h3 className={`font-semibold text-white ${
-                task.status.type === 'completed' ? 'line-through' : ''
-              }`}>
+              <h3 className={`font-semibold text-white ${task.status.type === 'completed' ? 'line-through' : ''
+                }`}>
                 {task.title}
               </h3>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -243,11 +270,10 @@ export const Tasks: React.FC = () => {
               {task.dueDate && (
                 <div className="flex items-center gap-1">
                   <Calendar className="w-4 h-4 text-white/40" />
-                  <span className={`text-sm ${
-                    new Date(task.dueDate) < new Date() && task.status.type !== 'completed'
-                      ? 'text-error-400'
-                      : 'text-white/60'
-                  }`}>
+                  <span className={`text-sm ${new Date(task.dueDate) < new Date() && task.status.type !== 'completed'
+                    ? 'text-error-400'
+                    : 'text-white/60'
+                    }`}>
                     {formatDueDate(new Date(task.dueDate))}
                   </span>
                 </div>
@@ -346,7 +372,7 @@ export const Tasks: React.FC = () => {
       </motion.div>
 
       {/* Filters and Controls */}
-      <Card variant="glass" className="p-4">
+      <Card variant="glass" className="p-4 glass-pane">
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Search */}
           <div className="flex-1">
@@ -357,7 +383,7 @@ export const Tasks: React.FC = () => {
                 placeholder="Search tasks..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 glass rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="input-field w-full pl-10"
               />
             </div>
           </div>
@@ -367,7 +393,7 @@ export const Tasks: React.FC = () => {
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value as FilterType)}
-              className="glass px-3 py-2 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="bg-white/5 border border-white/10 px-3 py-2 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
               <option value="all">All Tasks</option>
               <option value="todo">To Do</option>
@@ -379,7 +405,7 @@ export const Tasks: React.FC = () => {
             <select
               value={sortType}
               onChange={(e) => setSortType(e.target.value as SortType)}
-              className="glass px-3 py-2 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="bg-white/5 border border-white/10 px-3 py-2 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
               <option value="dueDate">Due Date</option>
               <option value="priority">Priority</option>
@@ -551,6 +577,97 @@ export const Tasks: React.FC = () => {
             </div>
           </div>
 
+          <div>
+            <label className="block text-white/60 text-sm mb-2">Subtasks</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={subtaskTitle}
+                onChange={(e) => setSubtaskTitle(e.target.value)}
+                placeholder="Add a subtask..."
+                className="input-field w-full"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && subtaskTitle.trim()) {
+                    e.preventDefault();
+                    setNewTask(prev => ({ ...prev, subtasks: [...prev.subtasks, { title: subtaskTitle }] }));
+                    setSubtaskTitle('');
+                  }
+                }}
+              />
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  if (subtaskTitle.trim()) {
+                    setNewTask(prev => ({ ...prev, subtasks: [...prev.subtasks, { title: subtaskTitle }] }));
+                    setSubtaskTitle('');
+                  }
+                }}
+              >
+                Add
+              </Button>
+            </div>
+            <div className="mt-2 space-y-2">
+              {newTask.subtasks.map((sub, index) => (
+                <div key={index} className="flex items-center justify-between bg-white/5 p-2 rounded-md">
+                  <span className="text-white/80">{sub.title}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={X}
+                    onClick={() => setNewTask(prev => ({ ...prev, subtasks: prev.subtasks.filter((_, i) => i !== index) }))}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-white/60 text-sm mb-2">Tags</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                placeholder="Add a tag..."
+                className="input-field w-full"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && tagInput.trim()) {
+                    e.preventDefault();
+                    if (!newTask.tags.includes(tagInput.trim())) {
+                      setNewTask(prev => ({ ...prev, tags: [...prev.tags, tagInput.trim()] }));
+                    }
+                    setTagInput('');
+                  }
+                }}
+              />
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  if (tagInput.trim() && !newTask.tags.includes(tagInput.trim())) {
+                    setNewTask(prev => ({ ...prev, tags: [...prev.tags, tagInput.trim()] }));
+                    setTagInput('');
+                  }
+                }}
+              >
+                Add
+              </Button>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {newTask.tags.map((tag, index) => (
+                <div key={index} className="flex items-center gap-1 bg-white/10 px-2 py-1 rounded-md">
+                  <span className="text-white/80 text-sm">#{tag}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={X}
+                    className="w-4 h-4"
+                    onClick={() => setNewTask(prev => ({ ...prev, tags: prev.tags.filter((_, i) => i !== index) }))}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="flex gap-3 pt-4">
             <Button
               variant="primary"
@@ -570,6 +687,211 @@ export const Tasks: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Edit Task Modal */}
+      {editingTask && (
+        <Modal
+          isOpen={!!editingTask}
+          onClose={() => setEditingTask(null)}
+          title="Edit Task"
+          size="lg"
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-white/60 text-sm mb-2">Title *</label>
+              <input
+                type="text"
+                value={editingTask.title}
+                onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
+                placeholder="Enter task title..."
+                className="input-field w-full"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="block text-white/60 text-sm mb-2">Description</label>
+              <textarea
+                value={editingTask.description}
+                onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })}
+                placeholder="Enter task description..."
+                className="input-field w-full h-24 resize-none"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-white/60 text-sm mb-2">Priority</label>
+                <select
+                  value={editingTask.priority.level}
+                  onChange={(e) => {
+                    const newLevel = e.target.value as TaskPriority['level'];
+                    setEditingTask({
+                      ...editingTask,
+                      priority: { level: newLevel, color: getPriorityColor(newLevel) }
+                    });
+                  }}
+                  className="input-field w-full"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-white/60 text-sm mb-2">Category</label>
+                <input
+                  type="text"
+                  value={editingTask.category}
+                  onChange={(e) => setEditingTask({ ...editingTask, category: e.target.value })}
+                  placeholder="e.g., Work, Personal"
+                  className="input-field w-full"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-white/60 text-sm mb-2">Due Date</label>
+                <input
+                  type="date"
+                  value={editingTask.dueDate ? new Date(editingTask.dueDate).toISOString().split('T')[0] : ''}
+                  onChange={(e) => setEditingTask({ ...editingTask, dueDate: new Date(e.target.value) })}
+                  className="input-field w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-white/60 text-sm mb-2">Estimated Time (minutes)</label>
+                <input
+                  type="number"
+                  value={editingTask.estimatedTime}
+                  onChange={(e) => setEditingTask({ ...editingTask, estimatedTime: parseInt(e.target.value) })}
+                  placeholder="30"
+                  className="input-field w-full"
+                  min="1"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-white/60 text-sm mb-2">Subtasks</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={subtaskTitle}
+                  onChange={(e) => setSubtaskTitle(e.target.value)}
+                  placeholder="Add a subtask..."
+                  className="input-field w-full"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && subtaskTitle.trim()) {
+                      e.preventDefault();
+                      setEditingTask({ ...editingTask, subtasks: [...editingTask.subtasks, { id: Date.now().toString(), title: subtaskTitle, completed: false }] });
+                      setSubtaskTitle('');
+                    }
+                  }}
+                />
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    if (subtaskTitle.trim()) {
+                      setEditingTask({ ...editingTask, subtasks: [...editingTask.subtasks, { id: Date.now().toString(), title: subtaskTitle, completed: false }] });
+                      setSubtaskTitle('');
+                    }
+                  }}
+                >
+                  Add
+                </Button>
+              </div>
+              <div className="mt-2 space-y-2">
+                {editingTask.subtasks.map((sub, index) => (
+                  <div key={index} className="flex items-center justify-between bg-white/5 p-2 rounded-md">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={sub.completed}
+                        onChange={() => {
+                          const newSubtasks = [...editingTask.subtasks];
+                          newSubtasks[index].completed = !newSubtasks[index].completed;
+                          setEditingTask({ ...editingTask, subtasks: newSubtasks });
+                        }}
+                        className="form-checkbox h-4 w-4 bg-transparent"
+                      />
+                      <span className={`text-white/80 ${sub.completed ? 'line-through' : ''}`}>{sub.title}</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={X}
+                      onClick={() => setEditingTask({ ...editingTask, subtasks: editingTask.subtasks.filter((_, i) => i !== index) })}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-white/60 text-sm mb-2">Tags</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  placeholder="Add a tag..."
+                  className="input-field w-full"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && tagInput.trim()) {
+                      e.preventDefault();
+                      if (!editingTask.tags.includes(tagInput.trim())) {
+                        setEditingTask({ ...editingTask, tags: [...editingTask.tags, tagInput.trim()] });
+                      }
+                      setTagInput('');
+                    }
+                  }}
+                />
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    if (tagInput.trim() && !editingTask.tags.includes(tagInput.trim())) {
+                      setEditingTask({ ...editingTask, tags: [...editingTask.tags, tagInput.trim()] });
+                      setTagInput('');
+                    }
+                  }}
+                >
+                  Add
+                </Button>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {editingTask.tags.map((tag, index) => (
+                  <div key={index} className="flex items-center gap-1 bg-white/10 px-2 py-1 rounded-md">
+                    <span className="text-white/80 text-sm">#{tag}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={X}
+                      className="w-4 h-4"
+                      onClick={() => setEditingTask({ ...editingTask, tags: editingTask.tags.filter((_, i) => i !== index) })}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-3 pt-4">
+            <Button
+              variant="primary"
+              onClick={handleUpdateTask}
+              fullWidth
+              disabled={!editingTask.title.trim()}
+            >
+              Save Changes
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setEditingTask(null)}
+              fullWidth
+            >
+              Cancel
+            </Button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };
