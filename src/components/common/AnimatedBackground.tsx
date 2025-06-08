@@ -6,9 +6,9 @@ interface AnimatedBackgroundProps {
   className?: string;
 }
 
-export const AnimatedBackground: React.FC<AnimatedBackgroundProps> = ({ 
-  variant = 'default', 
-  className = '' 
+export const AnimatedBackground: React.FC<AnimatedBackgroundProps> = ({
+  variant = 'default',
+  className = ''
 }) => {
   const renderVariant = () => {
     switch (variant) {
@@ -31,13 +31,13 @@ export const AnimatedBackground: React.FC<AnimatedBackgroundProps> = ({
 };
 
 const DefaultBackground: React.FC = () => (
-  <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-    <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width=%2260%22%20height=%2260%22%20viewBox=%220%200%2060%2060%22%20xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cg%20fill=%22none%22%20fill-rule=%22evenodd%22%3E%3Cg%20fill=%22%239C92AC%22%20fill-opacity=%220.05%22%3E%3Ccircle%20cx=%2230%22%20cy=%2230%22%20r=%222%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-20" />
+  <div className="absolute inset-0 bg-transparent">
+    <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width=%2260%22%20height=%2260%22%20viewBox=%220%200%2060%2060%22%20xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cg%20fill=%22none%22%20fill-rule=%22evenodd%22%3E%3Cg%20fill=%22%2304d9d9%22%20fill-opacity=%220.05%22%3E%3Ccircle%20cx=%2230%22%20cy=%2230%22%20r=%222%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-20" />
   </div>
 );
 
 const ParticleBackground: React.FC = () => (
-  <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+  <div className="absolute inset-0 bg-transparent">
     {Array.from({ length: 50 }).map((_, i) => (
       <motion.div
         key={i}
@@ -62,7 +62,7 @@ const ParticleBackground: React.FC = () => (
 );
 
 const WaveBackground: React.FC = () => (
-  <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+  <div className="absolute inset-0 bg-transparent">
     <svg
       className="absolute bottom-0 w-full h-64 opacity-20"
       viewBox="0 0 1200 320"
@@ -86,9 +86,9 @@ const WaveBackground: React.FC = () => (
       />
       <defs>
         <linearGradient id="wave-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#8B5CF6" />
-          <stop offset="50%" stopColor="#3B82F6" />
-          <stop offset="100%" stopColor="#EC4899" />
+          <stop offset="0%" stopColor="var(--primary-dark)" />
+          <stop offset="50%" stopColor="var(--primary)" />
+          <stop offset="100%" stopColor="var(--emerald)" />
         </linearGradient>
       </defs>
     </svg>
@@ -100,11 +100,11 @@ const GradientBackground: React.FC = () => (
     className="absolute inset-0"
     animate={{
       background: [
-        'linear-gradient(45deg, #0f172a, #581c87, #0f172a)',
-        'linear-gradient(45deg, #581c87, #1e40af, #581c87)',
-        'linear-gradient(45deg, #1e40af, #be185d, #1e40af)',
-        'linear-gradient(45deg, #be185d, #0f172a, #be185d)',
-        'linear-gradient(45deg, #0f172a, #581c87, #0f172a)',
+        'linear-gradient(45deg, var(--darker), var(--dark), var(--darker))',
+        'linear-gradient(45deg, var(--dark), var(--primary-dark), var(--dark))',
+        'linear-gradient(45deg, var(--primary-dark), var(--primary), var(--primary-dark))',
+        'linear-gradient(45deg, var(--primary), var(--darker), var(--primary))',
+        'linear-gradient(45deg, var(--darker), var(--dark), var(--darker))',
       ]
     }}
     transition={{

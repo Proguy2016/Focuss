@@ -6,8 +6,10 @@
 
 @layer base {
   body {
-    @apply bg-dark text-light;
+    @apply text-light;
+    background: linear-gradient(135deg, var(--dark) 0%, var(--dark-light) 100%);
     font-family: 'Inter', sans-serif;
+    background-attachment: fixed;
   }
 
   html {

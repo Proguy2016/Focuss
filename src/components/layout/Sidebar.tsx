@@ -45,7 +45,7 @@ export const Sidebar: React.FC = () => {
       <AnimatePresence>
         {state.sidebarOpen && (
           <motion.aside
-            className="fixed left-0 top-0 z-50 h-full w-80 bg-gradient-to-b from-gray-900 to-black backdrop-blur-sm border-r border-teal-500/20 lg:relative lg:z-0"
+            className="fixed left-0 top-0 z-50 h-full w-80 bg-gradient-to-b from-gray-900/95 to-black/95 backdrop-blur-sm border-r border-teal-500/20 lg:relative lg:z-0"
             initial={{ x: -320 }}
             animate={{ x: 0 }}
             exit={{ x: -320 }}

@@ -6,6 +6,7 @@
     --secondary-light: #04d9d9;
 
     --dark: #002024;
+    --dark-light: #000000;
     --darker: #000000;
     --light: #ffffff;
     --gray: #bdbdbd;
@@ -16,6 +17,7 @@
     --glass: rgba(0, 32, 36, 0.7);
 
     --emerald: #34d399;
+    
     --slate-dark: #0f172a;
 
     --shadow: 0 4px 30px rgba(0, 0, 0, 0.3);

@@ -35,18 +35,18 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => (
 function App() {
   // This would normally be determined by your auth service
   const [isAuthenticated, setIsAuthenticated] = useState(true);
-  
+
   // Simple function to log in - accepts any credentials
   const handleLogin = () => {
     setIsAuthenticated(true);
   };
-  
+
   return (
     <AppProvider>
       <Router>
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
+        <div className="min-h-screen text-white">
           <AnimatedBackground variant="particles" />
-          
+
           <AnimatePresence mode="wait">
             <Routes>
               {/* Auth routes without sidebar/header */}
@@ -59,91 +59,91 @@ function App() {
               <Route path="/signup" element={
                 isAuthenticated ? <Navigate to="/" /> : <Auth initialView="signup" onLogin={handleLogin} />
               } />
-              
+
               {/* App routes with sidebar/header */}
               <Route path="/" element={
-                isAuthenticated ? 
-                <AppLayout>
-                  <Dashboard />
-                </AppLayout> : 
-                <Navigate to="/auth" />
+                isAuthenticated ?
+                  <AppLayout>
+                    <Dashboard />
+                  </AppLayout> :
+                  <Navigate to="/auth" />
               } />
               <Route path="/focus" element={
-                isAuthenticated ? 
-                <AppLayout>
-                  <FocusTimer />
-                </AppLayout> : 
-                <Navigate to="/auth" />
+                isAuthenticated ?
+                  <AppLayout>
+                    <FocusTimer />
+                  </AppLayout> :
+                  <Navigate to="/auth" />
               } />
               <Route path="/tasks" element={
-                isAuthenticated ? 
-                <AppLayout>
-                  <Tasks />
-                </AppLayout> : 
-                <Navigate to="/auth" />
+                isAuthenticated ?
+                  <AppLayout>
+                    <Tasks />
+                  </AppLayout> :
+                  <Navigate to="/auth" />
               } />
               <Route path="/habits" element={
-                isAuthenticated ? 
-                <AppLayout>
-                  <Habits />
-                </AppLayout> : 
-                <Navigate to="/auth" />
+                isAuthenticated ?
+                  <AppLayout>
+                    <Habits />
+                  </AppLayout> :
+                  <Navigate to="/auth" />
               } />
               <Route path="/analytics" element={
-                isAuthenticated ? 
-                <AppLayout>
-                  <Analytics />
-                </AppLayout> : 
-                <Navigate to="/auth" />
+                isAuthenticated ?
+                  <AppLayout>
+                    <Analytics />
+                  </AppLayout> :
+                  <Navigate to="/auth" />
               } />
               <Route path="/social" element={
-                isAuthenticated ? 
-                <AppLayout>
-                  <Social />
-                </AppLayout> : 
-                <Navigate to="/auth" />
+                isAuthenticated ?
+                  <AppLayout>
+                    <Social />
+                  </AppLayout> :
+                  <Navigate to="/auth" />
               } />
               <Route path="/pdf-viewer" element={
-                isAuthenticated ? 
-                <AppLayout>
-                  <PDFViewer />
-                </AppLayout> : 
-                <Navigate to="/auth" />
+                isAuthenticated ?
+                  <AppLayout>
+                    <PDFViewer />
+                  </AppLayout> :
+                  <Navigate to="/auth" />
               } />
               <Route path="/soundscapes" element={
-                isAuthenticated ? 
-                <AppLayout>
-                  <Soundscapes />
-                </AppLayout> : 
-                <Navigate to="/auth" />
+                isAuthenticated ?
+                  <AppLayout>
+                    <Soundscapes />
+                  </AppLayout> :
+                  <Navigate to="/auth" />
               } />
               <Route path="/knowledge" element={
-                isAuthenticated ? 
-                <AppLayout>
-                  <Knowledge />
-                </AppLayout> : 
-                <Navigate to="/auth" />
+                isAuthenticated ?
+                  <AppLayout>
+                    <Knowledge />
+                  </AppLayout> :
+                  <Navigate to="/auth" />
               } />
               <Route path="/ai-coach" element={
-                isAuthenticated ? 
-                <AppLayout>
-                  <AICoach />
-                </AppLayout> : 
-                <Navigate to="/auth" />
+                isAuthenticated ?
+                  <AppLayout>
+                    <AICoach />
+                  </AppLayout> :
+                  <Navigate to="/auth" />
               } />
               <Route path="/achievements" element={
-                isAuthenticated ? 
-                <AppLayout>
-                  <Achievements />
-                </AppLayout> : 
-                <Navigate to="/auth" />
+                isAuthenticated ?
+                  <AppLayout>
+                    <Achievements />
+                  </AppLayout> :
+                  <Navigate to="/auth" />
               } />
               <Route path="/settings" element={
-                isAuthenticated ? 
-                <AppLayout>
-                  <Settings />
-                </AppLayout> : 
-                <Navigate to="/auth" />
+                isAuthenticated ?
+                  <AppLayout>
+                    <Settings />
+                  </AppLayout> :
+                  <Navigate to="/auth" />
               } />
             </Routes>
           </AnimatePresence>
