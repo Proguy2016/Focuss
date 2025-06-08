@@ -82,6 +82,18 @@ export const FocusTimer: React.FC = () => {
     };
   }, [isRunning, timeLeft]);
 
+  useEffect(() => {
+    if (!isRunning) {
+      if (sessionType === 'work') {
+        setTimeLeft(settings.workDuration * 60);
+      } else if (sessionType === 'shortBreak') {
+        setTimeLeft(settings.shortBreakDuration * 60);
+      } else if (sessionType === 'longBreak') {
+        setTimeLeft(settings.longBreakDuration * 60);
+      }
+    }
+  }, [settings.workDuration, settings.shortBreakDuration, settings.longBreakDuration, sessionType, isRunning]);
+
   const handleSessionComplete = async () => {
     setIsRunning(false);
 

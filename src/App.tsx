@@ -18,6 +18,7 @@ import { Achievements } from './pages/Achievements';
 import { Settings } from './pages/Settings';
 import Auth from './pages/Auth';
 import PDFViewer from './pages/PDFViewer';
+import CollaborationRoomApp from './pages/CollaborationRoom';
 
 // Layout components
 const AppLayout = ({ children }: { children: React.ReactNode }) => (
@@ -142,6 +143,13 @@ function App() {
                 isAuthenticated ?
                   <AppLayout>
                     <Settings />
+                  </AppLayout> :
+                  <Navigate to="/auth" />
+              } />
+              <Route path="/collaboration" element={
+                isAuthenticated ?
+                  <AppLayout>
+                    <CollaborationRoomApp />
                   </AppLayout> :
                   <Navigate to="/auth" />
               } />

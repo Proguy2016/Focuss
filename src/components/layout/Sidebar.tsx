@@ -16,6 +16,7 @@ const navigationItems = [
   { icon: TrendingUp, label: 'Analytics', path: '/analytics' },
   { icon: Users, label: 'Social', path: '/social' },
   { icon: FileText, label: 'PDF Viewer', path: '/pdf-viewer' },
+  { icon: Users, label: 'Collaboration', path: '/collaboration' },
   { icon: Music, label: 'Soundscapes', path: '/soundscapes' },
   { icon: Book, label: 'Knowledge', path: '/knowledge' },
   { icon: Brain, label: 'AI Coach', path: '/ai-coach' },
@@ -69,7 +70,6 @@ export const Sidebar: React.FC = () => {
                 </div>
                 <Button
                   variant="ghost"
-                  size="icon"
                   icon={X}
                   onClick={() => dispatch({ type: 'TOGGLE_SIDEBAR' })}
                   className="text-gray-300 lg:hidden hover:bg-teal-900/20 group-hover/nav:text-teal-400"

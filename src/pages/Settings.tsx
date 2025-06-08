@@ -1005,20 +1005,35 @@ export const Settings: React.FC = () => {
         // eslint-disable-next-line
     }, [state.user]);
 
-    const [preferences, setPreferences] = useState({
-        workDuration: 25,
-        shortBreakDuration: 5,
-        longBreakDuration: 15,
-        sessionsUntilLongBreak: 4,
-        autoStartBreaks: false,
-        autoStartWork: false,
-        soundEnabled: true,
-        ambientVolume: 60,
-        focusMusic: 'nature',
-        weekStartsOn: 'monday',
-        timeFormat: '24h',
-        dateFormat: 'MM/DD/YYYY',
-    });
+    const LOCAL_STORAGE_PREFS_KEY = 'focus-ritual-preferences';
+    const getInitialPreferences = () => {
+        const saved = localStorage.getItem(LOCAL_STORAGE_PREFS_KEY);
+        if (saved) {
+            try {
+                return JSON.parse(saved);
+            } catch {
+                // fallback to defaults
+            }
+        }
+        return {
+            workDuration: 25,
+            shortBreakDuration: 5,
+            longBreakDuration: 15,
+            sessionsUntilLongBreak: 4,
+            autoStartBreaks: false,
+            autoStartWork: false,
+            soundEnabled: true,
+            ambientVolume: 60,
+            focusMusic: 'nature',
+            weekStartsOn: 'monday',
+            timeFormat: '24h',
+            dateFormat: 'MM/DD/YYYY',
+        };
+    };
+    const [preferences, setPreferences] = useState<Preferences>(getInitialPreferences);
+    useEffect(() => {
+        localStorage.setItem(LOCAL_STORAGE_PREFS_KEY, JSON.stringify(preferences));
+    }, [preferences]);
 
     const [notifications, setNotifications] = useState({
         pushEnabled: true,
