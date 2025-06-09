@@ -4,8 +4,9 @@ import {
     Settings as SettingsIcon, User, Bell, Palette, Shield,
     Download, Upload, Trash2, Save, Eye, EyeOff,
     Smartphone, Monitor, Volume2, Moon, Sun, Zap,
-    Globe, Lock, Key, Database, HelpCircle
+    Globe, Lock, Key, Database, HelpCircle, Loader
 } from 'lucide-react';
+import axios from 'axios';
 import { useApp } from '../contexts/AppContext';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
@@ -17,7 +18,8 @@ type SettingsTab = 'profile' | 'preferences' | 'notifications' | 'appearance' | 
 
 // Types for component props
 interface ProfileData {
-    name: string;
+    firstName: string;
+    lastName: string;
     email: string;
     bio: string;
     timezone: string;
@@ -30,30 +32,101 @@ interface ProfileSettingsProps {
     setProfileData: React.Dispatch<React.SetStateAction<ProfileData>>;
     handleSaveProfile: () => void;
     setShowPasswordModal: React.Dispatch<React.SetStateAction<boolean>>;
+    isLoading: boolean;
 }
 
 const LOCAL_STORAGE_KEY = 'focus-ritual-profile';
+
+// Utility function to get browser timezone
+const getBrowserTimezone = (): string => {
+    try {
+        // Get timezone offset in minutes
+        const offset = new Date().getTimezoneOffset();
+        // Convert to hours (UTC+ or UTC-)
+        const offsetHours = Math.abs(Math.floor(offset / 60));
+        const sign = offset < 0 ? '+' : '-';
+        return `UTC${sign}${offsetHours}`;
+    } catch (error) {
+        console.error('Error detecting timezone:', error);
+        return 'UTC+0';
+    }
+};
+
+// Utility function to get browser language
+const getBrowserLanguage = (): string => {
+    try {
+        const fullLocale = navigator.language || 'en';
+        return fullLocale.split('-')[0]; // Extract the language code (e.g., 'en' from 'en-US')
+    } catch (error) {
+        console.error('Error detecting language:', error);
+        return 'en';
+    }
+};
+
+// Helper function to adapt between API user format and AppContext user format
+const adaptUserData = (userData: any, existingUser: any = null) => {
+    // Create a new object with all existing user properties
+    const adaptedUser = { ...existingUser };
+    
+    // Set name property using firstName and lastName
+    if (userData.firstName || userData.lastName) {
+        adaptedUser.name = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+    }
+    
+    // Copy common properties
+    if (userData.email) adaptedUser.email = userData.email;
+    if (userData.avatar) adaptedUser.avatar = userData.avatar;
+    
+    return adaptedUser;
+};
 
 const getInitialProfileData = (stateUser: any): ProfileData => {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (saved) {
         try {
-            return JSON.parse(saved);
+            const parsed = JSON.parse(saved);
+            // Basic check for backward compatibility
+            if (parsed.name && !parsed.firstName) {
+                const [firstName, ...lastName] = parsed.name.split(' ');
+                return {
+                    ...parsed,
+                    firstName: firstName || '',
+                    lastName: lastName.join(' ') || '',
+                };
+            }
+            return parsed;
         } catch {
             // fallback to defaults
         }
     }
+
+    // If we have a user in state but it uses the 'name' format instead of firstName/lastName
+    let firstName = '';
+    let lastName = '';
+    
+    if (stateUser) {
+        if (stateUser.firstName) {
+            firstName = stateUser.firstName;
+            lastName = stateUser.lastName || '';
+        } else if (stateUser.name) {
+            const nameParts = stateUser.name.split(' ');
+            firstName = nameParts[0] || '';
+            lastName = nameParts.slice(1).join(' ') || '';
+        }
+    }
+
     return {
-        name: stateUser?.name || 'Focus Master',
+        firstName: firstName || '',
+        lastName: lastName || '',
         email: stateUser?.email || 'focus@ritual.com',
         bio: '',
-        timezone: 'UTC-8',
-        language: 'en',
+        timezone: getBrowserTimezone(),
+        language: getBrowserLanguage(),
         avatar: stateUser?.avatar || '',
     };
 };
 
-const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profileData, setProfileData, handleSaveProfile, setShowPasswordModal }) => {
+const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profileData, setProfileData, handleSaveProfile, setShowPasswordModal, isLoading }) => {
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -70,123 +143,171 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profileData, setProfi
     };
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-6">
-                <Avatar className="w-24 h-24 border-2 border-border shadow-md bg-transparent">
-                    {profileData.avatar ? (
-                        <img
-                            src={profileData.avatar}
-                            alt="Avatar"
-                            className="w-full h-full object-cover rounded-full"
+            {isLoading ? (
+                <div className="flex flex-col items-center justify-center h-60">
+                    <Loader className="w-8 h-8 text-primary-500 animate-spin mb-4" />
+                    <p className="text-white/70">Loading your profile information...</p>
+                </div>
+            ) : (
+                <>
+                    <div className="flex items-center gap-6">
+                        <Avatar className="w-24 h-24 border-2 border-border shadow-md bg-transparent">
+                            {profileData.avatar ? (
+                                <img
+                                    src={profileData.avatar}
+                                    alt="Avatar"
+                                    className="w-full h-full object-cover rounded-full"
+                                />
+                            ) : (
+                                <AvatarFallback className="text-3xl">
+                                    {profileData.firstName?.trim().charAt(0).toUpperCase()}
+                                </AvatarFallback>
+                            )}
+                        </Avatar>
+                        <div className="flex flex-row gap-2 items-center">
+                            <Button variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}>Change Avatar</Button>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                ref={fileInputRef}
+                                className="hidden"
+                                onChange={handleAvatarChange}
+                            />
+                            <Button variant="danger" size="sm" onClick={handleRemoveAvatar}>Remove</Button>
+                        </div>
+                    </div>
+                    <p className="text-white/60 text-sm mt-2">JPG, PNG or GIF. Max size 2MB.</p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-white/60 text-sm mb-2">First Name</label>
+                            <input
+                                type="text"
+                                value={profileData.firstName}
+                                onChange={e => setProfileData(prev => ({ ...prev, firstName: e.target.value }))}
+                                className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
+                                style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-white/60 text-sm mb-2">Last Name</label>
+                            <input
+                                type="text"
+                                value={profileData.lastName}
+                                onChange={e => setProfileData(prev => ({ ...prev, lastName: e.target.value }))}
+                                className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
+                                style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4">
+                        <div>
+                            <label className="block text-white/60 text-sm mb-2">Email</label>
+                            <input
+                                type="email"
+                                value={profileData.email}
+                                onChange={e => setProfileData(prev => ({ ...prev, email: e.target.value }))}
+                                className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
+                                style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-white/60 text-sm mb-2">Bio</label>
+                        <textarea
+                            value={profileData.bio}
+                            onChange={e => setProfileData(prev => ({ ...prev, bio: e.target.value }))}
+                            placeholder="Tell us about yourself..."
+                            className="w-full h-20 resize-none rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-2"
+                            style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
                         />
-                    ) : (
-                        <AvatarFallback className="text-3xl">
-                            {profileData.name.trim().charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                    )}
-                </Avatar>
-                <div className="flex flex-row gap-2 items-center">
-                    <Button variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}>Change Avatar</Button>
-                    <input
-                        type="file"
-                        accept="image/*"
-                        ref={fileInputRef}
-                        className="hidden"
-                        onChange={handleAvatarChange}
-                    />
-                    <Button variant="danger" size="sm" onClick={handleRemoveAvatar}>Remove</Button>
-                </div>
-            </div>
-            <p className="text-white/60 text-sm mt-2">JPG, PNG or GIF. Max size 2MB.</p>
+                    </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-white/60 text-sm mb-2">Full Name</label>
-                    <input
-                        type="text"
-                        value={profileData.name}
-                        onChange={e => setProfileData(prev => ({ ...prev, name: e.target.value }))}
-
-                        className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
-                        style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
-                    />
-                </div>
-                <div>
-                    <label className="block text-white/60 text-sm mb-2">Email</label>
-                    <input
-                        type="email"
-                        value={profileData.email}
-                        onChange={e => setProfileData(prev => ({ ...prev, email: e.target.value }))}
-
-                        className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
-                        style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
-                    />
-                </div>
-            </div>
-
-            <div>
-                <label className="block text-white/60 text-sm mb-2">Bio</label>
-                <textarea
-                    value={profileData.bio}
-                    onChange={e => setProfileData(prev => ({ ...prev, bio: e.target.value }))}
-                    placeholder="Tell us about yourself..."
-                    className="w-full h-20 resize-none rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-2"
-                    style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
-                />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-white/60 text-sm mb-2">Timezone</label>
-                    <div className="relative w-full">
-                        <select
-                            value={profileData.timezone}
-                            onChange={e => setProfileData(prev => ({ ...prev, timezone: e.target.value }))}
-                            className="w-full h-9 rounded-md border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1 pr-8 appearance-none"
-                            style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
-                        >
-                            <option value="UTC-8">Pacific Time (UTC-8)</option>
-                            <option value="UTC-5">Eastern Time (UTC-5)</option>
-                            <option value="UTC+0">UTC</option>
-                            <option value="UTC+1">Central European Time (UTC+1)</option>
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
-                            <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                <path d="M19 9l-7 7-7-7" />
-                            </svg>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-white/60 text-sm mb-2">Timezone (Auto-detected)</label>
+                            <div className="relative w-full">
+                                <select
+                                    value={profileData.timezone}
+                                    onChange={e => setProfileData(prev => ({ ...prev, timezone: e.target.value }))}
+                                    className="w-full h-9 rounded-md border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1 pr-8 appearance-none"
+                                    style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                                >
+                                    <option value="UTC-12">International Date Line West (UTC-12)</option>
+                                    <option value="UTC-11">Samoa Standard Time (UTC-11)</option>
+                                    <option value="UTC-10">Hawaii Standard Time (UTC-10)</option>
+                                    <option value="UTC-9">Alaska Standard Time (UTC-9)</option>
+                                    <option value="UTC-8">Pacific Time (UTC-8)</option>
+                                    <option value="UTC-7">Mountain Time (UTC-7)</option>
+                                    <option value="UTC-6">Central Time (UTC-6)</option>
+                                    <option value="UTC-5">Eastern Time (UTC-5)</option>
+                                    <option value="UTC-4">Atlantic Time (UTC-4)</option>
+                                    <option value="UTC-3">Brasilia Time (UTC-3)</option>
+                                    <option value="UTC-2">Mid-Atlantic (UTC-2)</option>
+                                    <option value="UTC-1">Azores Time (UTC-1)</option>
+                                    <option value="UTC+0">UTC</option>
+                                    <option value="UTC+1">Central European Time (UTC+1)</option>
+                                    <option value="UTC+2">Eastern European Time (UTC+2)</option>
+                                    <option value="UTC+3">Moscow Time (UTC+3)</option>
+                                    <option value="UTC+4">Dubai Time (UTC+4)</option>
+                                    <option value="UTC+5">Pakistan Time (UTC+5)</option>
+                                    <option value="UTC+6">Bangladesh Time (UTC+6)</option>
+                                    <option value="UTC+7">Indonesia Time (UTC+7)</option>
+                                    <option value="UTC+8">China Time (UTC+8)</option>
+                                    <option value="UTC+9">Japan Time (UTC+9)</option>
+                                    <option value="UTC+10">Australia Eastern Time (UTC+10)</option>
+                                    <option value="UTC+11">Solomon Islands Time (UTC+11)</option>
+                                    <option value="UTC+12">New Zealand Time (UTC+12)</option>
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                                    <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                        <path d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-white/60 text-sm mb-2">Language (Auto-detected)</label>
+                            <div className="relative w-full">
+                                <select
+                                    value={profileData.language}
+                                    onChange={e => setProfileData(prev => ({ ...prev, language: e.target.value }))}
+                                    className="w-full h-9 rounded-md border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1 pr-8 appearance-none"
+                                    style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                                >
+                                    <option value="en">English</option>
+                                    <option value="es">Spanish</option>
+                                    <option value="fr">French</option>
+                                    <option value="de">German</option>
+                                    <option value="it">Italian</option>
+                                    <option value="pt">Portuguese</option>
+                                    <option value="ru">Russian</option>
+                                    <option value="zh">Chinese</option>
+                                    <option value="ja">Japanese</option>
+                                    <option value="ko">Korean</option>
+                                    <option value="ar">Arabic</option>
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                                    <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                        <path d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div>
-                    <label className="block text-white/60 text-sm mb-2">Language</label>
-                    <div className="relative w-full">
-                        <select
-                            value={profileData.language}
-                            onChange={e => setProfileData(prev => ({ ...prev, language: e.target.value }))}
-                            className="w-full h-9 rounded-md border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1 pr-8 appearance-none"
-                            style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
-                        >
-                            <option value="en">English</option>
-                            <option value="es">Spanish</option>
-                            <option value="fr">French</option>
-                            <option value="de">German</option>
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
-                            <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                <path d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-            <div className="flex gap-3">
-                <Button variant="primary" onClick={handleSaveProfile}>
-                    Save Changes
-                </Button>
-                <Button variant="secondary" onClick={() => setShowPasswordModal(true)}>
-                    Change Password
-                </Button>
-            </div>
+                    <div className="flex gap-3">
+                        <Button variant="primary" onClick={handleSaveProfile}>
+                            Save Changes
+                        </Button>
+                        <Button variant="secondary" onClick={() => setShowPasswordModal(true)}>
+                            Change Password
+                        </Button>
+                    </div>
+                </>
+            )}
         </div>
     );
 };
@@ -988,6 +1109,8 @@ export const Settings: React.FC = () => {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showExportModal, setShowExportModal] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const [profileData, setProfileData] = useState<ProfileData>(() => getInitialProfileData(state.user));
 
@@ -1000,10 +1123,10 @@ export const Settings: React.FC = () => {
     }, [location.search]);
 
     useEffect(() => {
-        // If user logs out or changes, reset to their info or defaults
-        setProfileData(getInitialProfileData(state.user));
+        // Fetch user data from backend API when the component mounts
+        fetchUserData();
         // eslint-disable-next-line
-    }, [state.user]);
+    }, []);
 
     const LOCAL_STORAGE_PREFS_KEY = 'focus-ritual-preferences';
     const getInitialPreferences = () => {
@@ -1073,42 +1196,128 @@ export const Settings: React.FC = () => {
         crashReports: true,
     });
 
-    const tabs = [
-        { id: 'profile', label: 'Profile', icon: User },
-        { id: 'preferences', label: 'Preferences', icon: SettingsIcon },
-        { id: 'notifications', label: 'Notifications', icon: Bell },
-        { id: 'appearance', label: 'Appearance', icon: Palette },
-        { id: 'privacy', label: 'Privacy', icon: Shield },
-        { id: 'data', label: 'Data', icon: Database },
-        { id: 'about', label: 'About', icon: HelpCircle },
-    ];
+    const fetchUserData = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            // Updating the endpoint with the correct path
+            const response = await axios.get('auth/me', {
+                withCredentials: true, // This ensures cookies are sent with the request
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                }
+            });
+            const userData = response.data;
+            
+            // Update profile data with fetched user data
+            setProfileData({
+                firstName: userData.firstName || '',
+                lastName: userData.lastName || '',
+                email: userData.email || '',
+                bio: userData.bio || '',
+                // Use browser detected timezone and language if not provided by API
+                timezone: userData.timezone || getBrowserTimezone(),
+                language: userData.language || getBrowserLanguage(),
+                avatar: userData.avatar || null
+            });
+            
+            // Also update the global state if needed
+            if (state.user) {
+                dispatch({
+                    type: 'SET_USER',
+                    payload: adaptUserData(userData, state.user)
+                });
+            }
+        } catch (err) {
+            console.error('Error fetching user data:', err);
+            setError('Failed to load user data. Please try again later.');
+            
+            // Fallback to local storage or state
+            setProfileData(getInitialProfileData(state.user));
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
-    const handleSaveProfile = () => {
-        if (!state.user) return;
-        // Save to localStorage
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(profileData));
-        dispatch({
-            type: 'SET_USER',
-            payload: {
-                ...state.user,
-                id: state.user?.id || 'user-1',
-                name: state.user?.name || 'Focus Master',
-                email: state.user?.email || 'focus@ritual.com',
-                avatar: state.user?.avatar || '',
-                level: state.user?.level || 1,
-                xp: state.user?.xp || 0,
-                totalFocusTime: state.user?.totalFocusTime || 0,
-                streak: state.user?.streak || 0,
-                joinDate: state.user?.joinDate || new Date('2024-01-01'),
-                preferences: {
-                    ...state.user?.preferences,
-                    ...preferences,
-                    theme: state.user?.preferences.theme || 'dark',
-                    notificationsEnabled: state.user?.preferences.notificationsEnabled ?? true,
-                },
-            },
-        });
-        // Optionally show a success message or feedback
+    const handleSaveProfile = async () => {
+        setIsLoading(true);
+        setError(null);
+        
+        try {
+            // We'll make separate API calls for each field that needs updating
+            const updatePromises = [];
+            
+            // Update name (first name and last name)
+            updatePromises.push(
+                axios.put('update/name', {
+                    firstName: profileData.firstName,
+                    lastName: profileData.lastName,
+                }, {
+                    withCredentials: true,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    }
+                })
+            );
+            
+            // Update bio
+            updatePromises.push(
+                axios.put('update/bio', {
+                    bio: profileData.bio,
+                }, {
+                    withCredentials: true,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    }
+                })
+            );
+            
+            // Update profile picture if it has changed
+            if (profileData.avatar) {
+                updatePromises.push(
+                    axios.put('update/pfp', {
+                        avatar: profileData.avatar,
+                    }, {
+                        withCredentials: true,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                        }
+                    })
+                );
+            }
+            
+            // Wait for all update requests to complete
+            await Promise.all(updatePromises);
+            
+            // Save to localStorage as backup
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(profileData));
+            
+            // Update global state
+            if (state.user) {
+                dispatch({
+                    type: 'SET_USER',
+                    payload: adaptUserData({
+                        firstName: profileData.firstName,
+                        lastName: profileData.lastName,
+                        email: profileData.email,
+                        avatar: profileData.avatar || '',
+                    }, state.user)
+                });
+            }
+            
+            // Show success message
+            alert('Profile updated successfully!');
+        } catch (err) {
+            console.error('Error saving profile:', err);
+            setError('Failed to save profile. Please try again.');
+            alert('Error saving profile. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleExportData = () => {
@@ -1124,32 +1333,36 @@ export const Settings: React.FC = () => {
     };
 
     const handlePreferenceChange = (key: keyof Preferences, value: any) => {
-        setPreferences(prev => {
-            const updated = { ...prev, [key]: value };
-            dispatch({
-                type: 'SET_USER',
-                payload: {
-                    ...state.user,
-                    id: state.user?.id || 'user-1',
-                    name: state.user?.name || 'Focus Master',
-                    email: state.user?.email || 'focus@ritual.com',
-                    avatar: state.user?.avatar || '',
-                    level: state.user?.level || 1,
-                    xp: state.user?.xp || 0,
-                    totalFocusTime: state.user?.totalFocusTime || 0,
-                    streak: state.user?.streak || 0,
-                    joinDate: state.user?.joinDate || new Date('2024-01-01'),
-                    preferences: {
-                        ...state.user?.preferences,
-                        ...updated,
-                        theme: state.user?.preferences.theme || 'dark',
-                        notificationsEnabled: state.user?.preferences.notificationsEnabled ?? true,
-                    },
-                },
-            });
+        setPreferences((prevPreferences: any) => {
+            const updated = { ...prevPreferences, [key]: value };
+            
+            // Update user preferences in global state if needed
+            if (state.user && state.user.preferences) {
+                dispatch({
+                    type: 'SET_USER',
+                    payload: {
+                        ...state.user,
+                        preferences: {
+                            ...state.user.preferences,
+                            [key]: value
+                        }
+                    }
+                });
+            }
+            
             return updated;
         });
     };
+
+    const tabs = [
+        { id: 'profile', label: 'Profile', icon: User },
+        { id: 'preferences', label: 'Preferences', icon: SettingsIcon },
+        { id: 'notifications', label: 'Notifications', icon: Bell },
+        { id: 'appearance', label: 'Appearance', icon: Palette },
+        { id: 'privacy', label: 'Privacy', icon: Shield },
+        { id: 'data', label: 'Data', icon: Database },
+        { id: 'about', label: 'About', icon: HelpCircle },
+    ];
 
     const renderTabContent = () => {
         switch (activeTab) {
@@ -1158,6 +1371,7 @@ export const Settings: React.FC = () => {
                 setProfileData={setProfileData}
                 handleSaveProfile={handleSaveProfile}
                 setShowPasswordModal={setShowPasswordModal}
+                isLoading={isLoading}
             />;
             case 'preferences': return <PreferencesSettings preferences={preferences} setPreferences={setPreferences} />;
             case 'notifications': return <NotificationSettings notifications={notifications} setNotifications={setNotifications} />;
@@ -1170,6 +1384,7 @@ export const Settings: React.FC = () => {
                 setProfileData={setProfileData}
                 handleSaveProfile={handleSaveProfile}
                 setShowPasswordModal={setShowPasswordModal}
+                isLoading={isLoading}
             />;
         }
     };
@@ -1189,6 +1404,12 @@ export const Settings: React.FC = () => {
                     </p>
                 </div>
             </motion.div>
+
+            {error && (
+                <div className="bg-red-500/20 border border-red-500/50 text-white p-3 rounded-md">
+                    {error}
+                </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 {/* Sidebar */}
