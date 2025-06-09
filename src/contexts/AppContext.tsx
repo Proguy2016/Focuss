@@ -122,16 +122,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
 
-      // Initialize mock user
-      const mockUser: User = {
+      // Clear local storage for a fresh start
+      localStorage.removeItem('habits');
+      localStorage.removeItem('tasks');
+      localStorage.removeItem('habitCompletions');
+      localStorage.removeItem('analytics');
+
+      // Initialize a new user
+      const newUser: User = {
         id: 'user-1',
-        name: 'Focus Master',
-        email: 'focus@ritual.com',
+        name: 'New User',
+        email: 'new@user.com',
         level: 1,
         xp: 0,
-        totalFocusTime: 15840, // minutes
-        streak: 7,
-        joinDate: new Date('2024-01-01'),
+        totalFocusTime: 0,
+        streak: 0,
+        joinDate: new Date(),
         preferences: {
           theme: 'dark',
           workDuration: 25,
@@ -140,18 +146,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           sessionsUntilLongBreak: 4,
           soundEnabled: true,
           notificationsEnabled: true,
-          focusMusic: 'nature',
-          ambientVolume: 60,
-        }
+          focusMusic: 'none',
+          ambientVolume: 50,
+        },
+        recentActivity: []
       };
 
-      // Load data
+      // Initialize with empty data for a new user
       const habits = await dataService.getHabits();
       const tasks = await dataService.getTasks();
       const habitCompletions = await dataService.getHabitCompletions();
       const analytics = await dataService.getAnalytics();
 
-      dispatch({ type: 'SET_USER', payload: mockUser });
+      dispatch({ type: 'SET_USER', payload: newUser });
       dispatch({ type: 'SET_HABITS', payload: habits });
       dispatch({ type: 'SET_TASKS', payload: tasks });
       dispatch({ type: 'SET_HABIT_COMPLETIONS', payload: habitCompletions });

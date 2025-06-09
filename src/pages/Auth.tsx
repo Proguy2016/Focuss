@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Github, Twitter } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
+import { useNavigate } from 'react-router-dom';
 
 // Input component
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
@@ -22,78 +24,221 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
 interface AuthFormProps {
   onToggleView: () => void;
   isLogin: boolean;
-  onLogin: () => void;
 }
 
-const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin, onLogin }) => {
+const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
+  const { login, register, loading, error, clearError } = useAuth();
+  const navigate = useNavigate();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const handleSubmit = (event: React.FormEvent) => {
+  // Clear form error when switching views
+  useEffect(() => {
+    setFormError(null);
+    clearError();
+  }, [isLogin, clearError]);
+
+  // Update form error when auth error changes
+  useEffect(() => {
+    if (error) {
+      setFormError(error);
+    }
+  }, [error]);
+
+  const validateForm = () => {
+    if (isLogin) {
+      if (!email) return "Email is required";
+      if (!password) return "Password is required";
+    } else {
+      if (!firstName) return "First name is required";
+      if (!lastName) return "Last name is required";
+      if (!email) return "Email is required";
+      if (!password) return "Password is required";
+      if (password.length < 6) return "Password must be at least 6 characters";
+    }
+    return null;
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      onLogin();
-    }, 1000);
+    console.log("Form submitted!");
+
+    // Clear previous errors
+    setFormError(null);
+    clearError();
+
+    // Validate form
+    const validationError = validateForm();
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
+
+    try {
+      if (isLogin) {
+        console.log("Direct login with:", email, password);
+        await login(email, password);
+      } else {
+        console.log("Direct registration with:", firstName, lastName, email, password);
+        await register(firstName, lastName, email, password);
+      }
+      // Navigate to dashboard on success
+      navigate('/dashboard');
+    } catch (err) {
+      // Error handling is done in useEffect when error state changes
+      console.error('Authentication error:', err);
+    }
+  };
+
+  const handleFormClick = () => {
+    console.log('Form clicked');
+  };
+
+  const handleSignInButtonClick = (e: React.MouseEvent) => {
+    console.log('Sign in/up button clicked');
+    e.preventDefault();
+
+    // Clear previous errors
+    setFormError(null);
+    clearError();
+
+    // Validate form
+    const validationError = validateForm();
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
+
+    // Execute the appropriate authentication action
+    if (isLogin) {
+      console.log("Direct login with:", email, password);
+      login(email, password)
+        .then(() => {
+          navigate('/dashboard');
+        })
+        .catch((err) => {
+          console.error('Login error:', err);
+        });
+    } else {
+      console.log("Direct registration with:", firstName, lastName, email, password);
+      register(firstName, lastName, email, password)
+        .then(() => {
+          navigate('/dashboard');
+        })
+        .catch((err) => {
+          console.error('Registration error:', err);
+        });
+    }
+  };
+
+  const handleSocialLogin = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setFormError("Social login is not implemented yet");
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} onClick={handleFormClick} className="space-y-4">
+      {formError && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          className="bg-red-500/20 border border-red-500/30 text-white text-xs p-2 rounded-md"
+        >
+          {formError}
+        </motion.div>
+      )}
+
       <motion.div className="space-y-3">
         {!isLogin && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-            className={`relative ${focusedInput === "name" ? 'z-10' : ''}`}
-          >
-            <div className="relative flex items-center overflow-hidden rounded-lg">
-              <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${
-                focusedInput === "name" ? 'text-white' : 'text-white/40'
-              }`} />
-              
-              <Input
-                type="text"
-                placeholder="Full Name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onFocus={() => setFocusedInput("name")}
-                onBlur={() => setFocusedInput(null)}
-                className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-3 focus:bg-white/10"
-              />
-              
-              {focusedInput === "name" && (
-                <motion.div 
-                  layoutId="input-highlight"
-                  className="absolute inset-0 bg-white/5 -z-10"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
+          <>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className={`relative ${focusedInput === "firstName" ? 'z-10' : ''}`}
+            >
+              <div className="relative flex items-center overflow-hidden rounded-lg">
+                <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "firstName" ? 'text-white' : 'text-white/40'
+                  }`} />
+
+                <Input
+                  type="text"
+                  placeholder="First Name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  onFocus={() => setFocusedInput("firstName")}
+                  onBlur={() => setFocusedInput(null)}
+                  className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-3 focus:bg-white/10"
                 />
-              )}
-            </div>
-          </motion.div>
+
+                {focusedInput === "firstName" && (
+                  <motion.div
+                    layoutId="input-highlight"
+                    className="absolute inset-0 bg-white/5 -z-10"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  />
+                )}
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+              className={`relative ${focusedInput === "lastName" ? 'z-10' : ''}`}
+            >
+              <div className="relative flex items-center overflow-hidden rounded-lg">
+                <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "lastName" ? 'text-white' : 'text-white/40'
+                  }`} />
+
+                <Input
+                  type="text"
+                  placeholder="Last Name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  onFocus={() => setFocusedInput("lastName")}
+                  onBlur={() => setFocusedInput(null)}
+                  className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-3 focus:bg-white/10"
+                />
+
+                {focusedInput === "lastName" && (
+                  <motion.div
+                    layoutId="input-highlight"
+                    className="absolute inset-0 bg-white/5 -z-10"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  />
+                )}
+              </div>
+            </motion.div>
+          </>
         )}
 
-        <motion.div 
+        <motion.div
           className={`relative ${focusedInput === "email" ? 'z-10' : ''}`}
           whileFocus={{ scale: 1.02 }}
           whileHover={{ scale: 1.01 }}
           transition={{ type: "spring", stiffness: 400, damping: 25 }}
         >
           <div className="relative flex items-center overflow-hidden rounded-lg">
-            <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${
-              focusedInput === "email" ? 'text-white' : 'text-white/40'
-            }`} />
-            
+            <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "email" ? 'text-white' : 'text-white/40'
+              }`} />
+
             <Input
               type="email"
               placeholder="Email address"
@@ -103,9 +248,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin, onLogin }) =
               onBlur={() => setFocusedInput(null)}
               className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-3 focus:bg-white/10"
             />
-            
+
             {focusedInput === "email" && (
-              <motion.div 
+              <motion.div
                 layoutId="input-highlight"
                 className="absolute inset-0 bg-white/5 -z-10"
                 initial={{ opacity: 0 }}
@@ -117,17 +262,16 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin, onLogin }) =
           </div>
         </motion.div>
 
-        <motion.div 
+        <motion.div
           className={`relative ${focusedInput === "password" ? 'z-10' : ''}`}
           whileFocus={{ scale: 1.02 }}
           whileHover={{ scale: 1.01 }}
           transition={{ type: "spring", stiffness: 400, damping: 25 }}
         >
           <div className="relative flex items-center overflow-hidden rounded-lg">
-            <Lock className={`absolute left-3 w-4 h-4 transition-all duration-300 ${
-              focusedInput === "password" ? 'text-white' : 'text-white/40'
-            }`} />
-            
+            <Lock className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "password" ? 'text-white' : 'text-white/40'
+              }`} />
+
             <Input
               type={showPassword ? "text" : "password"}
               placeholder="Password"
@@ -137,9 +281,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin, onLogin }) =
               onBlur={() => setFocusedInput(null)}
               className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-10 focus:bg-white/10"
             />
-            
-            <div 
-              onClick={() => setShowPassword(!showPassword)} 
+
+            <div
+              onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 cursor-pointer"
             >
               {showPassword ? (
@@ -148,9 +292,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin, onLogin }) =
                 <EyeOff className="w-4 h-4 text-white/40 hover:text-white transition-colors duration-300" />
               )}
             </div>
-            
+
             {focusedInput === "password" && (
-              <motion.div 
+              <motion.div
                 layoutId="input-highlight"
                 className="absolute inset-0 bg-white/5 -z-10"
                 initial={{ opacity: 0 }}
@@ -175,7 +319,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin, onLogin }) =
               className="appearance-none h-4 w-4 rounded border border-white/20 bg-white/5 checked:bg-white checked:border-white focus:outline-none focus:ring-1 focus:ring-white/30 transition-all duration-200"
             />
             {rememberMe && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, scale: 0.5 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="absolute inset-0 flex items-center justify-center text-black pointer-events-none"
@@ -190,7 +334,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin, onLogin }) =
             Remember me
           </label>
         </div>
-        
+
         {isLogin && (
           <div className="text-xs relative group/link">
             <a href="#" className="text-white/60 hover:text-white transition-colors duration-200">
@@ -200,20 +344,21 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin, onLogin }) =
         )}
       </div>
 
+      {/* Standalone button instead of submit button */}
       <Button
         variant="primary"
         fullWidth
-        className="mt-5 h-10"
-        icon={isLoading ? undefined : ArrowRight}
-        loading={isLoading}
-        type="submit"
+        className="mt-5 h-10 cursor-pointer"
+        icon={loading ? undefined : ArrowRight}
+        loading={loading}
+        onClick={handleSignInButtonClick}
       >
         {isLogin ? "Sign In" : "Sign Up"}
       </Button>
 
       <div className="relative mt-2 mb-5 flex items-center">
         <div className="flex-grow border-t border-white/5"></div>
-        <motion.span 
+        <motion.span
           className="mx-3 text-xs text-white/40"
           initial={{ opacity: 0.7 }}
           animate={{ opacity: [0.7, 0.9, 0.7] }}
@@ -229,7 +374,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin, onLogin }) =
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           type="button"
-          onClick={onLogin}
+          onClick={handleSocialLogin}
           className="relative group/social"
         >
           <div className="absolute inset-0 bg-white/5 rounded-full blur opacity-0 group-hover/social:opacity-70 transition-opacity duration-300" />
@@ -242,7 +387,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin, onLogin }) =
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           type="button"
-          onClick={onLogin}
+          onClick={handleSocialLogin}
           className="relative group/social"
         >
           <div className="absolute inset-0 bg-white/5 rounded-full blur opacity-0 group-hover/social:opacity-70 transition-opacity duration-300" />
@@ -255,7 +400,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin, onLogin }) =
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           type="button"
-          onClick={onLogin}
+          onClick={handleSocialLogin}
           className="relative group/social"
         >
           <div className="absolute inset-0 bg-white/5 rounded-full blur opacity-0 group-hover/social:opacity-70 transition-opacity duration-300" />
@@ -265,14 +410,14 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin, onLogin }) =
         </motion.button>
       </div>
 
-      <motion.p 
+      <motion.p
         className="text-center text-xs text-white/60 mt-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5 }}
       >
         {isLogin ? "Don't have an account?" : "Already have an account?"}{' '}
-        <button 
+        <button
           type="button"
           onClick={onToggleView}
           className="relative inline-block group/signup"
@@ -290,10 +435,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin, onLogin }) =
 interface AuthCardProps {
   isLogin: boolean;
   onToggleView: () => void;
-  onLogin: () => void;
 }
 
-const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView, onLogin }) => {
+const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView }) => {
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
   const rotateX = useTransform(mouseY, [-300, 300], [10, -10]);
@@ -315,7 +459,7 @@ const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView, onLogin }) =
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8 }}
-      className="w-full max-w-sm relative z-10"
+      className="w-full max-w-md relative z-10 pointer-events-auto"
       style={{ perspective: 1500 }}
     >
       <motion.div
@@ -326,8 +470,8 @@ const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView, onLogin }) =
         whileHover={{ z: 10 }}
       >
         <div className="relative group">
-          <motion.div 
-            className="absolute -inset-[1px] rounded-2xl opacity-0 group-hover:opacity-70 transition-opacity duration-700"
+          <motion.div
+            className="absolute -inset-[1px] rounded-2xl opacity-0 group-hover:opacity-70 transition-opacity duration-700 pointer-events-none"
             animate={{
               boxShadow: [
                 "0 0 10px 2px rgba(255,255,255,0.03)",
@@ -336,27 +480,27 @@ const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView, onLogin }) =
               ],
               opacity: [0.2, 0.4, 0.2]
             }}
-            transition={{ 
-              duration: 4, 
-              repeat: Infinity, 
-              ease: "easeInOut", 
-              repeatType: "mirror" 
+            transition={{
+              duration: 4,
+              repeat: Infinity,
+              ease: "easeInOut",
+              repeatType: "mirror"
             }}
           />
 
-          <div className="absolute -inset-[1px] rounded-2xl overflow-hidden">
-            <motion.div 
+          <div className="absolute -inset-[1px] rounded-2xl overflow-hidden pointer-events-none">
+            <motion.div
               className="absolute top-0 left-0 h-[3px] w-[50%] bg-gradient-to-r from-transparent via-white to-transparent opacity-70"
               initial={{ filter: "blur(2px)" }}
-              animate={{ 
+              animate={{
                 left: ["-50%", "100%"],
                 opacity: [0.3, 0.7, 0.3],
                 filter: ["blur(1px)", "blur(2.5px)", "blur(1px)"]
               }}
-              transition={{ 
+              transition={{
                 left: {
-                  duration: 2.5, 
-                  ease: "easeInOut", 
+                  duration: 2.5,
+                  ease: "easeInOut",
                   repeat: Infinity,
                   repeatDelay: 1
                 },
@@ -372,19 +516,19 @@ const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView, onLogin }) =
                 }
               }}
             />
-            
-            <motion.div 
+
+            <motion.div
               className="absolute top-0 right-0 h-[50%] w-[3px] bg-gradient-to-b from-transparent via-white to-transparent opacity-70"
               initial={{ filter: "blur(2px)" }}
-              animate={{ 
+              animate={{
                 top: ["-50%", "100%"],
                 opacity: [0.3, 0.7, 0.3],
                 filter: ["blur(1px)", "blur(2.5px)", "blur(1px)"]
               }}
-              transition={{ 
+              transition={{
                 top: {
-                  duration: 2.5, 
-                  ease: "easeInOut", 
+                  duration: 2.5,
+                  ease: "easeInOut",
                   repeat: Infinity,
                   repeatDelay: 1,
                   delay: 0.6
@@ -403,19 +547,19 @@ const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView, onLogin }) =
                 }
               }}
             />
-            
-            <motion.div 
+
+            <motion.div
               className="absolute bottom-0 right-0 h-[3px] w-[50%] bg-gradient-to-r from-transparent via-white to-transparent opacity-70"
               initial={{ filter: "blur(2px)" }}
-              animate={{ 
+              animate={{
                 right: ["-50%", "100%"],
                 opacity: [0.3, 0.7, 0.3],
                 filter: ["blur(1px)", "blur(2.5px)", "blur(1px)"]
               }}
-              transition={{ 
+              transition={{
                 right: {
-                  duration: 2.5, 
-                  ease: "easeInOut", 
+                  duration: 2.5,
+                  ease: "easeInOut",
                   repeat: Infinity,
                   repeatDelay: 1,
                   delay: 1.2
@@ -434,19 +578,19 @@ const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView, onLogin }) =
                 }
               }}
             />
-            
-            <motion.div 
+
+            <motion.div
               className="absolute bottom-0 left-0 h-[50%] w-[3px] bg-gradient-to-b from-transparent via-white to-transparent opacity-70"
               initial={{ filter: "blur(2px)" }}
-              animate={{ 
+              animate={{
                 bottom: ["-50%", "100%"],
                 opacity: [0.3, 0.7, 0.3],
                 filter: ["blur(1px)", "blur(2.5px)", "blur(1px)"]
               }}
-              transition={{ 
+              transition={{
                 bottom: {
-                  duration: 2.5, 
-                  ease: "easeInOut", 
+                  duration: 2.5,
+                  ease: "easeInOut",
                   repeat: Infinity,
                   repeatDelay: 1,
                   delay: 1.8
@@ -465,49 +609,49 @@ const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView, onLogin }) =
                 }
               }}
             />
-            
-            <motion.div 
+
+            <motion.div
               className="absolute top-0 left-0 h-[5px] w-[5px] rounded-full bg-white/40 blur-[1px]"
-              animate={{ 
-                opacity: [0.2, 0.4, 0.2] 
+              animate={{
+                opacity: [0.2, 0.4, 0.2]
               }}
-              transition={{ 
-                duration: 2, 
+              transition={{
+                duration: 2,
                 repeat: Infinity,
                 repeatType: "mirror"
               }}
             />
-            <motion.div 
+            <motion.div
               className="absolute top-0 right-0 h-[8px] w-[8px] rounded-full bg-white/60 blur-[2px]"
-              animate={{ 
-                opacity: [0.2, 0.4, 0.2] 
+              animate={{
+                opacity: [0.2, 0.4, 0.2]
               }}
-              transition={{ 
-                duration: 2.4, 
+              transition={{
+                duration: 2.4,
                 repeat: Infinity,
                 repeatType: "mirror",
                 delay: 0.5
               }}
             />
-            <motion.div 
+            <motion.div
               className="absolute bottom-0 right-0 h-[8px] w-[8px] rounded-full bg-white/60 blur-[2px]"
-              animate={{ 
-                opacity: [0.2, 0.4, 0.2] 
+              animate={{
+                opacity: [0.2, 0.4, 0.2]
               }}
-              transition={{ 
-                duration: 2.2, 
+              transition={{
+                duration: 2.2,
                 repeat: Infinity,
                 repeatType: "mirror",
                 delay: 1
               }}
             />
-            <motion.div 
+            <motion.div
               className="absolute bottom-0 left-0 h-[5px] w-[5px] rounded-full bg-white/40 blur-[1px]"
-              animate={{ 
-                opacity: [0.2, 0.4, 0.2] 
+              animate={{
+                opacity: [0.2, 0.4, 0.2]
               }}
-              transition={{ 
-                duration: 2.3, 
+              transition={{
+                duration: 2.3,
                 repeat: Infinity,
                 repeatType: "mirror",
                 delay: 1.5
@@ -515,10 +659,10 @@ const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView, onLogin }) =
             />
           </div>
 
-          <div className="absolute -inset-[0.5px] rounded-2xl bg-gradient-to-r from-white/3 via-white/7 to-white/3 opacity-0 group-hover:opacity-70 transition-opacity duration-500" />
-          
+          <div className="absolute -inset-[0.5px] rounded-2xl bg-gradient-to-r from-white/3 via-white/7 to-white/3 opacity-0 group-hover:opacity-70 transition-opacity duration-500 pointer-events-none" />
+
           <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl p-6 border border-white/[0.05] shadow-2xl overflow-hidden">
-            <div className="absolute inset-0 opacity-[0.03]" 
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
               style={{
                 backgroundImage: `linear-gradient(135deg, white 0.5px, transparent 0.5px), linear-gradient(45deg, white 0.5px, transparent 0.5px)`,
                 backgroundSize: '30px 30px'
@@ -530,7 +674,7 @@ const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView, onLogin }) =
                 initial={{ scale: 0.5, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ type: "spring", duration: 0.8 }}
-                className="mx-auto w-10 h-10 rounded-full border border-white/10 flex items-center justify-center relative overflow-hidden"
+                className="mx-auto w-10 h-10 rounded-full border border-white/10 flex items-center justify-center relative overflow-hidden pointer-events-none"
               >
                 <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70">F</span>
                 <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-50" />
@@ -544,7 +688,7 @@ const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView, onLogin }) =
               >
                 {isLogin ? "Welcome Back" : "Create Account"}
               </motion.h1>
-              
+
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -555,7 +699,7 @@ const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView, onLogin }) =
               </motion.p>
             </div>
 
-            <AuthForm onToggleView={onToggleView} isLogin={isLogin} onLogin={onLogin} />
+            <AuthForm onToggleView={onToggleView} isLogin={isLogin} />
           </div>
         </div>
       </motion.div>
@@ -565,61 +709,56 @@ const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView, onLogin }) =
 
 interface AuthUIProps {
   initialView?: 'login' | 'signup';
-  onLogin: () => void;
 }
 
-export const AuthUI: React.FC<AuthUIProps> = ({ initialView = 'login', onLogin }) => {
+export const AuthUI: React.FC<AuthUIProps> = ({ initialView = 'login' }) => {
   const [view, setView] = useState<'login' | 'signup'>(initialView);
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
 
   const toggleView = () => {
     setView(view === 'login' ? 'signup' : 'login');
   };
 
-  // Add a keypress listener to log in with any key (temporary measure)
-  useEffect(() => {
-    const handleKeyPress = () => {
-      onLogin();
-    };
-    
-    window.addEventListener('keydown', handleKeyPress);
-    
-    return () => {
-      window.removeEventListener('keydown', handleKeyPress);
-    };
-  }, [onLogin]);
-
   return (
-    <div className="min-h-screen w-screen bg-black relative overflow-hidden flex items-center justify-center">
-      <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900" />
-      
-      <div className="absolute inset-0 opacity-[0.03] mix-blend-soft-light" 
+    <div className="min-h-screen w-screen bg-dark relative overflow-hidden flex items-center justify-center">
+      <div className="absolute inset-0 bg-gradient-to-br from-dark via-darker to-black" />
+
+      <div className="absolute inset-0 opacity-[0.03] mix-blend-soft-light"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
           backgroundSize: '200px 200px'
         }}
       />
 
-      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[120vh] h-[60vh] rounded-b-[50%] bg-purple-400/20 blur-[80px]" />
-      <motion.div 
-        className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[100vh] h-[60vh] rounded-b-full bg-purple-300/20 blur-[60px]"
-        animate={{ 
-          opacity: [0.15, 0.3, 0.15],
+      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[120vh] h-[60vh] rounded-b-[50%] bg-primary/10 blur-[80px]" />
+      <motion.div
+        className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[100vh] h-[60vh] rounded-b-full bg-secondary/10 blur-[60px]"
+        animate={{
+          opacity: [0.1, 0.2, 0.1],
           scale: [0.98, 1.02, 0.98]
         }}
-        transition={{ 
-          duration: 8, 
+        transition={{
+          duration: 8,
           repeat: Infinity,
           repeatType: "mirror"
         }}
       />
-      <motion.div 
-        className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[90vh] h-[90vh] rounded-t-full bg-purple-400/20 blur-[60px]"
-        animate={{ 
-          opacity: [0.3, 0.5, 0.3],
+      <motion.div
+        className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[90vh] h-[90vh] rounded-t-full bg-primary/10 blur-[60px]"
+        animate={{
+          opacity: [0.2, 0.3, 0.2],
           scale: [1, 1.1, 1]
         }}
-        transition={{ 
-          duration: 6, 
+        transition={{
+          duration: 6,
           repeat: Infinity,
           repeatType: "mirror",
           delay: 1
@@ -630,17 +769,16 @@ export const AuthUI: React.FC<AuthUIProps> = ({ initialView = 'login', onLogin }
       <div className="absolute right-1/4 bottom-1/4 w-96 h-96 bg-white/5 rounded-full blur-[100px] animate-pulse delay-1000 opacity-40" />
 
       <AnimatePresence mode="wait">
-        <AuthCard 
-          key={view} 
-          isLogin={view === 'login'} 
+        <AuthCard
+          key={view}
+          isLogin={view === 'login'}
           onToggleView={toggleView}
-          onLogin={onLogin} 
         />
       </AnimatePresence>
     </div>
   );
 };
 
-export default function Auth({ initialView = 'login', onLogin }: AuthUIProps) {
-  return <AuthUI initialView={initialView} onLogin={onLogin} />;
+export default function Auth({ initialView = 'login' }: AuthUIProps) {
+  return <AuthUI initialView={initialView} />;
 } 

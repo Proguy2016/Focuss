@@ -43,7 +43,7 @@ export class DataService {
   // Habits
   async getHabits(): Promise<Habit[]> {
     const data = this.getData();
-    return data.habits || this.getMockHabits();
+    return data.habits || [];
   }
 
   async createHabit(habit: Omit<Habit, 'id'>): Promise<Habit> {
@@ -83,7 +83,7 @@ export class DataService {
   // Habit Completions
   async getHabitCompletions(): Promise<HabitCompletion[]> {
     const data = this.getData();
-    return data.habitCompletions || this.getMockHabitCompletions();
+    return data.habitCompletions || [];
   }
 
   async saveHabitCompletion(completion: HabitCompletion): Promise<void> {
@@ -101,7 +101,7 @@ export class DataService {
   // Tasks
   async getTasks(): Promise<Task[]> {
     const data = this.getData();
-    return data.tasks || this.getMockTasks();
+    return data.tasks || [];
   }
 
   async createTask(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<Task> {
@@ -149,13 +149,39 @@ export class DataService {
   // Analytics
   async getAnalytics(): Promise<Analytics> {
     const data = this.getData();
-    return data.analytics || this.getMockAnalytics();
+    return data.analytics || {
+      overall: {
+        productivityScore: 0,
+        achievements: [],
+      },
+      focusSessions: {
+        totalSessions: 0,
+        totalFocusTime: 0,
+        averageSessionLength: 0,
+        completionRate: 0,
+        productivityTrends: [],
+        peakProductivity: {
+          time: '',
+          day: '',
+        },
+      },
+      tasks: {
+        totalTasks: 0,
+        completionRate: 0,
+        overdueTasks: 0,
+      },
+      habits: {
+        totalHabits: 0,
+        completionRate: 0,
+        streaks: [],
+      },
+    };
   }
 
   // Achievements
   async getAchievements(): Promise<Achievement[]> {
     const data = this.getData();
-    return data.achievements || this.getMockAchievements();
+    return data.achievements || [];
   }
 
   // Data persistence
@@ -179,292 +205,5 @@ export class DataService {
 
   private generateId(): string {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  // Mock data generators
-  private getMockHabits(): Habit[] {
-    return [
-      {
-        id: '1',
-        userId: 'user-1',
-        name: 'Morning Meditation',
-        description: 'Start the day with 10 minutes of mindfulness',
-        category: { id: '1', name: 'Wellness', color: '#10B981', icon: 'Heart' },
-        frequency: { type: 'daily' },
-        targetCount: 1,
-        currentStreak: 12,
-        bestStreak: 28,
-        totalCompletions: 156,
-        color: '#10B981',
-        icon: 'Heart',
-        priority: 'high',
-        createdAt: new Date('2024-01-01'),
-        reminders: [{ id: '1', time: '07:00', enabled: true, message: 'Time for morning meditation' }],
-      },
-      {
-        id: '2',
-        userId: 'user-1',
-        name: 'Read 30 Minutes',
-        description: 'Daily reading to expand knowledge',
-        category: { id: '2', name: 'Learning', color: '#3B82F6', icon: 'Book' },
-        frequency: { type: 'daily' },
-        targetCount: 1,
-        currentStreak: 8,
-        bestStreak: 21,
-        totalCompletions: 89,
-        color: '#3B82F6',
-        icon: 'Book',
-        priority: 'medium',
-        createdAt: new Date('2024-01-15'),
-        reminders: [{ id: '2', time: '20:00', enabled: true, message: 'Time for evening reading' }],
-      },
-      {
-        id: '3',
-        userId: 'user-1',
-        name: 'Exercise',
-        description: 'Physical activity for health and energy',
-        category: { id: '3', name: 'Fitness', color: '#F59E0B', icon: 'Zap' },
-        frequency: { type: 'daily' },
-        targetCount: 1,
-        currentStreak: 5,
-        bestStreak: 15,
-        totalCompletions: 67,
-        color: '#F59E0B',
-        icon: 'Zap',
-        priority: 'high',
-        createdAt: new Date('2024-02-01'),
-        reminders: [{ id: '3', time: '18:00', enabled: true, message: 'Time to exercise' }],
-      },
-    ];
-  }
-
-  private getMockHabitCompletions(): HabitCompletion[] {
-    return [
-      { id: '1', habitId: '1', date: new Date('2024-02-10'), count: 1 },
-      { id: '2', habitId: '1', date: new Date('2024-02-11'), count: 1 },
-      { id: '3', habitId: '2', date: new Date('2024-02-11'), count: 1 },
-    ];
-  }
-
-  private getMockTasks(): Task[] {
-    return [
-      {
-        id: '1',
-        userId: 'user-1',
-        title: 'Complete project proposal',
-        description: 'Finish the Q2 project proposal for client review',
-        priority: { level: 'high', color: '#EF4444' },
-        urgency: { level: 'high', color: '#EF4444' },
-        status: { type: 'inProgress', label: 'In Progress', color: '#3B82F6' },
-        category: 'Work',
-        tags: ['urgent', 'client'],
-        dueDate: new Date('2024-02-15'),
-        estimatedTime: 120,
-        actualTime: 80,
-        subtasks: [
-          { id: '1', title: 'Research requirements', completed: true },
-          { id: '2', title: 'Draft proposal outline', completed: true },
-          { id: '3', title: 'Write detailed proposal', completed: false },
-          { id: '4', title: 'Review and finalize', completed: false },
-        ],
-        dependencies: [],
-        createdAt: new Date('2024-02-01'),
-        updatedAt: new Date('2024-02-10'),
-      },
-      {
-        id: '2',
-        userId: 'user-1',
-        title: 'Update website content',
-        description: 'Refresh the about page and add new team member bios',
-        priority: { level: 'medium', color: '#F59E0B' },
-        urgency: { level: 'low', color: '#10B981' },
-        status: { type: 'todo', label: 'To Do', color: '#6B7280' },
-        category: 'Marketing',
-        tags: ['website', 'content'],
-        dueDate: new Date('2024-02-20'),
-        estimatedTime: 60,
-        subtasks: [
-          { id: '1', title: 'Gather team member info', completed: false },
-          { id: '2', title: 'Write new bios', completed: false },
-          { id: '3', title: 'Update about page', completed: false },
-        ],
-        dependencies: [],
-        createdAt: new Date('2024-02-05'),
-        updatedAt: new Date('2024-02-05'),
-      },
-      {
-        id: '3',
-        userId: 'user-1',
-        title: 'Learn React hooks',
-        description: 'Study advanced React hooks patterns and best practices',
-        priority: { level: 'medium', color: '#F59E0B' },
-        urgency: { level: 'low', color: '#10B981' },
-        status: { type: 'inProgress', label: 'In Progress', color: '#3B82F6' },
-        category: 'Learning',
-        tags: ['react', 'development', 'self-improvement'],
-        estimatedTime: 240,
-        actualTime: 120,
-        subtasks: [
-          { id: '1', title: 'Read documentation', completed: true },
-          { id: '2', title: 'Build practice projects', completed: false },
-          { id: '3', title: 'Review code examples', completed: false },
-        ],
-        dependencies: [],
-        createdAt: new Date('2024-01-20'),
-        updatedAt: new Date('2024-02-08'),
-      },
-    ];
-  }
-
-  private getMockAnalytics(): Analytics {
-    const achievements = this.getMockAchievements();
-    return {
-      focusSessions: {
-        totalSessions: 128,
-        totalFocusTime: 2940, // minutes
-        averageSessionLength: 23.7,
-        completionRate: 87.5,
-        streakData: Array.from({ length: 30 }, (_, i) => ({
-          date: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000),
-          count: Math.floor(Math.random() * 6) + 1,
-          type: 'focus' as const,
-        })),
-        productivityTrends: Array.from({ length: 14 }, (_, i) => ({
-          date: new Date(Date.now() - (13 - i) * 24 * 60 * 60 * 1000),
-          score: Math.floor(Math.random() * 40) + 60,
-          sessions: Math.floor(Math.random() * 8) + 2,
-          focusTime: Math.floor(Math.random() * 180) + 60,
-        })),
-        flowStateHours: [9, 10, 11, 14, 15, 16, 20, 21],
-        distractionPatterns: [
-          { hour: 10, count: 5, type: 'Social Media' },
-          { hour: 14, count: 8, type: 'Email' },
-          { hour: 16, count: 3, type: 'Phone Call' },
-        ],
-      },
-      habits: {
-        totalHabits: 8,
-        completionRate: 78.5,
-        averageStreak: 12.3,
-        categoryBreakdown: [
-          { category: 'Wellness', count: 3, completionRate: 85, color: '#10B981' },
-          { category: 'Learning', count: 2, completionRate: 72, color: '#3B82F6' },
-          { category: 'Fitness', count: 2, completionRate: 68, color: '#F59E0B' },
-          { category: 'Productivity', count: 1, completionRate: 90, color: '#8B5CF6' },
-        ],
-        weeklyPatterns: Array.from({ length: 7 }, (_, i) => ({
-          dayOfWeek: i,
-          completionRate: Math.floor(Math.random() * 30) + 70,
-          averageCompletions: 0.8,
-        })),
-      },
-      tasks: {
-        totalTasks: 89,
-        completionRate: 73.2,
-        averageCompletionTime: 45.6,
-        priorityDistribution: [
-          { priority: 'High', count: 12, completionRate: 85, color: '#EF4444' },
-          { priority: 'Medium', count: 23, completionRate: 78, color: '#F59E0B' },
-          { priority: 'Low', count: 12, completionRate: 65, color: '#10B981' },
-        ],
-        productivityByHour: Array.from({ length: 24 }, (_, i) => ({
-          hour: i,
-          tasksCompleted: i >= 8 && i <= 18 ? Math.floor(Math.random() * 5) + 1 : Math.floor(Math.random() * 2),
-          focusTime: i >= 8 && i <= 18 ? Math.floor(Math.random() * 60) + 30 : Math.floor(Math.random() * 20),
-          productivityScore: 8.2,
-        })),
-      },
-      overall: {
-        productivityScore: 88,
-        weeklyGoalProgress: 75,
-        monthlyGoalProgress: 60,
-        achievements: achievements,
-        level: 1,
-        xp: 0,
-        nextLevelXp: 1000,
-      },
-    };
-  }
-
-  private getMockAchievements(): Achievement[] {
-    return [
-      {
-        id: 'ach-focus-1',
-        name: 'First Focus',
-        description: 'Complete your first focus session.',
-        icon: '🎯',
-        type: 'focus',
-        requirement: 1,
-        progress: 0,
-        unlocked: false,
-        xpReward: 50,
-      },
-      {
-        id: 'ach-focus-2',
-        name: 'Focused Apprentice',
-        description: 'Complete 10 focus sessions.',
-        icon: '🧘',
-        type: 'focus',
-        requirement: 10,
-        progress: 0,
-        unlocked: false,
-        xpReward: 100,
-      },
-      {
-        id: 'ach-focus-3',
-        name: 'Focus Master',
-        description: 'Log 100 hours of focus time.',
-        icon: '🧠',
-        type: 'focus',
-        requirement: 6000, // in minutes
-        progress: 0,
-        unlocked: false,
-        xpReward: 500,
-      },
-      {
-        id: 'ach-streak-1',
-        name: 'On a Roll',
-        description: 'Maintain a 7-day streak.',
-        icon: '🔥',
-        type: 'streak',
-        requirement: 7,
-        progress: 0,
-        unlocked: false,
-        xpReward: 150,
-      },
-      {
-        id: 'ach-habit-1',
-        name: 'Habit Starter',
-        description: 'Complete a habit for the first time.',
-        icon: '🌱',
-        type: 'habit',
-        requirement: 1,
-        progress: 0,
-        unlocked: false,
-        xpReward: 50,
-      },
-      {
-        id: 'ach-task-1',
-        name: 'Task Ticker',
-        description: 'Complete your first task.',
-        icon: '✅',
-        type: 'task',
-        requirement: 1,
-        progress: 0,
-        unlocked: false,
-        xpReward: 20,
-      },
-      {
-        id: 'ach-level-1',
-        name: 'Level Up!',
-        description: 'Reach level 5.',
-        icon: '🚀',
-        type: 'level',
-        requirement: 5,
-        progress: 0,
-        unlocked: false,
-        xpReward: 200,
-      },
-    ];
   }
 }

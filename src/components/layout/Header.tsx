@@ -1,15 +1,31 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { Menu, Bell, Search, Sun, Moon } from 'lucide-react';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Menu, Bell, Search, Sun, Moon, LogOut, ChevronDown } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { Button } from '../common/Button';
+import { Link, useNavigate } from 'react-router-dom';
 
-export const Header: React.FC = () => {
+export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const { state, dispatch } = useApp();
+  const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
   const toggleTheme = () => {
     const newTheme = state.theme === 'dark' ? 'light' : 'dark';
     dispatch({ type: 'SET_THEME', payload: newTheme });
+  };
+
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+
+    // Close the profile menu
+    setProfileMenuOpen(false);
+
+    // Call the onLogout function passed from parent
+    onLogout();
+
+    // Navigate to the auth page
+    navigate('/auth');
   };
 
   return (
@@ -29,7 +45,7 @@ export const Header: React.FC = () => {
             onClick={() => dispatch({ type: 'TOGGLE_SIDEBAR' })}
             className="lg:hidden"
           />
-          
+
           {/* Search */}
           <div className="hidden md:flex items-center gap-2 glass px-4 py-2 rounded-xl min-w-80">
             <Search size={20} className="text-white/60" />
@@ -79,21 +95,49 @@ export const Header: React.FC = () => {
           />
 
           {/* Profile */}
-          <motion.div
-            className="flex items-center gap-2 glass px-3 py-2 rounded-xl cursor-pointer"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-accent-500 to-primary-500 flex items-center justify-center">
-              <span className="text-white font-semibold text-sm">
-                {state.user?.name.charAt(0)}
-              </span>
+          {state.user ? (
+            <div className="relative">
+              <motion.div
+                className="flex items-center gap-2 glass px-3 py-2 rounded-xl cursor-pointer"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setProfileMenuOpen(!isProfileMenuOpen)}
+              >
+                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-accent-500 to-primary-500 flex items-center justify-center">
+                  <span className="text-white font-semibold text-sm">
+                    {state.user?.name.charAt(0)}
+                  </span>
+                </div>
+                <div className="hidden sm:block">
+                  <p className="text-sm font-medium text-white">{state.user?.name}</p>
+                  <p className="text-xs text-white/60">Level {state.user?.level}</p>
+                </div>
+                <ChevronDown size={16} className={`text-white/60 transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
+              </motion.div>
+              <AnimatePresence>
+                {isProfileMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="absolute right-0 mt-2 w-48 bg-black/50 backdrop-blur-lg rounded-lg shadow-xl border border-white/10 z-50"
+                  >
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center w-full px-4 py-2 text-white/80 hover:bg-white/10 text-left rounded-lg transition-colors"
+                    >
+                      <LogOut size={16} className="mr-2" />
+                      Logout
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-            <div className="hidden sm:block">
-              <p className="text-sm font-medium text-white">{state.user?.name}</p>
-              <p className="text-xs text-white/60">Level {state.user?.level}</p>
-            </div>
-          </motion.div>
+          ) : (
+            <Link to="/auth">
+              <Button variant="primary">Sign In</Button>
+            </Link>
+          )}
         </div>
       </div>
     </motion.header>

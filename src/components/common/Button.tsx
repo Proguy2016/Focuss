@@ -27,6 +27,7 @@ export const Button: React.FC<ButtonProps> = ({
   glow = false,
   className = '',
   disabled,
+  onClick,
   ...props
 }) => {
   const getVariantClasses = () => {
@@ -61,10 +62,16 @@ export const Button: React.FC<ButtonProps> = ({
     }
   };
 
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (onClick && !disabled && !loading) {
+      onClick(e);
+    }
+  };
+
   const baseClasses = `
     inline-flex items-center justify-center gap-2 rounded-xl font-semibold
     transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary-500/50
-    disabled:opacity-50 disabled:cursor-not-allowed
+    disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer
     ${fullWidth ? 'w-full' : ''}
     ${glow ? 'hover:shadow-lg' : ''}
   `;
@@ -72,9 +79,10 @@ export const Button: React.FC<ButtonProps> = ({
   return (
     <motion.button
       className={`${baseClasses} ${getVariantClasses()} ${getSizeClasses()} ${className}`}
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+      whileHover={{ scale: disabled || loading ? 1 : 1.05 }}
+      whileTap={{ scale: disabled || loading ? 1 : 0.95 }}
       disabled={disabled || loading}
+      onClick={handleClick}
       {...props}
     >
       {loading && (
