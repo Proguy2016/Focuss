@@ -6,6 +6,7 @@ import {
   Book, Zap, Award, Music, Brain, X, Menu, FileText
 } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../common/Button';
 import { getTotalXpForLevel, getXpToLevelUp } from '../../utils/leveling';
 
@@ -27,9 +28,10 @@ const navigationItems = [
 
 export const Sidebar: React.FC = () => {
   const { state, dispatch } = useApp();
+  const { user } = useAuth();
 
-  const totalXp = state.user?.xp || 0;
-  const level = state.user?.level || 1;
+  const totalXp = user?.xp || 0;
+  const level = user?.level || 1;
 
   const xpForCurrentLevel = getTotalXpForLevel(level);
   const xpForNextLevel = getXpToLevelUp(level);
@@ -90,12 +92,12 @@ export const Sidebar: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center">
                     <span className="text-white font-semibold text-lg">
-                      {state.user?.name.charAt(0)}
+                      {user?.firstName?.charAt(0)}
                     </span>
                   </div>
                   <div className="flex-1">
-                    <p className="font-semibold text-white">{state.user?.name}</p>
-                    <p className="text-sm text-gray-400">Level {state.user?.level}</p>
+                    <p className="font-semibold text-white">{user?.firstName} {user?.lastName}</p>
+                    <p className="text-sm text-gray-400">Level {level}</p>
                   </div>
                 </div>
 

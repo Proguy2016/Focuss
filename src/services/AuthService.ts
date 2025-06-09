@@ -17,12 +17,17 @@ export interface LoginData {
 export interface AuthResponse {
     success: boolean;
     token: string;
-    user: {
-        id: string;
-        email: string;
-        firstName: string;
-        lastName: string;
-    };
+    user: any;
+}
+
+export interface UserProfile {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    bio?: string;
+    profilePicture?: string;
+    settings?: any;
 }
 
 // Error response interface
@@ -34,69 +39,55 @@ interface ErrorResponse {
 class AuthService {
     // Register a new user
     async register(userData: RegisterData): Promise<AuthResponse> {
-        try {
-            console.log('Sending registration request to backend:', userData);
-            const response = await api.post('/auth/register', userData);
-            console.log('Registration response:', response.data);
-
-            if (response.data.token) {
-                localStorage.setItem('token', response.data.token);
-                localStorage.setItem('user', JSON.stringify(response.data.user));
-            }
-            return response.data;
-        } catch (error: unknown) {
-            console.error('Registration error:', error);
-            if (axios.isAxiosError(error)) {
-                const axiosError = error as AxiosError<ErrorResponse>;
-                if (axiosError.response?.data) {
-                    const errorMessage = axiosError.response.data.message || 'Registration failed';
-                    throw new Error(errorMessage);
-                }
-            }
-            throw new Error('Registration failed - Cannot connect to the server');
-        }
+        console.log('Sending registration request to backend:', userData);
+        const response = await api.post('/auth/register', userData);
+        return response.data;
     }
 
     // Login a user
     async login(loginData: LoginData): Promise<AuthResponse> {
-        try {
-            console.log('Sending login request to backend:', loginData);
-            const response = await api.post('/auth/login', loginData);
-            console.log('Login response:', response.data);
-
-            if (response.data.token) {
-                localStorage.setItem('token', response.data.token);
-                localStorage.setItem('user', JSON.stringify(response.data.user));
-            }
-            return response.data;
-        } catch (error: unknown) {
-            console.error('Login error details:', error);
-            if (axios.isAxiosError(error)) {
-                const axiosError = error as AxiosError<ErrorResponse>;
-                if (axiosError.response?.data) {
-                    const errorMessage = axiosError.response.data.message || 'Login failed';
-                    throw new Error(errorMessage);
-                }
-            }
-            throw new Error('Login failed - Cannot connect to the server');
-        }
+        console.log('Sending login request to backend:', loginData);
+        const response = await api.post('/auth/login', loginData);
+        return response.data;
     }
 
     // Get current user information
-    async getCurrentUser() {
-        try {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                return null;
-            }
-
-            const response = await api.get('/auth/me');
-            return response.data.user;
-        } catch (error: unknown) {
-            console.error('Error fetching current user:', error);
-            this.logout();
+    async getCurrentUser(): Promise<UserProfile | null> {
+        const token = localStorage.getItem('token');
+        if (!token) {
             return null;
         }
+        // We need to set the token for this specific request
+        const response = await api.get('/auth/me', {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return response.data.user;
+    }
+
+    // Update user name
+    async updateName(nameData: { firstName: string, lastName: string }): Promise<UserProfile> {
+        const response = await api.put('/update/name', nameData);
+        return response.data.user;
+    }
+
+    // Update user bio
+    async updateBio(bioData: { bio: string }): Promise<UserProfile> {
+        const response = await api.put('/update/bio', bioData);
+        return response.data.user;
+    }
+
+    // Update privacy settings
+    async updatePrivacy(privacyData: any): Promise<UserProfile> {
+        const response = await api.put('/update/privacy', privacyData);
+        return response.data.user;
+    }
+
+    // Update profile picture
+    async updatePfp(formData: FormData): Promise<UserProfile> {
+        const response = await api.post('/update/pfp', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return response.data.user;
     }
 
     // Logout a user

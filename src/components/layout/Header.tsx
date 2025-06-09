@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, Bell, Search, Sun, Moon, LogOut, ChevronDown } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../common/Button';
 import { Link, useNavigate } from 'react-router-dom';
 
 export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const { state, dispatch } = useApp();
+  const { user } = useAuth();
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -58,7 +60,7 @@ export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
         </div>
 
         {/* Right section */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           {/* Current session indicator */}
           {state.currentSession && (
             <motion.div
@@ -95,7 +97,7 @@ export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
           />
 
           {/* Profile */}
-          {state.user ? (
+          {user ? (
             <div className="relative">
               <motion.div
                 className="flex items-center gap-2 glass px-3 py-2 rounded-xl cursor-pointer"
@@ -105,12 +107,12 @@ export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
               >
                 <div className="w-8 h-8 rounded-full bg-gradient-to-r from-accent-500 to-primary-500 flex items-center justify-center">
                   <span className="text-white font-semibold text-sm">
-                    {state.user?.name.charAt(0)}
+                    {user?.firstName?.charAt(0)}
                   </span>
                 </div>
                 <div className="hidden sm:block">
-                  <p className="text-sm font-medium text-white">{state.user?.name}</p>
-                  <p className="text-xs text-white/60">Level {state.user?.level}</p>
+                  <p className="text-sm font-medium text-white">{user?.firstName} {user?.lastName}</p>
+                  <p className="text-xs text-white/60">Level {user?.level}</p>
                 </div>
                 <ChevronDown size={16} className={`text-white/60 transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
               </motion.div>
@@ -135,7 +137,7 @@ export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
             </div>
           ) : (
             <Link to="/auth">
-              <Button variant="primary">Sign In</Button>
+              <Button variant="primary" size="sm">Sign In</Button>
             </Link>
           )}
         </div>

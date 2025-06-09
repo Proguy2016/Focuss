@@ -51,11 +51,11 @@ const LoadingScreen = () => (
 // Route Guard component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading } = useAuth();
-  
+
   if (loading) {
     return <LoadingScreen />;
   }
-  
+
   return isAuthenticated ? <>{children}</> : <Navigate to="/auth" />;
 };
 
@@ -73,116 +73,27 @@ function AppContent() {
 
         <AnimatePresence mode="wait">
           <Routes>
-            {/* Auth routes without sidebar/header */}
-            <Route path="/auth" element={
-              isAuthenticated ? <Navigate to="/" /> : <Auth />
-            } />
-            <Route path="/login" element={
-              isAuthenticated ? <Navigate to="/" /> : <Auth initialView="login" />
-            } />
-            <Route path="/signup" element={
-              isAuthenticated ? <Navigate to="/" /> : <Auth initialView="signup" />
-            } />
+            <Route path="/auth" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth />} />
+            <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth initialView="login" />} />
+            <Route path="/signup" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth initialView="signup" />} />
 
-            {/* App routes with sidebar/header */}
-            <Route path="/" element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <Dashboard />
-                </AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <Dashboard />
-                </AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/focus" element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <FocusTimer />
-                </AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/tasks" element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <Tasks />
-                </AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/habits" element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <Habits />
-                </AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/analytics" element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <Analytics />
-                </AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/social" element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <Social />
-                </AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/pdf-viewer" element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <PDFViewer />
-                </AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/soundscapes" element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <Soundscapes />
-                </AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/knowledge" element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <Knowledge />
-                </AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/ai-coach" element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <AICoach />
-                </AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/achievements" element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <Achievements />
-                </AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/settings" element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <Settings />
-                </AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/collaboration" element={
-              <ProtectedRoute>
-                <AppLayout>
-                  <CollaborationRoomApp />
-                </AppLayout>
-              </ProtectedRoute>
-            } />
+            {/* App routes */}
+            <Route path="/dashboard" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
+            <Route path="/focus" element={<ProtectedRoute><AppLayout><FocusTimer /></AppLayout></ProtectedRoute>} />
+            <Route path="/tasks" element={<ProtectedRoute><AppLayout><Tasks /></AppLayout></ProtectedRoute>} />
+            <Route path="/habits" element={<ProtectedRoute><AppLayout><Habits /></AppLayout></ProtectedRoute>} />
+            <Route path="/analytics" element={<ProtectedRoute><AppLayout><Analytics /></AppLayout></ProtectedRoute>} />
+            <Route path="/social" element={<ProtectedRoute><AppLayout><Social /></AppLayout></ProtectedRoute>} />
+            <Route path="/pdf-viewer" element={<ProtectedRoute><AppLayout><PDFViewer /></AppLayout></ProtectedRoute>} />
+            <Route path="/soundscapes" element={<ProtectedRoute><AppLayout><Soundscapes /></AppLayout></ProtectedRoute>} />
+            <Route path="/knowledge" element={<ProtectedRoute><AppLayout><Knowledge /></AppLayout></ProtectedRoute>} />
+            <Route path="/ai-coach" element={<ProtectedRoute><AppLayout><AICoach /></AppLayout></ProtectedRoute>} />
+            <Route path="/achievements" element={<ProtectedRoute><AppLayout><Achievements /></AppLayout></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><AppLayout><Settings /></AppLayout></ProtectedRoute>} />
+            <Route path="/collaboration" element={<ProtectedRoute><AppLayout><CollaborationRoomApp /></AppLayout></ProtectedRoute>} />
+
+            {/* Default route */}
+            <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/auth"} />} />
           </Routes>
         </AnimatePresence>
       </div>

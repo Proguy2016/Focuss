@@ -28,13 +28,13 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     console.error('API Error:', error.response || error.message || error);
-    
+
     // Handle unauthorized errors (expired token, etc.)
     if (error.response && error.response.status === 401) {
       // Clear stored tokens
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      
+
       // Redirect to login (you can customize this behavior)
       window.location.href = '/auth';
     }

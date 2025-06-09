@@ -1,23 +1,21 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import AuthService from '../services/AuthService';
-
-// Define the User type
-interface User {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-}
+import AuthService, { AuthResponse, LoginData, RegisterData, UserProfile } from '../services/AuthService';
+import api from '../services/api';
 
 // Define the AuthContext type
 interface AuthContextType {
-  user: User | null;
+  user: UserProfile | null;
   loading: boolean;
   error: string | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (firstName: string, lastName: string, email: string, password: string) => Promise<void>;
+  login: (loginData: LoginData) => Promise<void>;
+  register: (registerData: RegisterData) => Promise<void>;
   logout: () => void;
+  updateName: (nameData: { firstName: string, lastName: string }) => Promise<void>;
+  updateBio: (bioData: { bio: string }) => Promise<void>;
+  updatePrivacy: (privacyData: any) => Promise<void>;
+  updatePfp: (formData: FormData) => Promise<void>;
+  setUser: React.Dispatch<React.SetStateAction<UserProfile | null>>;
   clearError: () => void;
 }
 
@@ -26,32 +24,23 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Create the AuthProvider component
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Check if user is already authenticated
     const checkAuth = async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-        // Try to get stored user from localStorage first
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
-          setIsAuthenticated(true);
-        } else {
-          // If no stored user, try to get from API
+        const token = localStorage.getItem('token');
+        if (token) {
+          api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
           const currentUser = await AuthService.getCurrentUser();
-          if (currentUser) {
-            setUser(currentUser);
-            setIsAuthenticated(true);
-          }
+          setUser(currentUser);
         }
       } catch (err) {
         console.error('Authentication check failed:', err);
-        setError('Authentication check failed');
+        localStorage.removeItem('token');
       } finally {
         setLoading(false);
       }
@@ -60,33 +49,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth();
   }, []);
 
-  // Register a new user
-  const register = async (firstName: string, lastName: string, email: string, password: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await AuthService.register({ firstName, lastName, email, password });
-      setUser(response.user);
-      setIsAuthenticated(true);
-
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Login a user
-  const login = async (email: string, password: string) => {
+  const login = async (loginData: LoginData) => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await AuthService.login({ email, password });
+      const response = await AuthService.login(loginData);
+      localStorage.setItem('token', response.token);
+      api.defaults.headers.common['Authorization'] = `Bearer ${response.token}`;
       setUser(response.user);
-      setIsAuthenticated(true);
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
@@ -96,11 +68,83 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Register a new user
+  const register = async (registerData: RegisterData) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await AuthService.register(registerData);
+      localStorage.setItem('token', response.token);
+      api.defaults.headers.common['Authorization'] = `Bearer ${response.token}`;
+      setUser(response.user);
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Registration failed');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Logout a user
   const logout = () => {
-    AuthService.logout();
+    localStorage.removeItem('token');
+    delete api.defaults.headers.common['Authorization'];
     setUser(null);
-    setIsAuthenticated(false);
+  };
+
+  const safeUpdateUser = (updatedData: Partial<UserProfile>) => {
+    setUser(prevUser => {
+      if (!prevUser) return null;
+      // Merge the new data with the existing user data
+      return { ...prevUser, ...updatedData };
+    });
+  };
+
+  const updateName = async (nameData: { firstName: string, lastName: string }) => {
+    if (!user) throw new Error("User not authenticated");
+    try {
+      const updatedUser = await AuthService.updateName(nameData);
+      safeUpdateUser(updatedUser);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Name update failed');
+      throw err;
+    }
+  };
+
+  const updateBio = async (bioData: { bio: string }) => {
+    if (!user) throw new Error("User not authenticated");
+    try {
+      const updatedUser = await AuthService.updateBio(bioData);
+      safeUpdateUser(updatedUser);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Bio update failed');
+      throw err;
+    }
+  };
+
+  const updatePrivacy = async (privacyData: any) => {
+    if (!user) throw new Error("User not authenticated");
+    try {
+      const updatedUser = await AuthService.updatePrivacy(privacyData);
+      safeUpdateUser(updatedUser);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Privacy update failed');
+      throw err;
+    }
+  };
+
+  const updatePfp = async (formData: FormData) => {
+    if (!user) throw new Error("User not authenticated");
+    try {
+      console.log('Updating pfp in AuthContext');
+      const updatedUser = await AuthService.updatePfp(formData);
+      safeUpdateUser(updatedUser);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Profile picture update failed');
+      throw err;
+    }
   };
 
   // Clear error
@@ -113,10 +157,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     loading,
     error,
-    isAuthenticated,
+    isAuthenticated: !!user,
     login,
     register,
     logout,
+    updateName,
+    updateBio,
+    updatePrivacy,
+    updatePfp,
+    setUser,
     clearError
   };
 

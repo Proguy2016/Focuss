@@ -6,13 +6,14 @@ import {
     Smartphone, Monitor, Volume2, Moon, Sun, Zap,
     Globe, Lock, Key, Database, HelpCircle, Loader
 } from 'lucide-react';
-import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
 import { useApp } from '../contexts/AppContext';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/avatar';
 import { useLocation } from 'react-router-dom';
+import { UserProfile } from '../services/AuthService';
 
 type SettingsTab = 'profile' | 'preferences' | 'notifications' | 'appearance' | 'privacy' | 'data' | 'about';
 
@@ -28,10 +29,6 @@ interface ProfileData {
 }
 
 interface ProfileSettingsProps {
-    profileData: ProfileData;
-    setProfileData: React.Dispatch<React.SetStateAction<ProfileData>>;
-    handleSaveProfile: () => void;
-    setShowPasswordModal: React.Dispatch<React.SetStateAction<boolean>>;
     isLoading: boolean;
 }
 
@@ -67,247 +64,181 @@ const getBrowserLanguage = (): string => {
 const adaptUserData = (userData: any, existingUser: any = null) => {
     // Create a new object with all existing user properties
     const adaptedUser = { ...existingUser };
-    
+
     // Set name property using firstName and lastName
     if (userData.firstName || userData.lastName) {
         adaptedUser.name = `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
     }
-    
+
     // Copy common properties
     if (userData.email) adaptedUser.email = userData.email;
     if (userData.avatar) adaptedUser.avatar = userData.avatar;
-    
+
     return adaptedUser;
 };
 
 const getInitialProfileData = (stateUser: any): ProfileData => {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (saved) {
-        try {
-            const parsed = JSON.parse(saved);
-            // Basic check for backward compatibility
-            if (parsed.name && !parsed.firstName) {
-                const [firstName, ...lastName] = parsed.name.split(' ');
-                return {
-                    ...parsed,
-                    firstName: firstName || '',
-                    lastName: lastName.join(' ') || '',
-                };
-            }
-            return parsed;
-        } catch {
-            // fallback to defaults
-        }
-    }
-
-    // If we have a user in state but it uses the 'name' format instead of firstName/lastName
-    let firstName = '';
-    let lastName = '';
-    
-    if (stateUser) {
-        if (stateUser.firstName) {
-            firstName = stateUser.firstName;
-            lastName = stateUser.lastName || '';
-        } else if (stateUser.name) {
-            const nameParts = stateUser.name.split(' ');
-            firstName = nameParts[0] || '';
-            lastName = nameParts.slice(1).join(' ') || '';
-        }
+    if (!stateUser) {
+        return {
+            firstName: '',
+            lastName: '',
+            email: '',
+            bio: '',
+            timezone: getBrowserTimezone(),
+            language: getBrowserLanguage(),
+            avatar: '',
+        };
     }
 
     return {
-        firstName: firstName || '',
-        lastName: lastName || '',
-        email: stateUser?.email || 'focus@ritual.com',
-        bio: '',
-        timezone: getBrowserTimezone(),
-        language: getBrowserLanguage(),
-        avatar: stateUser?.avatar || '',
+        firstName: stateUser.firstName || '',
+        lastName: stateUser.lastName || '',
+        email: stateUser.email || '',
+        bio: stateUser.bio || '',
+        timezone: stateUser.settings?.timezone || getBrowserTimezone(),
+        language: stateUser.settings?.language || getBrowserLanguage(),
+        avatar: stateUser.profilePicture || '',
     };
 };
 
-const ProfileSettings: React.FC<ProfileSettingsProps> = ({ profileData, setProfileData, handleSaveProfile, setShowPasswordModal, isLoading }) => {
-    const fileInputRef = React.useRef<HTMLInputElement>(null);
-    const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                setProfileData(prev => ({ ...prev, avatar: (ev.target?.result as string) || '' }));
-            };
-            reader.readAsDataURL(file);
+const NewProfileSettings: React.FC = () => {
+    const { user, setUser, updateName, updateBio, updatePfp } = useAuth();
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleProfileChange = (field: keyof UserProfile, value: string) => {
+        if (user) {
+            setUser({ ...user, [field]: value });
         }
     };
-    const handleRemoveAvatar = () => {
-        setProfileData(prev => ({ ...prev, avatar: '' }));
+
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('pfp', file, file.name);
+
+        try {
+            await updatePfp(formData);
+        } catch (error) {
+            console.error("Failed to upload new avatar", error);
+        }
     };
+
+    const handleRemoveAvatar = async () => {
+        // Requires backend endpoint to set avatar to null
+        console.log("Remove avatar clicked");
+    };
+
+    const handleSaveProfile = async () => {
+        if (!user) return;
+        setIsSaving(true);
+        try {
+            await updateName({
+                firstName: user.firstName,
+                lastName: user.lastName,
+            });
+            await updateBio({
+                bio: user.bio || '',
+            });
+            alert('Profile saved successfully!');
+        } catch (error) {
+            console.error("Failed to update profile", error);
+            alert('Failed to save profile.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    if (!user) {
+        return (
+            <div className="flex flex-col items-center justify-center h-60">
+                <Loader className="w-8 h-8 text-primary-500 animate-spin mb-4" />
+                <p className="text-white/70">Loading your profile information...</p>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
-            {isLoading ? (
-                <div className="flex flex-col items-center justify-center h-60">
-                    <Loader className="w-8 h-8 text-primary-500 animate-spin mb-4" />
-                    <p className="text-white/70">Loading your profile information...</p>
+            <div className="flex items-center gap-6">
+                <div className="relative">
+                    <Avatar className="w-24 h-24 border-2 border-slate-700 shadow-md">
+                        {user.profilePicture ? (
+                            <AvatarImage src={user.profilePicture} alt="Avatar" />
+                        ) : (
+                            <AvatarFallback className="text-3xl bg-slate-800">
+                                {user.firstName?.trim().charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                        )}
+                    </Avatar>
                 </div>
-            ) : (
-                <>
-                    <div className="flex items-center gap-6">
-                        <Avatar className="w-24 h-24 border-2 border-border shadow-md bg-transparent">
-                            {profileData.avatar ? (
-                                <img
-                                    src={profileData.avatar}
-                                    alt="Avatar"
-                                    className="w-full h-full object-cover rounded-full"
-                                />
-                            ) : (
-                                <AvatarFallback className="text-3xl">
-                                    {profileData.firstName?.trim().charAt(0).toUpperCase()}
-                                </AvatarFallback>
-                            )}
-                        </Avatar>
-                        <div className="flex flex-row gap-2 items-center">
-                            <Button variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}>Change Avatar</Button>
-                            <input
-                                type="file"
-                                accept="image/*"
-                                ref={fileInputRef}
-                                className="hidden"
-                                onChange={handleAvatarChange}
-                            />
-                            <Button variant="danger" size="sm" onClick={handleRemoveAvatar}>Remove</Button>
-                        </div>
-                    </div>
-                    <p className="text-white/60 text-sm mt-2">JPG, PNG or GIF. Max size 2MB.</p>
+                <div className="flex flex-row gap-2 items-center">
+                    <Button variant="secondary" size="sm" onClick={() => fileInputRef.current?.click()}>Change Avatar</Button>
+                    <input
+                        type="file"
+                        accept="image/*"
+                        ref={fileInputRef}
+                        className="hidden"
+                        onChange={handleAvatarChange}
+                    />
+                    <Button variant="danger" size="sm" onClick={handleRemoveAvatar}>Remove</Button>
+                </div>
+            </div>
+            <p className="text-white/60 text-sm mt-2">JPG, PNG or GIF. Max size 2MB.</p>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-white/60 text-sm mb-2">First Name</label>
-                            <input
-                                type="text"
-                                value={profileData.firstName}
-                                onChange={e => setProfileData(prev => ({ ...prev, firstName: e.target.value }))}
-                                className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
-                                style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-white/60 text-sm mb-2">Last Name</label>
-                            <input
-                                type="text"
-                                value={profileData.lastName}
-                                onChange={e => setProfileData(prev => ({ ...prev, lastName: e.target.value }))}
-                                className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
-                                style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
-                            />
-                        </div>
-                    </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-white/60 text-sm mb-2">First Name</label>
+                    <input
+                        type="text"
+                        value={user.firstName}
+                        onChange={e => handleProfileChange('firstName', e.target.value)}
+                        className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
+                        style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                    />
+                </div>
+                <div>
+                    <label className="block text-white/60 text-sm mb-2">Last Name</label>
+                    <input
+                        type="text"
+                        value={user.lastName}
+                        onChange={e => handleProfileChange('lastName', e.target.value)}
+                        className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
+                        style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                    />
+                </div>
+            </div>
 
-                    <div className="grid grid-cols-1 gap-4">
-                        <div>
-                            <label className="block text-white/60 text-sm mb-2">Email</label>
-                            <input
-                                type="email"
-                                value={profileData.email}
-                                onChange={e => setProfileData(prev => ({ ...prev, email: e.target.value }))}
-                                className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
-                                style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
-                            />
-                        </div>
-                    </div>
+            <div className="grid grid-cols-1 gap-4">
+                <div>
+                    <label className="block text-white/60 text-sm mb-2">Email</label>
+                    <input
+                        type="email"
+                        value={user.email}
+                        readOnly
+                        className="w-full h-9 rounded-md border border-slate-800 bg-slate-900/50 text-white/70 placeholder-white/60 focus:outline-none focus:ring-0 cursor-not-allowed shadow-none transition px-3 py-1"
+                    />
+                </div>
+            </div>
 
-                    <div>
-                        <label className="block text-white/60 text-sm mb-2">Bio</label>
-                        <textarea
-                            value={profileData.bio}
-                            onChange={e => setProfileData(prev => ({ ...prev, bio: e.target.value }))}
-                            placeholder="Tell us about yourself..."
-                            className="w-full h-20 resize-none rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-2"
-                            style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
-                        />
-                    </div>
+            <div>
+                <label className="block text-white/60 text-sm mb-2">Bio</label>
+                <textarea
+                    value={user.bio || ''}
+                    onChange={e => handleProfileChange('bio', e.target.value)}
+                    placeholder="Tell us about yourself..."
+                    className="w-full h-20 resize-none rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-2"
+                    style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                />
+            </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-white/60 text-sm mb-2">Timezone (Auto-detected)</label>
-                            <div className="relative w-full">
-                                <select
-                                    value={profileData.timezone}
-                                    onChange={e => setProfileData(prev => ({ ...prev, timezone: e.target.value }))}
-                                    className="w-full h-9 rounded-md border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1 pr-8 appearance-none"
-                                    style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
-                                >
-                                    <option value="UTC-12">International Date Line West (UTC-12)</option>
-                                    <option value="UTC-11">Samoa Standard Time (UTC-11)</option>
-                                    <option value="UTC-10">Hawaii Standard Time (UTC-10)</option>
-                                    <option value="UTC-9">Alaska Standard Time (UTC-9)</option>
-                                    <option value="UTC-8">Pacific Time (UTC-8)</option>
-                                    <option value="UTC-7">Mountain Time (UTC-7)</option>
-                                    <option value="UTC-6">Central Time (UTC-6)</option>
-                                    <option value="UTC-5">Eastern Time (UTC-5)</option>
-                                    <option value="UTC-4">Atlantic Time (UTC-4)</option>
-                                    <option value="UTC-3">Brasilia Time (UTC-3)</option>
-                                    <option value="UTC-2">Mid-Atlantic (UTC-2)</option>
-                                    <option value="UTC-1">Azores Time (UTC-1)</option>
-                                    <option value="UTC+0">UTC</option>
-                                    <option value="UTC+1">Central European Time (UTC+1)</option>
-                                    <option value="UTC+2">Eastern European Time (UTC+2)</option>
-                                    <option value="UTC+3">Moscow Time (UTC+3)</option>
-                                    <option value="UTC+4">Dubai Time (UTC+4)</option>
-                                    <option value="UTC+5">Pakistan Time (UTC+5)</option>
-                                    <option value="UTC+6">Bangladesh Time (UTC+6)</option>
-                                    <option value="UTC+7">Indonesia Time (UTC+7)</option>
-                                    <option value="UTC+8">China Time (UTC+8)</option>
-                                    <option value="UTC+9">Japan Time (UTC+9)</option>
-                                    <option value="UTC+10">Australia Eastern Time (UTC+10)</option>
-                                    <option value="UTC+11">Solomon Islands Time (UTC+11)</option>
-                                    <option value="UTC+12">New Zealand Time (UTC+12)</option>
-                                </select>
-                                <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
-                                    <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                        <path d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </div>
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-white/60 text-sm mb-2">Language (Auto-detected)</label>
-                            <div className="relative w-full">
-                                <select
-                                    value={profileData.language}
-                                    onChange={e => setProfileData(prev => ({ ...prev, language: e.target.value }))}
-                                    className="w-full h-9 rounded-md border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1 pr-8 appearance-none"
-                                    style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
-                                >
-                                    <option value="en">English</option>
-                                    <option value="es">Spanish</option>
-                                    <option value="fr">French</option>
-                                    <option value="de">German</option>
-                                    <option value="it">Italian</option>
-                                    <option value="pt">Portuguese</option>
-                                    <option value="ru">Russian</option>
-                                    <option value="zh">Chinese</option>
-                                    <option value="ja">Japanese</option>
-                                    <option value="ko">Korean</option>
-                                    <option value="ar">Arabic</option>
-                                </select>
-                                <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
-                                    <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                        <path d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                        <Button variant="primary" onClick={handleSaveProfile}>
-                            Save Changes
-                        </Button>
-                        <Button variant="secondary" onClick={() => setShowPasswordModal(true)}>
-                            Change Password
-                        </Button>
-                    </div>
-                </>
-            )}
+            <div className="flex justify-end gap-3 mt-6">
+                <Button onClick={handleSaveProfile} disabled={isSaving}>
+                    {isSaving ? 'Saving...' : 'Save Changes'}
+                </Button>
+            </div>
         </div>
     );
 };
@@ -866,105 +797,136 @@ interface PrivacySettingsProps {
     setPrivacy: React.Dispatch<React.SetStateAction<Privacy>>;
 }
 
-const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacy, setPrivacy }) => (
-    <div className="space-y-6">
-        <div>
-            <h3 className="text-lg font-semibold text-white mb-4">Profile Visibility</h3>
-            <div className="relative w-full">
-                <select
-                    value={privacy.profileVisibility}
-                    onChange={(e) => setPrivacy(prev => ({ ...prev, profileVisibility: e.target.value }))}
-                    className="w-full h-9 rounded-md border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1 pr-8 appearance-none"
-                    style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
-                >
-                    <option value="public">Public</option>
-                    <option value="friends">Friends Only</option>
-                    <option value="private">Private</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
-                    <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                        <path d="M19 9l-7 7-7-7" />
-                    </svg>
+const PrivacySettings: React.FC<PrivacySettingsProps> = ({ privacy, setPrivacy }) => {
+    const { updatePrivacy } = useAuth();
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handlePrivacyChange = (key: keyof Privacy, value: any) => {
+        setPrivacy(prev => ({ ...prev, [key]: value }));
+    };
+
+    const handleSavePrivacy = async () => {
+        setIsSaving(true);
+        try {
+            await updatePrivacy(privacy);
+            // Optionally show success message
+        } catch (error) {
+            console.error("Failed to save privacy settings", error);
+            // Optionally show error message
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <h2 className="text-xl font-bold text-white">Privacy Settings</h2>
+            <div>
+                <div>
+                    <h3 className="text-lg font-semibold text-white mb-4">Profile Visibility</h3>
+                    <div className="relative w-full">
+                        <select
+                            value={privacy.profileVisibility}
+                            onChange={(e) => handlePrivacyChange('profileVisibility', e.target.value)}
+                            className="w-full h-9 rounded-md border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1 pr-8 appearance-none"
+                            style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                        >
+                            <option value="public">Public</option>
+                            <option value="friends">Friends Only</option>
+                            <option value="private">Private</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                            <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 className="text-lg font-semibold text-white mb-4">Activity Visibility</h3>
+                    <div className="relative w-full">
+                        <select
+                            value={privacy.activityVisibility}
+                            onChange={(e) => handlePrivacyChange('activityVisibility', e.target.value)}
+                            className="w-full h-9 rounded-md border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1 pr-8 appearance-none"
+                            style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
+                        >
+                            <option value="public">Public</option>
+                            <option value="friends">Friends Only</option>
+                            <option value="private">Private</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                            <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 className="text-lg font-semibold text-white mb-4">Social Features</h3>
+                    <div className="space-y-3">
+                        <label className="flex items-center justify-between">
+                            <span className="text-white/80">Allow friend requests</span>
+                            <input
+                                type="checkbox"
+                                checked={privacy.allowFriendRequests}
+                                onChange={(e) => handlePrivacyChange('allowFriendRequests', e.target.checked)}
+                                className="w-4 h-4"
+                            />
+                        </label>
+                        <label className="flex items-center justify-between">
+                            <span className="text-white/80">Show online status</span>
+                            <input
+                                type="checkbox"
+                                checked={privacy.showOnlineStatus}
+                                onChange={(e) => handlePrivacyChange('showOnlineStatus', e.target.checked)}
+                                className="w-4 h-4"
+                            />
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 className="text-lg font-semibold text-white mb-4">Data Collection</h3>
+                    <div className="space-y-3">
+                        <label className="flex items-center justify-between">
+                            <div>
+                                <span className="text-white/80">Usage analytics</span>
+                                <p className="text-white/60 text-sm">Help improve the app with anonymous usage data</p>
+                            </div>
+                            <input
+                                type="checkbox"
+                                checked={privacy.analytics}
+                                onChange={(e) => handlePrivacyChange('analytics', e.target.checked)}
+                                className="w-4 h-4"
+                            />
+                        </label>
+                        <label className="flex items-center justify-between">
+                            <div>
+                                <span className="text-white/80">Crash reports</span>
+                                <p className="text-white/60 text-sm">Automatically send crash reports to help fix bugs</p>
+                            </div>
+                            <input
+                                type="checkbox"
+                                checked={privacy.crashReports}
+                                onChange={(e) => handlePrivacyChange('crashReports', e.target.checked)}
+                                className="w-4 h-4"
+                            />
+                        </label>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div>
-            <h3 className="text-lg font-semibold text-white mb-4">Activity Visibility</h3>
-            <div className="relative w-full">
-                <select
-                    value={privacy.activityVisibility}
-                    onChange={(e) => setPrivacy(prev => ({ ...prev, activityVisibility: e.target.value }))}
-                    className="w-full h-9 rounded-md border border-slate-800 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1 pr-8 appearance-none"
-                    style={{ background: 'linear-gradient(180deg, var(--dark), var(--slate-dark))' }}
-                >
-                    <option value="public">Public</option>
-                    <option value="friends">Friends Only</option>
-                    <option value="private">Private</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
-                    <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                        <path d="M19 9l-7 7-7-7" />
-                    </svg>
-                </div>
+            <div className="mt-6 flex justify-end">
+                <Button onClick={handleSavePrivacy} disabled={isSaving}>
+                    {isSaving ? 'Saving...' : 'Save Privacy Settings'}
+                </Button>
             </div>
         </div>
-
-        <div>
-            <h3 className="text-lg font-semibold text-white mb-4">Social Features</h3>
-            <div className="space-y-3">
-                <label className="flex items-center justify-between">
-                    <span className="text-white/80">Allow friend requests</span>
-                    <input
-                        type="checkbox"
-                        checked={privacy.allowFriendRequests}
-                        onChange={(e) => setPrivacy(prev => ({ ...prev, allowFriendRequests: e.target.checked }))}
-                        className="w-4 h-4"
-                    />
-                </label>
-                <label className="flex items-center justify-between">
-                    <span className="text-white/80">Show online status</span>
-                    <input
-                        type="checkbox"
-                        checked={privacy.showOnlineStatus}
-                        onChange={(e) => setPrivacy(prev => ({ ...prev, showOnlineStatus: e.target.checked }))}
-                        className="w-4 h-4"
-                    />
-                </label>
-            </div>
-        </div>
-
-        <div>
-            <h3 className="text-lg font-semibold text-white mb-4">Data Collection</h3>
-            <div className="space-y-3">
-                <label className="flex items-center justify-between">
-                    <div>
-                        <span className="text-white/80">Usage analytics</span>
-                        <p className="text-white/60 text-sm">Help improve the app with anonymous usage data</p>
-                    </div>
-                    <input
-                        type="checkbox"
-                        checked={privacy.analytics}
-                        onChange={(e) => setPrivacy(prev => ({ ...prev, analytics: e.target.checked }))}
-                        className="w-4 h-4"
-                    />
-                </label>
-                <label className="flex items-center justify-between">
-                    <div>
-                        <span className="text-white/80">Crash reports</span>
-                        <p className="text-white/60 text-sm">Automatically send crash reports to help fix bugs</p>
-                    </div>
-                    <input
-                        type="checkbox"
-                        checked={privacy.crashReports}
-                        onChange={(e) => setPrivacy(prev => ({ ...prev, crashReports: e.target.checked }))}
-                        className="w-4 h-4"
-                    />
-                </label>
-            </div>
-        </div>
-    </div>
-);
+    );
+};
 
 interface DataSettingsProps {
     setShowExportModal: React.Dispatch<React.SetStateAction<boolean>>;
@@ -1104,6 +1066,7 @@ const AboutSettings = () => (
 
 export const Settings: React.FC = () => {
     const { state, dispatch } = useApp();
+    const { user, loading: authLoading, error: authError, updateUserProfile } = useAuth();
     const location = useLocation();
     const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -1111,8 +1074,6 @@ export const Settings: React.FC = () => {
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-
-    const [profileData, setProfileData] = useState<ProfileData>(() => getInitialProfileData(state.user));
 
     useEffect(() => {
         const params = new URLSearchParams(location.search);
@@ -1128,7 +1089,7 @@ export const Settings: React.FC = () => {
         // eslint-disable-next-line
     }, []);
 
-    const LOCAL_STORAGE_PREFS_KEY = 'focus-ritual-preferences';
+    const LOCAL_STORAGE_PREFS_KEY = `focus-ritual-preferences-${user?.id || 'default'}`;
     const getInitialPreferences = () => {
         const saved = localStorage.getItem(LOCAL_STORAGE_PREFS_KEY);
         if (saved) {
@@ -1209,9 +1170,9 @@ export const Settings: React.FC = () => {
                 }
             });
             const userData = response.data;
-            
+
             // Update profile data with fetched user data
-            setProfileData({
+            updateUserProfile({
                 firstName: userData.firstName || '',
                 lastName: userData.lastName || '',
                 email: userData.email || '',
@@ -1219,102 +1180,22 @@ export const Settings: React.FC = () => {
                 // Use browser detected timezone and language if not provided by API
                 timezone: userData.timezone || getBrowserTimezone(),
                 language: userData.language || getBrowserLanguage(),
-                avatar: userData.avatar || null
+                profilePicture: userData.avatar || null
             });
-            
+
             // Also update the global state if needed
-            if (state.user) {
+            if (user) {
                 dispatch({
                     type: 'SET_USER',
-                    payload: adaptUserData(userData, state.user)
+                    payload: adaptUserData(userData, user)
                 });
             }
         } catch (err) {
             console.error('Error fetching user data:', err);
             setError('Failed to load user data. Please try again later.');
-            
-            // Fallback to local storage or state
-            setProfileData(getInitialProfileData(state.user));
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
-    const handleSaveProfile = async () => {
-        setIsLoading(true);
-        setError(null);
-        
-        try {
-            // We'll make separate API calls for each field that needs updating
-            const updatePromises = [];
-            
-            // Update name (first name and last name)
-            updatePromises.push(
-                axios.put('update/name', {
-                    firstName: profileData.firstName,
-                    lastName: profileData.lastName,
-                }, {
-                    withCredentials: true,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                    }
-                })
-            );
-            
-            // Update bio
-            updatePromises.push(
-                axios.put('update/bio', {
-                    bio: profileData.bio,
-                }, {
-                    withCredentials: true,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                    }
-                })
-            );
-            
-            // Update profile picture if it has changed
-            if (profileData.avatar) {
-                updatePromises.push(
-                    axios.put('update/pfp', {
-                        avatar: profileData.avatar,
-                    }, {
-                        withCredentials: true,
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                        }
-                    })
-                );
-            }
-            
-            // Wait for all update requests to complete
-            await Promise.all(updatePromises);
-            
-            // Save to localStorage as backup
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(profileData));
-            
-            // Update global state
-            if (state.user) {
-                dispatch({
-                    type: 'SET_USER',
-                    payload: adaptUserData({
-                        firstName: profileData.firstName,
-                        lastName: profileData.lastName,
-                        email: profileData.email,
-                        avatar: profileData.avatar || '',
-                    }, state.user)
-                });
-            }
-            
-            // Show success message
-            alert('Profile updated successfully!');
-        } catch (err) {
-            console.error('Error saving profile:', err);
-            setError('Failed to save profile. Please try again.');
-            alert('Error saving profile. Please try again.');
+            // Fallback to local storage or state
+            updateUserProfile(getInitialProfileData(user));
         } finally {
             setIsLoading(false);
         }
@@ -1335,21 +1216,21 @@ export const Settings: React.FC = () => {
     const handlePreferenceChange = (key: keyof Preferences, value: any) => {
         setPreferences((prevPreferences: any) => {
             const updated = { ...prevPreferences, [key]: value };
-            
+
             // Update user preferences in global state if needed
-            if (state.user && state.user.preferences) {
+            if (user && user.preferences) {
                 dispatch({
                     type: 'SET_USER',
                     payload: {
-                        ...state.user,
+                        ...user,
                         preferences: {
-                            ...state.user.preferences,
+                            ...user.preferences,
                             [key]: value
                         }
                     }
                 });
             }
-            
+
             return updated;
         });
     };
@@ -1366,26 +1247,14 @@ export const Settings: React.FC = () => {
 
     const renderTabContent = () => {
         switch (activeTab) {
-            case 'profile': return <ProfileSettings
-                profileData={profileData}
-                setProfileData={setProfileData}
-                handleSaveProfile={handleSaveProfile}
-                setShowPasswordModal={setShowPasswordModal}
-                isLoading={isLoading}
-            />;
+            case 'profile': return <NewProfileSettings />;
             case 'preferences': return <PreferencesSettings preferences={preferences} setPreferences={setPreferences} />;
             case 'notifications': return <NotificationSettings notifications={notifications} setNotifications={setNotifications} />;
             case 'appearance': return <AppearanceSettings appearance={appearance} setAppearance={setAppearance} dispatch={dispatch} />;
             case 'privacy': return <PrivacySettings privacy={privacy} setPrivacy={setPrivacy} />;
             case 'data': return <DataSettings setShowExportModal={setShowExportModal} setShowDeleteModal={setShowDeleteModal} />;
             case 'about': return <AboutSettings />;
-            default: return <ProfileSettings
-                profileData={profileData}
-                setProfileData={setProfileData}
-                handleSaveProfile={handleSaveProfile}
-                setShowPasswordModal={setShowPasswordModal}
-                isLoading={isLoading}
-            />;
+            default: return <NewProfileSettings />;
         }
     };
 

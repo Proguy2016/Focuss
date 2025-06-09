@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { User, FocusSession, Habit, Task, Analytics, UserPreferences, HabitCompletion } from '../types';
+import { FocusSession, Habit, Task, Analytics, UserPreferences, HabitCompletion } from '../types';
 import { DataService } from '../services/DataService';
 import { getLevelFromXp } from '../utils/leveling';
+import { useAuth } from './AuthContext';
 
 interface AppState {
-  user: User | null;
   currentSession: FocusSession | null;
   habits: Habit[];
   habitCompletions: HabitCompletion[];
@@ -17,7 +17,6 @@ interface AppState {
 }
 
 type AppAction =
-  | { type: 'SET_USER'; payload: User }
   | { type: 'SET_CURRENT_SESSION'; payload: FocusSession | null }
   | { type: 'ADD_HABIT'; payload: Habit }
   | { type: 'UPDATE_HABIT'; payload: Habit }
@@ -33,11 +32,9 @@ type AppAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_THEME'; payload: 'light' | 'dark' | 'auto' }
   | { type: 'TOGGLE_SIDEBAR' }
-  | { type: 'SET_ACTIVE_VIEW'; payload: string }
-  | { type: 'UPDATE_USER_LEVEL_AND_XP'; payload: { level: number; xp: number } };
+  | { type: 'SET_ACTIVE_VIEW'; payload: string };
 
 const initialState: AppState = {
-  user: null,
   currentSession: null,
   habits: [],
   habitCompletions: [],
@@ -51,16 +48,6 @@ const initialState: AppState = {
 
 const appReducer = (state: AppState, action: AppAction): AppState => {
   switch (action.type) {
-    case 'SET_USER':
-      return { ...state, user: action.payload };
-    case 'UPDATE_USER_LEVEL_AND_XP':
-      if (state.user) {
-        return {
-          ...state,
-          user: { ...state.user, level: action.payload.level, xp: action.payload.xp }
-        };
-      }
-      return state;
     case 'SET_CURRENT_SESSION':
       return { ...state, currentSession: action.payload };
     case 'ADD_HABIT':
@@ -112,77 +99,35 @@ const AppContext = createContext<{
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const { user } = useAuth();
   const dataService = new DataService();
 
   useEffect(() => {
-    initializeApp();
-  }, []);
+    if (user) {
+      initializeApp();
+    }
+  }, [user]);
 
   const initializeApp = async () => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
 
-      // Clear local storage for a fresh start
-      localStorage.removeItem('habits');
-      localStorage.removeItem('tasks');
-      localStorage.removeItem('habitCompletions');
-      localStorage.removeItem('analytics');
-
-      // Initialize a new user
-      const newUser: User = {
-        id: 'user-1',
-        name: 'New User',
-        email: 'new@user.com',
-        level: 1,
-        xp: 0,
-        totalFocusTime: 0,
-        streak: 0,
-        joinDate: new Date(),
-        preferences: {
-          theme: 'dark',
-          workDuration: 25,
-          shortBreakDuration: 5,
-          longBreakDuration: 15,
-          sessionsUntilLongBreak: 4,
-          soundEnabled: true,
-          notificationsEnabled: true,
-          focusMusic: 'none',
-          ambientVolume: 50,
-        },
-        recentActivity: []
-      };
-
-      // Initialize with empty data for a new user
       const habits = await dataService.getHabits();
       const tasks = await dataService.getTasks();
       const habitCompletions = await dataService.getHabitCompletions();
       const analytics = await dataService.getAnalytics();
 
-      dispatch({ type: 'SET_USER', payload: newUser });
       dispatch({ type: 'SET_HABITS', payload: habits });
       dispatch({ type: 'SET_TASKS', payload: tasks });
       dispatch({ type: 'SET_HABIT_COMPLETIONS', payload: habitCompletions });
       dispatch({ type: 'SET_ANALYTICS', payload: analytics });
+
     } catch (error) {
-      console.error('Failed to initialize app:', error);
+      console.error('Failed to initialize app data:', error);
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
   };
-
-  useEffect(() => {
-    if (state.analytics && state.user) {
-      const unlockedAchievements = state.analytics.overall.achievements.filter(a => a.unlocked);
-      const totalXp = unlockedAchievements.reduce((sum, a) => sum + a.xpReward, 0);
-      const level = getLevelFromXp(totalXp);
-      if (totalXp !== state.user.xp || level !== state.user.level) {
-        dispatch({
-          type: 'UPDATE_USER_LEVEL_AND_XP',
-          payload: { level, xp: totalXp }
-        });
-      }
-    }
-  }, [state.analytics, state.user]);
 
   return (
     <AppContext.Provider value={{ state, dispatch, dataService }}>

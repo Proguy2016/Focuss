@@ -68,13 +68,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    console.log("Form submitted!");
 
-    // Clear previous errors
-    setFormError(null);
-    clearError();
-
-    // Validate form
     const validationError = validateForm();
     if (validationError) {
       setFormError(validationError);
@@ -83,17 +77,13 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
 
     try {
       if (isLogin) {
-        console.log("Direct login with:", email, password);
-        await login(email, password);
+        await login({ email, password });
       } else {
-        console.log("Direct registration with:", firstName, lastName, email, password);
-        await register(firstName, lastName, email, password);
+        await register({ firstName, lastName, email, password });
       }
-      // Navigate to dashboard on success
       navigate('/dashboard');
     } catch (err) {
-      // Error handling is done in useEffect when error state changes
-      console.error('Authentication error:', err);
+      // Error is handled by the useAuth hook
     }
   };
 
@@ -102,40 +92,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
   };
 
   const handleSignInButtonClick = (e: React.MouseEvent) => {
-    console.log('Sign in/up button clicked');
     e.preventDefault();
-
-    // Clear previous errors
-    setFormError(null);
-    clearError();
-
-    // Validate form
-    const validationError = validateForm();
-    if (validationError) {
-      setFormError(validationError);
-      return;
-    }
-
-    // Execute the appropriate authentication action
-    if (isLogin) {
-      console.log("Direct login with:", email, password);
-      login(email, password)
-        .then(() => {
-          navigate('/dashboard');
-        })
-        .catch((err) => {
-          console.error('Login error:', err);
-        });
-    } else {
-      console.log("Direct registration with:", firstName, lastName, email, password);
-      register(firstName, lastName, email, password)
-        .then(() => {
-          navigate('/dashboard');
-        })
-        .catch((err) => {
-          console.error('Registration error:', err);
-        });
-    }
+    handleSubmit(e);
   };
 
   const handleSocialLogin = (e: React.MouseEvent) => {
