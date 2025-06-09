@@ -438,63 +438,59 @@ export const Tasks: React.FC = () => {
         </div>
       </Card>
 
-      {/* Tasks Display */}
-      <AnimatePresence mode="wait">
+      {/* Task Views */}
+      <div className="mt-8">
         {viewMode === 'kanban' ? (
-          <motion.div
-            key="kanban"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="flex gap-6 overflow-x-auto pb-4"
-          >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <KanbanColumn
-              status="todo"
+              status="To Do"
               tasks={filteredAndSortedTasks.filter(t => t.status.type === 'todo')}
             />
             <KanbanColumn
-              status="inProgress"
+              status="In Progress"
               tasks={filteredAndSortedTasks.filter(t => t.status.type === 'inProgress')}
             />
             <KanbanColumn
-              status="completed"
+              status="Completed"
               tasks={filteredAndSortedTasks.filter(t => t.status.type === 'completed')}
             />
-          </motion.div>
-        ) : (
-          <motion.div
-            key={viewMode}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className={
-              viewMode === 'grid'
-                ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
-                : 'space-y-3'
-            }
-          >
+          </div>
+        ) : viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredAndSortedTasks.map((task, index) => (
               <TaskCard key={task.id} task={task} index={index} />
             ))}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredAndSortedTasks.map((task, index) => (
+              <TaskCard key={task.id} task={task} index={index} />
+            ))}
+          </div>
+        )}
+
+        {filteredAndSortedTasks.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-16"
+          >
+            <Card variant="glass" className="p-10 inline-block">
+              <CheckCircle2 className="w-16 h-16 text-primary-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-white mb-2">You're all caught up!</h3>
+              <p className="text-white/60 mb-6">No tasks match the current filter.</p>
+              <Button
+                size="lg"
+                onClick={() => setShowCreateModal(true)}
+                className="bg-primary-500 hover:bg-primary-600"
+              >
+                <Plus className="mr-2 h-5 w-5" />
+                Create a Task
+              </Button>
+            </Card>
           </motion.div>
         )}
-      </AnimatePresence>
-
-      {filteredAndSortedTasks.length === 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center py-12"
-        >
-          <Target className="w-16 h-16 text-white/20 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-white/60 mb-2">No tasks found</h3>
-          <p className="text-white/40">
-            {searchTerm || filterType !== 'all'
-              ? 'Try adjusting your search or filters'
-              : 'Create your first task to get started'}
-          </p>
-        </motion.div>
-      )}
+      </div>
 
       {/* Create Task Modal */}
       <Modal

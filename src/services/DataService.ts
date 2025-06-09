@@ -12,11 +12,11 @@ export class DataService {
       ...session,
       id: this.generateId(),
     };
-    
+
     const sessions = await this.getFocusSessions();
     sessions.push(newSession);
     await this.saveFocusSessions(sessions);
-    
+
     return newSession;
   }
 
@@ -51,11 +51,11 @@ export class DataService {
       ...habit,
       id: this.generateId(),
     };
-    
+
     const habits = await this.getHabits();
     habits.push(newHabit);
     await this.saveHabits(habits);
-    
+
     return newHabit;
   }
 
@@ -80,6 +80,24 @@ export class DataService {
     this.saveData(data);
   }
 
+  // Habit Completions
+  async getHabitCompletions(): Promise<HabitCompletion[]> {
+    const data = this.getData();
+    return data.habitCompletions || this.getMockHabitCompletions();
+  }
+
+  async saveHabitCompletion(completion: HabitCompletion): Promise<void> {
+    const completions = await this.getHabitCompletions();
+    completions.push(completion);
+    await this.saveHabitCompletions(completions);
+  }
+
+  private async saveHabitCompletions(completions: HabitCompletion[]): Promise<void> {
+    const data = this.getData();
+    data.habitCompletions = completions;
+    this.saveData(data);
+  }
+
   // Tasks
   async getTasks(): Promise<Task[]> {
     const data = this.getData();
@@ -94,11 +112,11 @@ export class DataService {
       createdAt: now,
       updatedAt: now,
     };
-    
+
     const tasks = await this.getTasks();
     tasks.push(newTask);
     await this.saveTasks(tasks);
-    
+
     return newTask;
   }
 
@@ -107,7 +125,7 @@ export class DataService {
       ...task,
       updatedAt: new Date(),
     };
-    
+
     const tasks = await this.getTasks();
     const index = tasks.findIndex(t => t.id === task.id);
     if (index !== -1) {
@@ -220,6 +238,14 @@ export class DataService {
     ];
   }
 
+  private getMockHabitCompletions(): HabitCompletion[] {
+    return [
+      { id: '1', habitId: '1', date: new Date('2024-02-10'), count: 1 },
+      { id: '2', habitId: '1', date: new Date('2024-02-11'), count: 1 },
+      { id: '3', habitId: '2', date: new Date('2024-02-11'), count: 1 },
+    ];
+  }
+
   private getMockTasks(): Task[] {
     return [
       {
@@ -291,9 +317,10 @@ export class DataService {
   }
 
   private getMockAnalytics(): Analytics {
+    const achievements = this.getMockAchievements();
     return {
       focusSessions: {
-        totalSessions: 124,
+        totalSessions: 128,
         totalFocusTime: 2940, // minutes
         averageSessionLength: 23.7,
         completionRate: 87.5,
@@ -310,10 +337,9 @@ export class DataService {
         })),
         flowStateHours: [9, 10, 11, 14, 15, 16, 20, 21],
         distractionPatterns: [
-          { hour: 9, count: 3, type: 'email' },
-          { hour: 11, count: 5, type: 'social' },
-          { hour: 14, count: 7, type: 'phone' },
-          { hour: 16, count: 4, type: 'notifications' },
+          { hour: 10, count: 5, type: 'Social Media' },
+          { hour: 14, count: 8, type: 'Email' },
+          { hour: 16, count: 3, type: 'Phone Call' },
         ],
       },
       habits: {
@@ -329,11 +355,11 @@ export class DataService {
         weeklyPatterns: Array.from({ length: 7 }, (_, i) => ({
           dayOfWeek: i,
           completionRate: Math.floor(Math.random() * 30) + 70,
-          averageCompletions: Math.floor(Math.random() * 3) + 2,
+          averageCompletions: 0.8,
         })),
       },
       tasks: {
-        totalTasks: 47,
+        totalTasks: 89,
         completionRate: 73.2,
         averageCompletionTime: 45.6,
         priorityDistribution: [
@@ -345,17 +371,17 @@ export class DataService {
           hour: i,
           tasksCompleted: i >= 8 && i <= 18 ? Math.floor(Math.random() * 5) + 1 : Math.floor(Math.random() * 2),
           focusTime: i >= 8 && i <= 18 ? Math.floor(Math.random() * 60) + 30 : Math.floor(Math.random() * 20),
-          productivityScore: i >= 8 && i <= 18 ? Math.floor(Math.random() * 40) + 60 : Math.floor(Math.random() * 30) + 20,
+          productivityScore: 8.2,
         })),
       },
       overall: {
-        productivityScore: 87,
-        weeklyGoalProgress: 72,
-        monthlyGoalProgress: 68,
-        achievements: this.getMockAchievements(),
-        level: 12,
-        xp: 2450,
-        nextLevelXp: 3000,
+        productivityScore: 88,
+        weeklyGoalProgress: 75,
+        monthlyGoalProgress: 60,
+        achievements: achievements,
+        level: 1,
+        xp: 0,
+        nextLevelXp: 1000,
       },
     };
   }
@@ -363,50 +389,81 @@ export class DataService {
   private getMockAchievements(): Achievement[] {
     return [
       {
-        id: '1',
-        name: 'Focus Master',
-        description: 'Complete 100 focus sessions',
-        icon: 'Target',
+        id: 'ach-focus-1',
+        name: 'First Focus',
+        description: 'Complete your first focus session.',
+        icon: '🎯',
         type: 'focus',
-        requirement: 100,
-        progress: 124,
-        unlocked: true,
-        unlockedAt: new Date('2024-01-20'),
+        requirement: 1,
+        progress: 0,
+        unlocked: false,
+        xpReward: 50,
+      },
+      {
+        id: 'ach-focus-2',
+        name: 'Focused Apprentice',
+        description: 'Complete 10 focus sessions.',
+        icon: '🧘',
+        type: 'focus',
+        requirement: 10,
+        progress: 0,
+        unlocked: false,
+        xpReward: 100,
+      },
+      {
+        id: 'ach-focus-3',
+        name: 'Focus Master',
+        description: 'Log 100 hours of focus time.',
+        icon: '🧠',
+        type: 'focus',
+        requirement: 6000, // in minutes
+        progress: 0,
+        unlocked: false,
         xpReward: 500,
       },
       {
-        id: '2',
-        name: 'Habit Architect',
-        description: 'Maintain a 30-day streak',
-        icon: 'Calendar',
+        id: 'ach-streak-1',
+        name: 'On a Roll',
+        description: 'Maintain a 7-day streak.',
+        icon: '🔥',
+        type: 'streak',
+        requirement: 7,
+        progress: 0,
+        unlocked: false,
+        xpReward: 150,
+      },
+      {
+        id: 'ach-habit-1',
+        name: 'Habit Starter',
+        description: 'Complete a habit for the first time.',
+        icon: '🌱',
         type: 'habit',
-        requirement: 30,
-        progress: 28,
+        requirement: 1,
+        progress: 0,
         unlocked: false,
-        xpReward: 750,
+        xpReward: 50,
       },
       {
-        id: '3',
-        name: 'Task Ninja',
-        description: 'Complete 50 tasks',
-        icon: 'CheckCircle',
+        id: 'ach-task-1',
+        name: 'Task Ticker',
+        description: 'Complete your first task.',
+        icon: '✅',
         type: 'task',
-        requirement: 50,
-        progress: 47,
+        requirement: 1,
+        progress: 0,
         unlocked: false,
-        xpReward: 300,
+        xpReward: 20,
       },
       {
-        id: '4',
-        name: 'Level Up',
-        description: 'Reach level 10',
-        icon: 'Star',
+        id: 'ach-level-1',
+        name: 'Level Up!',
+        description: 'Reach level 5.',
+        icon: '🚀',
         type: 'level',
-        requirement: 10,
-        progress: 12,
-        unlocked: true,
-        unlockedAt: new Date('2024-02-01'),
-        xpReward: 1000,
+        requirement: 5,
+        progress: 0,
+        unlocked: false,
+        xpReward: 200,
       },
     ];
   }

@@ -6,7 +6,7 @@ import { Card } from '../common/Card';
 
 export const ProductivityChart: React.FC = () => {
   const { state } = useApp();
-  
+
   const chartData = state.analytics?.focusSessions.productivityTrends.map(trend => ({
     date: new Date(trend.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     score: trend.score,
@@ -32,55 +32,64 @@ export const ProductivityChart: React.FC = () => {
           </div>
         </div>
       </div>
-      
+
       <motion.div
         className="h-64"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
       >
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData}>
-            <defs>
-              <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3}/>
-                <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}/>
-              </linearGradient>
-              <linearGradient id="timeGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
-                <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-            <XAxis 
-              dataKey="date" 
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }}
-            />
-            <YAxis 
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }}
-            />
-            <Area
-              type="monotone"
-              dataKey="score"
-              stroke="#8B5CF6"
-              strokeWidth={2}
-              fill="url(#scoreGradient)"
-            />
-            <Area
-              type="monotone"
-              dataKey="focusTime"
-              stroke="#3B82F6"
-              strokeWidth={2}
-              fill="url(#timeGradient)"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+        {chartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData}>
+              <defs>
+                <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="timeGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+              <XAxis
+                dataKey="date"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }}
+              />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }}
+              />
+              <Area
+                type="monotone"
+                dataKey="score"
+                stroke="#8B5CF6"
+                strokeWidth={2}
+                fill="url(#scoreGradient)"
+              />
+              <Area
+                type="monotone"
+                dataKey="focusTime"
+                stroke="#3B82F6"
+                strokeWidth={2}
+                fill="url(#timeGradient)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center text-white/60">
+              <p className="text-lg font-semibold">No data yet!</p>
+              <p className="text-sm">Start a focus session to see your progress.</p>
+            </div>
+          </div>
+        )}
       </motion.div>
-      
+
       <div className="mt-4 grid grid-cols-3 gap-4 pt-4 border-t border-white/10">
         <div className="text-center">
           <p className="text-2xl font-bold text-primary-400">

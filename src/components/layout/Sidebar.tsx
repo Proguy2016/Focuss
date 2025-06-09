@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { Button } from '../common/Button';
+import { getTotalXpForLevel, getXpToLevelUp } from '../../utils/leveling';
 
 const navigationItems = [
   { icon: Home, label: 'Dashboard', path: '/' },
@@ -26,6 +27,14 @@ const navigationItems = [
 
 export const Sidebar: React.FC = () => {
   const { state, dispatch } = useApp();
+
+  const totalXp = state.user?.xp || 0;
+  const level = state.user?.level || 1;
+
+  const xpForCurrentLevel = getTotalXpForLevel(level);
+  const xpForNextLevel = getXpToLevelUp(level);
+  const currentXpInLevel = totalXp - xpForCurrentLevel;
+  const progressPercentage = xpForNextLevel > 0 ? (currentXpInLevel / xpForNextLevel) * 100 : 0;
 
   return (
     <>
@@ -94,14 +103,16 @@ export const Sidebar: React.FC = () => {
                 <div className="mt-4">
                   <div className="flex justify-between text-sm text-gray-400 mb-1">
                     <span>XP Progress</span>
-                    <span>{state.user?.xp} / {state.analytics?.overall.nextLevelXp}</span>
+                    <span>
+                      {currentXpInLevel} / {xpForNextLevel}
+                    </span>
                   </div>
                   <div className="w-full bg-gray-700/50 rounded-full h-2">
                     <motion.div
                       className="h-2 rounded-full bg-gradient-to-r from-teal-400 to-green-500"
                       initial={{ width: 0 }}
                       animate={{
-                        width: `${((state.user?.xp || 0) / (state.analytics?.overall.nextLevelXp || 1)) * 100}%`
+                        width: `${progressPercentage}%`
                       }}
                       transition={{ duration: 1, delay: 0.5 }}
                     />

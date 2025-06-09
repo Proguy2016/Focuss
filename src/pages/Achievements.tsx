@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Trophy, Star, Target, Zap, Calendar, Award, 
+import {
+  Trophy, Star, Target, Zap, Calendar, Award,
   Crown, Medal, Shield, Flame, Lock, CheckCircle2,
   TrendingUp, Clock, Users, BookOpen, Filter, Search
 } from 'lucide-react';
@@ -236,7 +236,7 @@ export const Achievements: React.FC = () => {
   const filteredAchievements = achievements.filter(achievement => {
     // Search filter
     if (searchTerm && !achievement.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !achievement.description.toLowerCase().includes(searchTerm.toLowerCase())) {
+      !achievement.description.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
     }
 
@@ -296,7 +296,7 @@ export const Achievements: React.FC = () => {
   const AchievementCard: React.FC<{ achievement: Achievement; index: number }> = ({ achievement, index }) => {
     const IconComponent = achievement.icon;
     const progressPercentage = getProgressPercentage(achievement);
-    
+
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -304,31 +304,29 @@ export const Achievements: React.FC = () => {
         transition={{ delay: index * 0.05 }}
         className="group"
       >
-        <Card 
-          variant="glass" 
-          hover 
-          className={`p-6 cursor-pointer transition-all duration-300 ${
-            achievement.unlocked ? 'ring-2 ring-success-500/30' : 'opacity-75'
-          }`}
+        <Card
+          variant="glass"
+          hover
+          className={`p-6 cursor-pointer transition-all duration-300 ${achievement.unlocked ? 'ring-2 ring-success-500/30' : 'opacity-75'
+            }`}
           onClick={() => setSelectedAchievement(achievement)}
         >
           <div className="flex items-start gap-4">
-            <div className={`relative w-16 h-16 rounded-xl bg-gradient-to-br ${getTierColor(achievement.tier)} flex items-center justify-center ${
-              !achievement.unlocked ? 'grayscale' : ''
-            }`}>
+            <div className={`relative w-16 h-16 rounded-xl bg-gradient-to-br ${getTierColor(achievement.tier)} flex items-center justify-center ${!achievement.unlocked ? 'grayscale' : ''
+              }`}>
               {achievement.unlocked ? (
                 <IconComponent className="w-8 h-8 text-white" />
               ) : (
                 <Lock className="w-8 h-8 text-white/60" />
               )}
-              
+
               {achievement.unlocked && (
                 <div className="absolute -top-1 -right-1 w-6 h-6 bg-success-500 rounded-full flex items-center justify-center">
                   <CheckCircle2 className="w-4 h-4 text-white" />
                 </div>
               )}
             </div>
-            
+
             <div className="flex-1">
               <div className="flex items-start justify-between mb-2">
                 <div>
@@ -342,7 +340,7 @@ export const Achievements: React.FC = () => {
                   <div className="text-white/60 text-xs">{achievement.xpReward} XP</div>
                 </div>
               </div>
-              
+
               {!achievement.unlocked && (
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
@@ -357,7 +355,7 @@ export const Achievements: React.FC = () => {
                   </div>
                 </div>
               )}
-              
+
               {achievement.unlocked && achievement.unlockedAt && (
                 <div className="text-white/60 text-xs mt-2">
                   Unlocked {achievement.unlockedAt.toLocaleDateString()}
@@ -391,7 +389,7 @@ export const Achievements: React.FC = () => {
             Track your progress and unlock rewards
           </p>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <div className="text-right">
             <div className="text-2xl font-bold text-white">{stats.unlocked}/{stats.total}</div>
@@ -406,17 +404,17 @@ export const Achievements: React.FC = () => {
           <div className="text-3xl font-bold text-success-400 mb-2">{stats.unlocked}</div>
           <div className="text-white/60 text-sm">Achievements Unlocked</div>
         </Card>
-        
+
         <Card variant="glass" className="p-6 text-center">
           <div className="text-3xl font-bold text-warning-400 mb-2">{stats.totalXP}</div>
           <div className="text-white/60 text-sm">XP Earned</div>
         </Card>
-        
+
         <Card variant="glass" className="p-6 text-center">
           <div className="text-3xl font-bold text-purple-400 mb-2">{stats.rarest}</div>
           <div className="text-white/60 text-sm">Legendary Unlocked</div>
         </Card>
-        
+
         <Card variant="glass" className="p-6 text-center">
           <div className="text-3xl font-bold text-primary-400 mb-2">
             {Math.round((stats.unlocked / stats.total) * 100)}%
@@ -530,7 +528,7 @@ export const Achievements: React.FC = () => {
                 const IconComponent = badge.icon;
                 return (
                   <div key={badge.id} className="flex items-center gap-3">
-                    <div 
+                    <div
                       className="w-10 h-10 rounded-lg flex items-center justify-center"
                       style={{ backgroundColor: `${badge.color}20` }}
                     >
@@ -599,19 +597,18 @@ export const Achievements: React.FC = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-center">
-              <div className={`w-24 h-24 mx-auto mb-6 rounded-2xl bg-gradient-to-br ${getTierColor(selectedAchievement.tier)} flex items-center justify-center ${
-                !selectedAchievement.unlocked ? 'grayscale' : ''
-              }`}>
+              <div className={`w-24 h-24 mx-auto mb-6 rounded-2xl bg-gradient-to-br ${getTierColor(selectedAchievement.tier)} flex items-center justify-center ${!selectedAchievement.unlocked ? 'grayscale' : ''
+                }`}>
                 {selectedAchievement.unlocked ? (
                   <selectedAchievement.icon className="w-12 h-12 text-white" />
                 ) : (
                   <Lock className="w-12 h-12 text-white/60" />
                 )}
               </div>
-              
+
               <h2 className="text-2xl font-bold text-white mb-2">{selectedAchievement.name}</h2>
               <p className="text-white/70 mb-4">{selectedAchievement.description}</p>
-              
+
               <div className="flex justify-center gap-4 mb-6">
                 <div className="text-center">
                   <div className={`text-lg font-bold ${getRarityColor(selectedAchievement.rarity)} capitalize`}>
@@ -628,7 +625,7 @@ export const Achievements: React.FC = () => {
                   <div className="text-white/60 text-sm">Tier</div>
                 </div>
               </div>
-              
+
               {!selectedAchievement.unlocked && (
                 <div className="space-y-2 mb-6">
                   <div className="flex justify-between text-sm">
@@ -643,13 +640,13 @@ export const Achievements: React.FC = () => {
                   </div>
                 </div>
               )}
-              
+
               {selectedAchievement.unlocked && selectedAchievement.unlockedAt && (
                 <div className="text-success-400 text-sm mb-6">
                   ✓ Unlocked on {selectedAchievement.unlockedAt.toLocaleDateString()}
                 </div>
               )}
-              
+
               <Button
                 variant="primary"
                 onClick={() => setSelectedAchievement(null)}

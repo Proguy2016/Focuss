@@ -65,6 +65,30 @@ export const Habits: React.FC = () => {
     { id: '5', name: 'Mindfulness', color: '#EC4899', icon: 'Brain' },
   ];
 
+  // Check if a habit is completed for a specific date
+  const isHabitCompletedForDate = (habit: Habit, date: Date): boolean => {
+    if (!Array.isArray(state.habitCompletions)) {
+      return false;
+    }
+    try {
+      return state.habitCompletions.some(
+        (completion) => {
+          if (!completion || !completion.date) {
+            return false;
+          }
+          const completionDate = new Date(completion.date);
+          if (isNaN(completionDate.getTime())) {
+            return false;
+          }
+          return completion.habitId === habit.id && isSameDay(completionDate, date);
+        }
+      );
+    } catch (error) {
+      console.error("Error in isHabitCompletedForDate:", error);
+      return false;
+    }
+  };
+
   const getCategoryColor = (categoryName: string) => {
     const category = categories.find(c => c.name === categoryName);
     return category ? category.color : '#6B7280'; // Default gray
@@ -95,27 +119,7 @@ export const Habits: React.FC = () => {
           return true;
       }
     });
-  }, [state.habits, searchTerm, filterType, selectedDate]);
-
-  // Check if a habit is completed for a specific date
-  const isHabitCompletedForDate = (habit: Habit, date: Date): boolean => {
-    // This would typically check the habit completions in the database
-    // For now, we'll simulate based on the current streak and a random factor
-    if (habit.currentStreak > 0) {
-      // If the date is today, use the streak as an indicator
-      if (isToday(date)) {
-        return true;
-      }
-
-      // If the date is in the past, there's a high chance it was completed if the streak is good
-      if (isPast(date) && !isToday(date)) {
-        const dayDiff = Math.floor((new Date().getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-        return dayDiff <= habit.currentStreak;
-      }
-    }
-
-    return false;
-  };
+  }, [state.habits, state.habitCompletions, searchTerm, filterType, selectedDate]);
 
   const handleCreateHabit = async () => {
     if (!newHabit.name.trim()) return;
@@ -198,8 +202,8 @@ export const Habits: React.FC = () => {
         notes: completionNote || undefined
       };
 
-      // In a real app, you would save this completion record
-      // dataService.saveHabitCompletion(completion);
+      await dataService.saveHabitCompletion(completion);
+      dispatch({ type: 'ADD_HABIT_COMPLETION', payload: completion });
 
       await dataService.updateHabit(updatedHabit);
       dispatch({ type: 'UPDATE_HABIT', payload: updatedHabit });
@@ -329,102 +333,130 @@ export const Habits: React.FC = () => {
       </div>
 
       {/* Habits List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <AnimatePresence>
-          {filteredHabits.map((habit, index) => (
-            <motion.div
-              key={habit.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ delay: index * 0.05 }}
-            >
-              <Card
-                variant="glass"
-                className="p-5 border-l-4"
-                style={{ borderLeftColor: habit.color }}
+      {filteredHabits.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <AnimatePresence>
+            {filteredHabits.map((habit, index) => (
+              <motion.div
+                key={habit.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
               >
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-10 h-10 rounded-lg flex items-center justify-center"
-                      style={{ backgroundColor: `${habit.color}30` }}
-                    >
-                      <HabitIcon name={habit.icon} className="w-5 h-5" style={{ color: habit.color }} />
+                <Card
+                  variant="glass"
+                  className="p-5 border-l-4"
+                  style={{ borderLeftColor: habit.color }}
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-lg flex items-center justify-center"
+                        style={{ backgroundColor: `${habit.color}30` }}
+                      >
+                        <HabitIcon name={habit.icon} className="w-5 h-5" style={{ color: habit.color }} />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-white text-lg">{habit.name}</h3>
+                        <p className="text-white/60 text-sm">{habit.category.name}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-white text-lg">{habit.name}</h3>
-                      <p className="text-white/60 text-sm">{habit.category.name}</p>
+
+                    <div className="flex items-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="p-1"
+                        onClick={() => {
+                          if (!isHabitCompletedForDate(habit, selectedDate)) {
+                            setCompletingHabit(habit);
+                            setShowCompletionModal(true);
+                          }
+                        }}
+                      >
+                        {isHabitCompletedForDate(habit, selectedDate) ? (
+                          <CheckCircle2 className="w-5 h-5 text-success-400" />
+                        ) : (
+                          <Circle className="w-5 h-5 text-white/40" />
+                        )}
+                      </Button>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="p-1"
+                        icon={MoreHorizontal}
+                        onClick={() => setEditingHabit(habit)}
+                      />
                     </div>
                   </div>
 
-                  <div className="flex items-center">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="p-1"
-                      onClick={() => {
-                        setCompletingHabit(habit);
-                        setShowCompletionModal(true);
-                      }}
-                    >
-                      {isHabitCompletedForDate(habit, selectedDate) ? (
-                        <CheckCircle2 className="w-5 h-5 text-success-400" />
-                      ) : (
-                        <Circle className="w-5 h-5 text-white/40" />
-                      )}
-                    </Button>
+                  {habit.description && (
+                    <p className="text-white/70 text-sm mb-3">{habit.description}</p>
+                  )}
 
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="p-1"
-                      icon={MoreHorizontal}
-                      onClick={() => setEditingHabit(habit)}
-                    />
+                  <div className="flex justify-between items-center text-sm text-white/60">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="w-4 h-4" />
+                      <span>{habit.frequency.type}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Zap className="w-4 h-4" />
+                      <span>{habit.currentStreak} day streak</span>
+                    </div>
                   </div>
-                </div>
 
-                {habit.description && (
-                  <p className="text-white/70 text-sm mb-3">{habit.description}</p>
-                )}
-
-                <div className="flex justify-between items-center text-sm text-white/60">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    <span>{habit.frequency.type}</span>
+                  {/* Progress Bar */}
+                  <div className="mt-4">
+                    <div className="flex justify-between text-xs text-white/60 mb-1">
+                      <span>Progress</span>
+                      <span>
+                        {isHabitCompletedForDate(habit, selectedDate) ? habit.targetCount : 0} / {habit.targetCount}
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                      <motion.div
+                        className="h-full"
+                        style={{ backgroundColor: habit.color }}
+                        initial={{ width: 0 }}
+                        animate={{
+                          width: isHabitCompletedForDate(habit, selectedDate) ? '100%' : '0%'
+                        }}
+                        transition={{ duration: 0.5 }}
+                      />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Zap className="w-4 h-4" />
-                    <span>{habit.currentStreak} day streak</span>
-                  </div>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="mt-4">
-                  <div className="flex justify-between text-xs text-white/60 mb-1">
-                    <span>Progress</span>
-                    <span>
-                      {isHabitCompletedForDate(habit, selectedDate) ? habit.targetCount : 0} / {habit.targetCount}
-                    </span>
-                  </div>
-                  <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                    <motion.div
-                      className="h-full"
-                      style={{ backgroundColor: habit.color }}
-                      initial={{ width: 0 }}
-                      animate={{
-                        width: isHabitCompletedForDate(habit, selectedDate) ? '100%' : '0%'
-                      }}
-                      transition={{ duration: 0.5 }}
-                    />
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
+                </Card>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center py-12"
+        >
+          <Card variant="glass" className="p-10">
+            <Zap className="w-16 h-16 text-primary-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-white mb-2">
+              No habits found for this filter.
+            </h3>
+            <p className="text-white/60 mb-6">
+              Ready to build some great habits? Let's start with the first one.
+            </p>
+            <Button
+              size="lg"
+              onClick={() => setShowCreateModal(true)}
+              className="bg-primary-500 hover:bg-primary-600"
+            >
+              <Plus className="mr-2 h-5 w-5" />
+              Create a Habit
+            </Button>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Create Habit Modal */}
       <Modal

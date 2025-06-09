@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { User, FocusSession, Habit, Task, Analytics, UserPreferences } from '../types';
+import { User, FocusSession, Habit, Task, Analytics, UserPreferences, HabitCompletion } from '../types';
 import { DataService } from '../services/DataService';
+import { getLevelFromXp } from '../utils/leveling';
 
 interface AppState {
   user: User | null;
   currentSession: FocusSession | null;
   habits: Habit[];
+  habitCompletions: HabitCompletion[];
   tasks: Task[];
   analytics: Analytics | null;
   isLoading: boolean;
@@ -25,16 +27,20 @@ type AppAction =
   | { type: 'UPDATE_TASK'; payload: Task }
   | { type: 'DELETE_TASK'; payload: string }
   | { type: 'SET_TASKS'; payload: Task[] }
+  | { type: 'ADD_HABIT_COMPLETION'; payload: HabitCompletion }
+  | { type: 'SET_HABIT_COMPLETIONS'; payload: HabitCompletion[] }
   | { type: 'SET_ANALYTICS'; payload: Analytics }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_THEME'; payload: 'light' | 'dark' | 'auto' }
   | { type: 'TOGGLE_SIDEBAR' }
-  | { type: 'SET_ACTIVE_VIEW'; payload: string };
+  | { type: 'SET_ACTIVE_VIEW'; payload: string }
+  | { type: 'UPDATE_USER_LEVEL_AND_XP'; payload: { level: number; xp: number } };
 
 const initialState: AppState = {
   user: null,
   currentSession: null,
   habits: [],
+  habitCompletions: [],
   tasks: [],
   analytics: null,
   isLoading: true,
@@ -47,6 +53,14 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
   switch (action.type) {
     case 'SET_USER':
       return { ...state, user: action.payload };
+    case 'UPDATE_USER_LEVEL_AND_XP':
+      if (state.user) {
+        return {
+          ...state,
+          user: { ...state.user, level: action.payload.level, xp: action.payload.xp }
+        };
+      }
+      return state;
     case 'SET_CURRENT_SESSION':
       return { ...state, currentSession: action.payload };
     case 'ADD_HABIT':
@@ -71,6 +85,10 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       return { ...state, tasks: state.tasks.filter(t => t.id !== action.payload) };
     case 'SET_TASKS':
       return { ...state, tasks: action.payload };
+    case 'ADD_HABIT_COMPLETION':
+      return { ...state, habitCompletions: [...state.habitCompletions, action.payload] };
+    case 'SET_HABIT_COMPLETIONS':
+      return { ...state, habitCompletions: action.payload };
     case 'SET_ANALYTICS':
       return { ...state, analytics: action.payload };
     case 'SET_LOADING':
@@ -103,14 +121,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const initializeApp = async () => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
-      
+
       // Initialize mock user
       const mockUser: User = {
         id: 'user-1',
         name: 'Focus Master',
         email: 'focus@ritual.com',
-        level: 12,
-        xp: 2450,
+        level: 1,
+        xp: 0,
         totalFocusTime: 15840, // minutes
         streak: 7,
         joinDate: new Date('2024-01-01'),
@@ -130,11 +148,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Load data
       const habits = await dataService.getHabits();
       const tasks = await dataService.getTasks();
+      const habitCompletions = await dataService.getHabitCompletions();
       const analytics = await dataService.getAnalytics();
 
       dispatch({ type: 'SET_USER', payload: mockUser });
       dispatch({ type: 'SET_HABITS', payload: habits });
       dispatch({ type: 'SET_TASKS', payload: tasks });
+      dispatch({ type: 'SET_HABIT_COMPLETIONS', payload: habitCompletions });
       dispatch({ type: 'SET_ANALYTICS', payload: analytics });
     } catch (error) {
       console.error('Failed to initialize app:', error);
@@ -142,6 +162,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       dispatch({ type: 'SET_LOADING', payload: false });
     }
   };
+
+  useEffect(() => {
+    if (state.analytics && state.user) {
+      const unlockedAchievements = state.analytics.overall.achievements.filter(a => a.unlocked);
+      const totalXp = unlockedAchievements.reduce((sum, a) => sum + a.xpReward, 0);
+      const level = getLevelFromXp(totalXp);
+      if (totalXp !== state.user.xp || level !== state.user.level) {
+        dispatch({
+          type: 'UPDATE_USER_LEVEL_AND_XP',
+          payload: { level, xp: totalXp }
+        });
+      }
+    }
+  }, [state.analytics, state.user]);
 
   return (
     <AppContext.Provider value={{ state, dispatch, dataService }}>
