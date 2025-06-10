@@ -6,6 +6,12 @@ import { QuickActions } from '../components/dashboard/QuickActions';
 import { RecentActivity } from '../components/dashboard/RecentActivity';
 import { UpcomingTasks } from '../components/dashboard/UpcomingTasks';
 import { ProductivityChart } from '../components/dashboard/ProductivityChart';
+import api from '../services/api';
+import { AxiosError } from 'axios';
+
+interface ErrorResponse {
+  message: string;
+}
 
 export const Dashboard: React.FC = () => {
   const { state, dispatch } = useApp();
@@ -22,24 +28,13 @@ export const Dashboard: React.FC = () => {
     const fetchStats = async () => {
       setLoading(true);
       try {
-        const token = localStorage.getItem('token');
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-
-        const res = await fetch('http://localhost:5001/api/stats/get', {
-          method: 'GET',
-          credentials: 'include',
-          headers,
-        });
-        if (!res.ok) {
-          const errorText = await res.text();
-          console.error('Failed to fetch stats:', res.status, res.statusText, errorText);
-          throw new Error(`Failed to fetch stats: ${res.status} ${res.statusText}`);
-        }
-        const data = await res.json();
+        // Use the API service instead of fetch directly
+        const response = await api.get('/stats/get');
+        
+        // Handle successful response
+        const data = response.data;
         console.log('API Response Data:', data);
+        
         if (data && data.stats) {
           // Update analytics and user state
           dispatch({
@@ -71,7 +66,7 @@ export const Dashboard: React.FC = () => {
                 distractionPatterns: [],
               },
               tasks: {
-                totalTasks: data.stats.tasksCompleted.totalCompleted,
+                totalTasks: data.stats.tasksCompleted?.totalCompleted || 0,
                 completionRate: 0,
                 averageCompletionTime: 0,
                 priorityDistribution: [],
@@ -86,15 +81,65 @@ export const Dashboard: React.FC = () => {
               },
             },
           });
-          // Optionally update user fields (level, streak, etc.)
-          // You may want to update user context here if needed
         }
-      } catch (err) {
-        console.error('Failed to fetch stats:', err);
+      } catch (err: unknown) {
+        console.log('Stats fetch error:', err);
+        
+        // Check if it's a 404 with the specific "Stats not found" message
+        const axiosError = err as AxiosError<ErrorResponse>;
+        if (axiosError.response && axiosError.response.status === 404 && 
+            axiosError.response.data && axiosError.response.data.message === "Stats not found for this user.") {
+          
+          console.log("No stats found for this user. Using defaults.");
+          
+          // Create default empty stats
+          dispatch({
+            type: 'SET_ANALYTICS',
+            payload: {
+              overall: {
+                productivityScore: 0,
+                achievements: [],
+                weeklyGoalProgress: 0,
+                monthlyGoalProgress: 0,
+                level: 1,
+                xp: 0,
+                nextLevelXp: 100,
+              },
+              focusSessions: {
+                totalSessions: 0,
+                totalFocusTime: 0,
+                averageSessionLength: 0,
+                completionRate: 0,
+                productivityTrends: [],
+                streakData: [],
+                flowStateHours: [],
+                distractionPatterns: [],
+              },
+              tasks: {
+                totalTasks: 0,
+                completionRate: 0,
+                averageCompletionTime: 0,
+                priorityDistribution: [],
+                productivityByHour: [],
+              },
+              habits: {
+                totalHabits: 0,
+                completionRate: 0,
+                averageStreak: 0,
+                categoryBreakdown: [],
+                weeklyPatterns: [],
+              },
+            },
+          });
+        } else {
+          // Handle other errors
+          console.error('Failed to fetch stats:', err);
+        }
       } finally {
         setLoading(false);
       }
     };
+    
     fetchStats();
     // eslint-disable-next-line
   }, []);

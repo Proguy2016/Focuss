@@ -138,81 +138,123 @@ const Library: React.FC = () => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    // This would normally be fetched from an API
-    setFiles([
-      { id: '1', type: 'folder', name: 'Science', modified: '2023-10-26', parentId: null, path: [] },
-      { id: '2', type: 'folder', name: 'History', modified: '2023-10-25', parentId: null, path: [] },
-      { id: '3', type: 'file', name: 'Quantum_Physics_Notes.pdf', size: '2.5 MB', modified: '2023-10-24', parentId: null, path: [], contentType: 'application/pdf' },
-      { id: '4', type: 'file', name: 'The_Roman_Empire.pdf', size: '5.1 MB', modified: '2023-10-22', parentId: null, path: [], contentType: 'application/pdf' },
-    ]);
-  }, []);
+  // Filter files based on current folder
+  const filteredFiles = files.filter(file => file.parentId === currentFolderId);
 
-  const filteredFiles = files.filter(file => 
-    // Filter by current path
-    JSON.stringify(file.path) === JSON.stringify(currentPath) &&
-    // Filter by search query
-    (searchQuery === '' || file.name.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // Log filtered files and current folder ID
+  useEffect(() => {
+    console.log('Current folder ID:', currentFolderId);
+    console.log('Total files in state:', files.length);
+    console.log('Filtered files for current folder:', filteredFiles.length);
+  }, [filteredFiles.length, currentFolderId, files.length]);
 
   const handleFolderClick = (folder: LibraryItem) => {
     setCurrentPath([...currentPath, folder.name]);
     setCurrentFolderId(folder.id);
   };
 
-  const handleBackClick = () => {
+  const handleBackClick = async () => {
     if (currentPath.length === 0) return;
     
     const newPath = [...currentPath];
     newPath.pop();
     setCurrentPath(newPath);
     
-    if (newPath.length === 0) {
+    setIsLoading(true);
+    try {
+      if (newPath.length === 0) {
+        // Go back to root
+        setCurrentFolderId(null);
+      } else {
+        // We need to find the parent folder's ID
+        const pathString = '/' + newPath.join('/');
+        const response = await api.get(`/api/library/path?path=${encodeURIComponent(pathString)}`);
+        
+        if (response.data && response.data.id) {
+          setCurrentFolderId(response.data.id);
+        } else {
+          // If we can't find the folder, go back to root
+          setCurrentFolderId(null);
+          setCurrentPath([]);
+        }
+      }
+    } catch (err) {
+      console.error('Error navigating back:', err);
+      setError('Failed to navigate. Returning to root.');
       setCurrentFolderId(null);
-    } else {
-      // In a real app, you would find the parent folder ID
-      const parentFolder = files.find(f => 
-        f.type === 'folder' && f.name === newPath[newPath.length - 1]
-      );
-      setCurrentFolderId(parentFolder?.id || null);
+      setCurrentPath([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleBreadcrumbClick = (index: number) => {
-    if (index === -1) {
-      // Root level
+  const handleBreadcrumbClick = async (index: number) => {
+    try {
+      setIsLoading(true);
+      
+      if (index === -1) {
+        // Root level
+        setCurrentPath([]);
+        setCurrentFolderId(null);
+      } else {
+        const newPath = currentPath.slice(0, index + 1);
+        setCurrentPath(newPath);
+        
+        // Find the folder ID by path
+        const pathString = '/' + newPath.join('/');
+        const response = await api.get(`/api/library/path?path=${encodeURIComponent(pathString)}`);
+        
+        if (response.data && response.data.id) {
+          setCurrentFolderId(response.data.id);
+        } else {
+          throw new Error('Folder not found');
+        }
+      }
+    } catch (err) {
+      console.error('Error navigating to breadcrumb:', err);
+      setError('Failed to navigate. Returning to root.');
       setCurrentPath([]);
       setCurrentFolderId(null);
-    } else {
-      const newPath = currentPath.slice(0, index + 1);
-      setCurrentPath(newPath);
-      
-      // In a real app, you would find the folder ID
-      const targetFolder = files.find(f => 
-        f.type === 'folder' && f.name === newPath[newPath.length - 1]
-      );
-      setCurrentFolderId(targetFolder?.id || null);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleCreateFolder = () => {
+  const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
     
-    const newFolder: LibraryItem = {
-      id: `folder-${Date.now()}`,
-      type: 'folder',
-      name: newFolderName,
-      modified: new Date().toISOString().split('T')[0],
-      parentId: currentFolderId,
-      path: [...currentPath]
-    };
+    setIsLoading(true);
+    setError(null);
     
-    setFiles([...files, newFolder]);
-    setShowNewFolderModal(false);
-    setNewFolderName('');
-
-    // In a real app, you would save this to your backend
-    // api.post('/library/folders', newFolder);
+    try {
+      const response = await api.post('/api/library/folder', {
+        name: newFolderName,
+        parentId: currentFolderId || 'root',
+        path: currentPath.length > 0 ? '/' + currentPath.join('/') : '/'
+      });
+      
+      if (response.data && response.data.id) {
+        // Add the new folder to our state
+        const newFolder: LibraryItem = {
+          id: response.data.id,
+          type: 'folder',
+          name: newFolderName,
+          modified: new Date().toLocaleDateString(),
+          parentId: currentFolderId,
+          path: [...currentPath]
+        };
+        
+        setFiles([...files, newFolder]);
+      }
+      
+      setShowNewFolderModal(false);
+      setNewFolderName('');
+    } catch (err) {
+      console.error('Error creating folder:', err);
+      setError('Failed to create folder. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleUploadClick = () => {
@@ -244,6 +286,8 @@ const Library: React.FC = () => {
         formData.append('parentId', currentFolderId || 'root');
         formData.append('path', currentPath.join('/'));
         
+        console.log(`Uploading file to /up/upload with parentId: ${currentFolderId || 'root'}`);
+        
         // Upload the file using the provided API endpoint
         const response = await api.post('/up/upload', formData, {
           headers: {
@@ -255,6 +299,8 @@ const Library: React.FC = () => {
           }
         });
         
+        console.log('Upload response:', response.data);
+        
         // Add the newly uploaded file to our list
         if (response.data && response.data.id) {
           const newFile: LibraryItem = {
@@ -262,7 +308,7 @@ const Library: React.FC = () => {
             type: 'file',
             name: file.name,
             size: formatSize(file.size),
-            modified: new Date().toISOString().split('T')[0],
+            modified: new Date().toLocaleDateString(),
             parentId: currentFolderId,
             path: [...currentPath],
             contentType: file.type,
@@ -273,8 +319,16 @@ const Library: React.FC = () => {
         }
       }
       
+      console.log(`${newFiles.length} files uploaded successfully`);
+      
       // Update the files list with the new uploads
-      setFiles(prev => [...prev, ...newFiles]);
+      if (newFiles.length > 0) {
+        setFiles(prev => [...prev, ...newFiles]);
+      }
+      
+      // Refresh library data from server
+      await fetchLibraryData();
+      
       setShowUploadModal(false);
       setUploadedFiles([]);
       setUploadProgress({});
@@ -310,7 +364,7 @@ const Library: React.FC = () => {
       } finally {
         setIsLoading(false);
       }
-                  } else {
+    } else {
       // For other file types, open the file directly
       window.open(`/up/file/${file.id}`, '_blank');
     }
@@ -326,6 +380,59 @@ const Library: React.FC = () => {
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
   };
   
+  // Fetch library data function declaration
+  const fetchLibraryData = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const endpoint = currentFolderId 
+        ? `/api/library/folder/${currentFolderId}` 
+        : '/api/library';
+      
+      console.log(`Fetching library data from ${endpoint}`);
+      const response = await api.get(endpoint);
+      console.log('Library API response:', response.data);
+      
+      if (response.data && response.data.items) {
+        // Transform API data to our LibraryItem format if needed
+        const libraryItems = response.data.items.map((item: any) => ({
+          id: item.id,
+          type: item.type,
+          name: item.name,
+          size: item.size ? formatSize(item.size) : undefined,
+          modified: new Date(item.modifiedAt || item.createdAt).toLocaleDateString(),
+          parentId: item.parentId,
+          path: item.path ? item.path.split('/').filter(Boolean) : [],
+          contentType: item.contentType,
+          url: item.type === 'file' ? `/up/file/${item.id}` : undefined
+        }));
+        
+        console.log('Transformed library items:', libraryItems);
+        setFiles(libraryItems);
+      } else {
+        console.log('No items found in library response');
+        setFiles([]);
+      }
+    } catch (err: any) {
+      console.error('Error fetching library data:', err);
+      // If we get a 404 for an empty library, just show an empty state
+      if (err.response && err.response.status === 404) {
+        console.log('404 response - showing empty state');
+        setFiles([]);
+      } else {
+        setError('Failed to load library. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Effect to fetch files from API
+  useEffect(() => {
+    fetchLibraryData();
+  }, [currentFolderId]);
+
   return (
     <div className="p-6 h-full flex flex-col">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
@@ -341,10 +448,10 @@ const Library: React.FC = () => {
       <div className="flex items-center justify-end mb-4">
         <Button variant="ghost" size="sm" onClick={() => setViewMode('grid')} className={`p-2 ${viewMode === 'grid' ? 'text-primary-400 bg-primary-500/10' : ''}`}>
           <LayoutGrid className="w-5 h-5" />
-          </Button>
+        </Button>
         <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className={`p-2 ${viewMode === 'list' ? 'text-primary-400 bg-primary-500/10' : ''}`}>
           <List className="w-5 h-5" />
-            </Button>
+        </Button>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -355,9 +462,10 @@ const Library: React.FC = () => {
           </div>
         ) : filteredFiles.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-white/50">
-            <Folder className="w-16 h-16 mb-2" />
+            <FolderOpen className="w-16 h-16 mb-2" />
             <h3 className="text-lg font-medium mb-1">This folder is empty</h3>
             <p className="text-sm mb-4">Upload files or create folders to get started</p>
+            <p className="text-xs mb-2">Total files: {files.length}, Filtered files: {filteredFiles.length}</p>
             <div className="flex gap-2">
               <Button variant="primary" size="sm" onClick={handleUploadClick}>
                 <UploadCloud className="w-4 h-4 mr-2" />
@@ -402,8 +510,8 @@ const Library: React.FC = () => {
               className="w-full h-9 rounded-md border border-slate-800 bg-slate-900/50 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
               placeholder="Enter folder name"
               autoFocus
-                />
-              </div>
+            />
+          </div>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setShowNewFolderModal(false)}>
               Cancel
@@ -424,12 +532,12 @@ const Library: React.FC = () => {
       >
         <div className="space-y-4">
           <div className="border-2 border-dashed border-slate-700 rounded-lg p-6 text-center">
-                <input
-                  type="file"
-                  ref={fileInputRef}
+            <input
+              type="file"
+              ref={fileInputRef}
               onChange={handleFileSelect}
               multiple
-                  className="hidden"
+              className="hidden"
             />
             <Button
               variant="ghost"
@@ -440,8 +548,8 @@ const Library: React.FC = () => {
               <p className="text-white">Click to select files or drag and drop</p>
               <p className="text-white/50 text-sm mt-1">PDF, DOCX, TXT, etc.</p>
             </Button>
-              </div>
-              
+          </div>
+
           {uploadedFiles.length > 0 && (
             <div className="space-y-2">
               <p className="text-white/80 text-sm">{uploadedFiles.length} file(s) selected</p>
@@ -455,43 +563,43 @@ const Library: React.FC = () => {
                     <p className="text-xs text-white/50">{formatSize(file.size)}</p>
                   </div>
                 ))}
-                  </div>
-                </div>
-              )}
-              
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setShowUploadModal(false)}>
-                  Cancel
-                </Button>
-                <Button
+              Cancel
+            </Button>
+            <Button 
               onClick={handleUploadFiles} 
               disabled={uploadedFiles.length === 0 || isLoading}
             >
               {isLoading ? 'Uploading...' : 'Upload'}
-                </Button>
+            </Button>
           </div>
         </div>
       </Modal>
 
       {/* Error Alert */}
       {error && (
-            <motion.div 
+        <motion.div 
           className="fixed bottom-4 right-4 bg-red-500/90 text-white p-4 rounded-lg shadow-lg flex items-center gap-2"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 20 }}
         >
           <p>{error}</p>
-                <Button
-                  variant="ghost"
+          <Button 
+            variant="ghost" 
             size="sm" 
             className="p-1" 
             onClick={() => setError(null)}
           >
             <X className="w-4 h-4" />
           </Button>
-          </motion.div>
-        )}
+        </motion.div>
+      )}
     </div>
   );
 };
