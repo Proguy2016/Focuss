@@ -14,6 +14,7 @@ import { Modal } from '../components/common/Modal';
 import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/avatar';
 import { useLocation } from 'react-router-dom';
 import { UserProfile } from '../services/AuthService';
+import api from '../services/api';
 
 type SettingsTab = 'profile' | 'preferences' | 'notifications' | 'appearance' | 'privacy' | 'data' | 'about';
 
@@ -1065,15 +1066,16 @@ const AboutSettings = () => (
 );
 
 export const Settings: React.FC = () => {
-    const { state, dispatch } = useApp();
-    const { user, loading: authLoading, error: authError, updateUserProfile } = useAuth();
     const location = useLocation();
+    const { state, dispatch } = useApp();
+    const { user } = useAuth();
+
     const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showExportModal, setShowExportModal] = useState(false);
-    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [profileData, setProfileData] = useState<ProfileData>(getInitialProfileData(user));
 
     useEffect(() => {
         const params = new URLSearchParams(location.search);
@@ -1137,8 +1139,8 @@ export const Settings: React.FC = () => {
         },
     });
 
-    const [appearance, setAppearance] = useState({
-        theme: state.theme,
+    const [appearance, setAppearance] = useState<Appearance>({
+        theme: 'light' as 'light' | 'dark' | 'auto',
         accentColor: 'purple',
         backgroundAnimation: 'particles',
         reducedMotion: false,
@@ -1161,9 +1163,9 @@ export const Settings: React.FC = () => {
         setIsLoading(true);
         setError(null);
         try {
-            // Updating the endpoint with the correct path
-            const response = await axios.get('auth/me', {
-                withCredentials: true, // This ensures cookies are sent with the request
+            // Use the api service instead of axios directly
+            const response = await api.get('/auth/me', {
+                withCredentials: true,
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
@@ -1171,8 +1173,8 @@ export const Settings: React.FC = () => {
             });
             const userData = response.data;
 
-            // Update profile data with fetched user data
-            updateUserProfile({
+            // Set the profile data directly instead of calling updateUserProfile
+            setProfileData({
                 firstName: userData.firstName || '',
                 lastName: userData.lastName || '',
                 email: userData.email || '',
@@ -1180,22 +1182,17 @@ export const Settings: React.FC = () => {
                 // Use browser detected timezone and language if not provided by API
                 timezone: userData.timezone || getBrowserTimezone(),
                 language: userData.language || getBrowserLanguage(),
-                profilePicture: userData.avatar || null
+                avatar: userData.profilePicture || null
             });
 
-            // Also update the global state if needed
-            if (user) {
-                dispatch({
-                    type: 'SET_USER',
-                    payload: adaptUserData(userData, user)
-                });
-            }
+            // No need to dispatch user data as it's not a valid action
+            // The user data is already handled by AuthContext
         } catch (err) {
             console.error('Error fetching user data:', err);
             setError('Failed to load user data. Please try again later.');
 
             // Fallback to local storage or state
-            updateUserProfile(getInitialProfileData(user));
+            setProfileData(getInitialProfileData(user));
         } finally {
             setIsLoading(false);
         }
@@ -1217,18 +1214,12 @@ export const Settings: React.FC = () => {
         setPreferences((prevPreferences: any) => {
             const updated = { ...prevPreferences, [key]: value };
 
-            // Update user preferences in global state if needed
-            if (user && user.preferences) {
-                dispatch({
-                    type: 'SET_USER',
-                    payload: {
-                        ...user,
-                        preferences: {
-                            ...user.preferences,
-                            [key]: value
-                        }
-                    }
-                });
+            // Update theme if that's what changed (using type assertion)
+            if (key === 'theme' as keyof Preferences && user) {
+                // Make sure value is of the correct type for SET_THEME
+                if (value === 'light' || value === 'dark' || value === 'auto') {
+                    dispatch({ type: 'SET_THEME', payload: value });
+                }
             }
 
             return updated;
@@ -1405,56 +1396,6 @@ export const Settings: React.FC = () => {
                         <Button
                             variant="secondary"
                             onClick={() => setShowExportModal(false)}
-                            fullWidth
-                        >
-                            Cancel
-                        </Button>
-                    </div>
-                </div>
-            </Modal>
-
-            <Modal
-                isOpen={showPasswordModal}
-                onClose={() => setShowPasswordModal(false)}
-                title="Change Password"
-                size="md"
-            >
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-white/60 text-sm mb-2">Current Password</label>
-                        <input
-                            type="password"
-                            className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
-                            placeholder="Enter current password"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-white/60 text-sm mb-2">New Password</label>
-                        <input
-                            type="password"
-                            className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
-                            placeholder="Enter new password"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-white/60 text-sm mb-2">Confirm New Password</label>
-                        <input
-                            type="password"
-                            className="w-full h-9 rounded-md border border-slate-800 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
-                            placeholder="Confirm new password"
-                        />
-                    </div>
-                    <div className="flex gap-3 pt-4">
-                        <Button
-                            variant="primary"
-                            onClick={() => setShowPasswordModal(false)}
-                            fullWidth
-                        >
-                            Update Password
-                        </Button>
-                        <Button
-                            variant="secondary"
-                            onClick={() => setShowPasswordModal(false)}
                             fullWidth
                         >
                             Cancel

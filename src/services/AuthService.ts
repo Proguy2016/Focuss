@@ -84,7 +84,7 @@ class AuthService {
 
     // Update profile picture
     async updatePfp(formData: FormData): Promise<UserProfile> {
-        const response = await api.post('/update/pfp', formData, {
+        const response = await api.put('/update/pfp', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
         return response.data.user;
