@@ -15,12 +15,24 @@ export const Dashboard: React.FC = () => {
     const fetchStats = async () => {
       setLoading(true);
       try {
+        const token = localStorage.getItem('token');
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const res = await fetch('http://localhost:5001/api/stats/get', {
           method: 'GET',
           credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
         });
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('Failed to fetch stats:', res.status, res.statusText, errorText);
+          throw new Error(`Failed to fetch stats: ${res.status} ${res.statusText}`);
+        }
         const data = await res.json();
+        console.log('API Response Data:', data);
         if (data && data.stats) {
           // Update analytics and user state
           dispatch({
@@ -39,12 +51,12 @@ export const Dashboard: React.FC = () => {
                 peakProductivity: { time: '', day: '' },
               },
               tasks: {
-                totalTasks: data.stats.tasksCompleted.Completedtasks,
+                totalTasks: data.stats.tasksCompleted.totalCompleted,
                 completionRate: 0,
                 overdueTasks: 0,
               },
               habits: {
-                totalHabits: 0,
+                totalHabits: 0, //its still zero it doesnt update
                 completionRate: 0,
                 streaks: [],
               },
