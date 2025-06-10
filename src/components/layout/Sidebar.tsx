@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { NavLink } from 'react-router-dom';
 import {
   Home, Target, CheckSquare, TrendingUp, Users, Settings,
-  Book, Zap, Award, Music, Brain, X, Menu, FileText
+  Book, Zap, Award, Music, Brain, X, Menu, FileText, Library as LibraryIcon
 } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -17,7 +17,7 @@ const navigationItems = [
   { icon: Zap, label: 'Habits', path: '/habits' },
   { icon: TrendingUp, label: 'Analytics', path: '/analytics' },
   { icon: Users, label: 'Social', path: '/social' },
-  { icon: FileText, label: 'PDF Viewer', path: '/pdf-viewer' },
+  { icon: LibraryIcon, label: 'Library', path: '/library' },
   { icon: Users, label: 'Collaboration', path: '/collaboration' },
   { icon: Music, label: 'Soundscapes', path: '/soundscapes' },
   { icon: Book, label: 'Knowledge', path: '/knowledge' },
