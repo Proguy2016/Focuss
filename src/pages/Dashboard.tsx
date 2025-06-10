@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useApp } from '../contexts/AppContext';
 import { StatsGrid } from '../components/dashboard/StatsGrid';
@@ -10,8 +10,15 @@ import { ProductivityChart } from '../components/dashboard/ProductivityChart';
 export const Dashboard: React.FC = () => {
   const { state, dispatch } = useApp();
   const [loading, setLoading] = useState(true);
+  const hasFetched = useRef(false);
 
   useEffect(() => {
+    if (hasFetched.current) {
+      return;
+    }
+
+    hasFetched.current = true;
+
     const fetchStats = async () => {
       setLoading(true);
       try {
@@ -41,24 +48,41 @@ export const Dashboard: React.FC = () => {
               overall: {
                 productivityScore: data.stats.productivityScore,
                 achievements: [],
+                weeklyGoalProgress: 0,
+                monthlyGoalProgress: 0,
+                level: data.stats.level || 0,
+                xp: data.stats.xp || 0,
+                nextLevelXp: data.stats.nextLevelXp || 0,
               },
               focusSessions: {
                 totalSessions: data.stats.focusSessions,
                 totalFocusTime: data.stats.focusTime,
                 averageSessionLength: 0,
                 completionRate: 0,
-                productivityTrends: [],
-                peakProductivity: { time: '', day: '' },
+                productivityTrends: [
+                  { date: new Date('2023-10-20'), score: 70, sessions: 2, focusTime: 60 },
+                  { date: new Date('2023-10-21'), score: 75, sessions: 3, focusTime: 90 },
+                  { date: new Date('2023-10-22'), score: 80, sessions: 4, focusTime: 120 },
+                  { date: new Date('2023-10-23'), score: 85, sessions: 3, focusTime: 100 },
+                  { date: new Date('2023-10-24'), score: 90, sessions: 5, focusTime: 150 },
+                ], // Static data for now
+                streakData: [],
+                flowStateHours: [],
+                distractionPatterns: [],
               },
               tasks: {
                 totalTasks: data.stats.tasksCompleted.totalCompleted,
                 completionRate: 0,
-                overdueTasks: 0,
+                averageCompletionTime: 0,
+                priorityDistribution: [],
+                productivityByHour: [],
               },
               habits: {
-                totalHabits: 0, //its still zero it doesnt update
+                totalHabits: 0,
                 completionRate: 0,
-                streaks: [],
+                averageStreak: 0,
+                categoryBreakdown: [],
+                weeklyPatterns: [],
               },
             },
           });
@@ -82,16 +106,19 @@ export const Dashboard: React.FC = () => {
     return 'Good evening';
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <span className="text-white text-xl">Loading dashboard...</span>
-      </div>
-    );
-  }
-
   return (
-    <div className="p-6 space-y-8">
+    <div className="p-6 space-y-8 min-h-screen relative">
+      {loading && (
+        <motion.div
+          initial={{ opacity: 1 }}
+          animate={{ opacity: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="absolute inset-0 bg-gray-900/90 flex items-center justify-center z-50 rounded-2xl"
+        >
+          <span className="text-white text-xl">Loading dashboard...</span>
+        </motion.div>
+      )}
+
       {/* Welcome Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}

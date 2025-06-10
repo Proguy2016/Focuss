@@ -4,10 +4,12 @@ import { Calendar, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
+import { useNavigate } from 'react-router-dom';
 
 export const UpcomingTasks: React.FC = () => {
   const { state } = useApp();
-  
+  const navigate = useNavigate();
+
   // Get upcoming tasks (next 5 tasks with due dates)
   const upcomingTasks = state.tasks
     .filter(task => task.dueDate && task.status.type !== 'completed')
@@ -17,7 +19,7 @@ export const UpcomingTasks: React.FC = () => {
   const formatDueDate = (date: Date) => {
     const now = new Date();
     const diffInHours = (date.getTime() - now.getTime()) / (1000 * 60 * 60);
-    
+
     if (diffInHours < 24) {
       return 'Due today';
     } else if (diffInHours < 48) {
@@ -44,7 +46,7 @@ export const UpcomingTasks: React.FC = () => {
         <h2 className="text-xl font-semibold text-white">Upcoming Tasks</h2>
         <Calendar className="w-5 h-5 text-primary-400" />
       </div>
-      
+
       {upcomingTasks.length === 0 ? (
         <motion.div
           className="text-center py-8"
@@ -68,7 +70,7 @@ export const UpcomingTasks: React.FC = () => {
               <div className={`p-2 rounded-lg ${getPriorityColor(task.priority.level)}`}>
                 <AlertCircle size={16} />
               </div>
-              
+
               <div className="flex-1 min-w-0">
                 <p className="text-white text-sm font-medium truncate">{task.title}</p>
                 <div className="flex items-center gap-2 mt-1">
@@ -83,7 +85,7 @@ export const UpcomingTasks: React.FC = () => {
                   )}
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${task.priority.color === '#EF4444' ? 'bg-error-400' : task.priority.color === '#F59E0B' ? 'bg-warning-400' : 'bg-success-400'}`} />
               </div>
@@ -91,7 +93,7 @@ export const UpcomingTasks: React.FC = () => {
           ))}
         </div>
       )}
-      
+
       <motion.div
         className="mt-6 pt-4 border-t border-white/10"
         initial={{ opacity: 0 }}
@@ -102,6 +104,7 @@ export const UpcomingTasks: React.FC = () => {
           variant="ghost"
           size="sm"
           className="w-full text-primary-400 hover:text-primary-300"
+          onClick={() => navigate('/tasks')}
         >
           View all tasks →
         </Button>
