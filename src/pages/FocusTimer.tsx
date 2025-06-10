@@ -7,6 +7,7 @@ import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { FocusSession } from '../types';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 type SessionType = 'work' | 'shortBreak' | 'longBreak';
 
@@ -22,7 +23,7 @@ interface TimerSettings {
 }
 
 export const FocusTimer: React.FC = () => {
-  const { state, dispatch, dataService } = useApp();
+  const { state, dispatch, dataService, refreshStats } = useApp();
   const navigate = useNavigate();
   const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes in seconds
   const [isRunning, setIsRunning] = useState(false);
@@ -35,31 +36,72 @@ export const FocusTimer: React.FC = () => {
   const [currentSession, setCurrentSession] = useState<FocusSession | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const { user } = useAuth();
+  const LOCAL_STORAGE_PREFS_KEY = `focus-ritual-preferences-${user?.id || 'default'}`;
+
   const [settings, setSettings] = useState<TimerSettings>({
-    workDuration: state.user?.preferences?.workDuration || 25,
-    shortBreakDuration: state.user?.preferences?.shortBreakDuration || 5,
-    longBreakDuration: state.user?.preferences?.longBreakDuration || 15,
-    sessionsUntilLongBreak: state.user?.preferences?.sessionsUntilLongBreak || 4,
+    workDuration: 25,
+    shortBreakDuration: 5,
+    longBreakDuration: 15,
+    sessionsUntilLongBreak: 4,
     autoStartBreaks: false,
     autoStartWork: false,
-    soundEnabled: state.user?.preferences?.soundEnabled ?? true,
-    volume: state.user?.preferences?.ambientVolume || 50,
+    soundEnabled: true,
+    volume: 50,
   });
 
-  // Sync settings with global preferences
-  useEffect(() => {
-    if (state.user?.preferences) {
-      setSettings(prev => ({
-        ...prev,
-        workDuration: state.user?.preferences?.workDuration || 25,
-        shortBreakDuration: state.user?.preferences?.shortBreakDuration || 5,
-        longBreakDuration: state.user?.preferences?.longBreakDuration || 15,
-        sessionsUntilLongBreak: state.user?.preferences?.sessionsUntilLongBreak || 4,
-        soundEnabled: state.user?.preferences?.soundEnabled ?? true,
-        volume: state.user?.preferences?.ambientVolume || 50,
-      }));
+  // Helper to get preferences from localStorage
+  const getLocalPreferences = () => {
+    const saved = localStorage.getItem(LOCAL_STORAGE_PREFS_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        // fallback to defaults
+      }
     }
-  }, [state.user?.preferences]);
+    return {
+      workDuration: 25,
+      shortBreakDuration: 5,
+      longBreakDuration: 15,
+      sessionsUntilLongBreak: 4,
+      autoStartBreaks: false,
+      autoStartWork: false,
+      soundEnabled: true,
+      ambientVolume: 60,
+      focusMusic: 'nature',
+      weekStartsOn: 'monday',
+      timeFormat: '24h',
+      dateFormat: 'MM/DD/YYYY',
+    };
+  };
+
+  // On mount, always use the latest preferences from localStorage
+  useEffect(() => {
+    const prefs = getLocalPreferences();
+    setSettings(prev => ({ ...prev, ...prefs }));
+    // Also update timer if not running
+    if (!isRunning) {
+      if (sessionType === 'work') setTimeLeft((prefs.workDuration || 25) * 60);
+      else if (sessionType === 'shortBreak') setTimeLeft((prefs.shortBreakDuration || 5) * 60);
+      else if (sessionType === 'longBreak') setTimeLeft((prefs.longBreakDuration || 15) * 60);
+    }
+    // Listen for storage changes (other tabs/windows)
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LOCAL_STORAGE_PREFS_KEY) {
+        const newPrefs = getLocalPreferences();
+        setSettings(prev => ({ ...prev, ...newPrefs }));
+        if (!isRunning) {
+          if (sessionType === 'work') setTimeLeft((newPrefs.workDuration || 25) * 60);
+          else if (sessionType === 'shortBreak') setTimeLeft((newPrefs.shortBreakDuration || 5) * 60);
+          else if (sessionType === 'longBreak') setTimeLeft((newPrefs.longBreakDuration || 15) * 60);
+        }
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+    // eslint-disable-next-line
+  }, [user?.id, sessionType, isRunning]);
 
   useEffect(() => {
     // Initialize timer based on session type
@@ -85,11 +127,11 @@ export const FocusTimer: React.FC = () => {
   useEffect(() => {
     if (!isRunning) {
       if (sessionType === 'work') {
-        setTimeLeft(settings.workDuration * 60);
+        setTimeLeft((settings.workDuration || 25) * 60);
       } else if (sessionType === 'shortBreak') {
-        setTimeLeft(settings.shortBreakDuration * 60);
+        setTimeLeft((settings.shortBreakDuration || 5) * 60);
       } else if (sessionType === 'longBreak') {
-        setTimeLeft(settings.longBreakDuration * 60);
+        setTimeLeft((settings.longBreakDuration || 15) * 60);
       }
     }
   }, [settings.workDuration, settings.shortBreakDuration, settings.longBreakDuration, sessionType, isRunning]);
@@ -115,6 +157,31 @@ export const FocusTimer: React.FC = () => {
       } catch (error) {
         console.error('Failed to save focus session:', error);
       }
+
+      // --- API CALLS TO UPDATE SESSION AND FOCUS TIME ---
+      try {
+        const token = localStorage.getItem('token');
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        // Increment session count
+        await fetch('http://localhost:5001/api/stats/session', {
+          method: 'PUT',
+          credentials: 'include',
+          headers,
+        });
+        // Increment focus time (in minutes)
+        await fetch('http://localhost:5001/api/stats/hours', {
+          method: 'PUT',
+          credentials: 'include',
+          headers,
+          body: JSON.stringify({ time: settings.workDuration })
+        });
+        // Refresh stats in real time
+        await refreshStats();
+      } catch (apiError) {
+        console.error('Failed to update stats on server:', apiError);
+      }
+      // --- END API CALLS ---
 
       const newSessionsCompleted = sessionsCompleted + 1;
       setSessionsCompleted(newSessionsCompleted);
@@ -161,7 +228,7 @@ export const FocusTimer: React.FC = () => {
     // Create a new focus session
     try {
       const newSession: Omit<FocusSession, 'id'> = {
-        userId: state.user?.id || 'user-1',
+        userId: user?.id || 'user-1',
         type: 'work',
         duration: settings.workDuration,
         actualDuration: 0,

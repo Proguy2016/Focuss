@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useApp } from '../contexts/AppContext';
 import { StatsGrid } from '../components/dashboard/StatsGrid';
@@ -8,7 +8,60 @@ import { UpcomingTasks } from '../components/dashboard/UpcomingTasks';
 import { ProductivityChart } from '../components/dashboard/ProductivityChart';
 
 export const Dashboard: React.FC = () => {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch('http://localhost:5001/api/stats/get', {
+          method: 'GET',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        const data = await res.json();
+        if (data && data.stats) {
+          // Update analytics and user state
+          dispatch({
+            type: 'SET_ANALYTICS',
+            payload: {
+              overall: {
+                productivityScore: data.stats.productivityScore,
+                achievements: [],
+              },
+              focusSessions: {
+                totalSessions: data.stats.focusSessions,
+                totalFocusTime: data.stats.focusTime,
+                averageSessionLength: 0,
+                completionRate: 0,
+                productivityTrends: [],
+                peakProductivity: { time: '', day: '' },
+              },
+              tasks: {
+                totalTasks: data.stats.tasksCompleted.totalTasks,
+                completionRate: 0,
+                overdueTasks: 0,
+              },
+              habits: {
+                totalHabits: 0,
+                completionRate: 0,
+                streaks: [],
+              },
+            },
+          });
+          // Optionally update user fields (level, streak, etc.)
+          // You may want to update user context here if needed
+        }
+      } catch (err) {
+        console.error('Failed to fetch stats:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+    // eslint-disable-next-line
+  }, []);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -16,6 +69,14 @@ export const Dashboard: React.FC = () => {
     if (hour < 18) return 'Good afternoon';
     return 'Good evening';
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <span className="text-white text-xl">Loading dashboard...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-8">

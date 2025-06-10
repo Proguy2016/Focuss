@@ -16,7 +16,7 @@ type FilterType = 'all' | 'todo' | 'inProgress' | 'completed' | 'overdue';
 type SortType = 'dueDate' | 'priority' | 'created' | 'alphabetical';
 
 export const Tasks: React.FC = () => {
-  const { state, dispatch, dataService } = useApp();
+  const { state, dispatch, dataService, refreshStats } = useApp();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
@@ -166,8 +166,23 @@ export const Tasks: React.FC = () => {
     };
 
     try {
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
       await dataService.updateTask(updatedTask);
       dispatch({ type: 'UPDATE_TASK', payload: updatedTask });
+      if (newStatusType === 'completed') {
+        try {
+          await fetch('http://localhost:5001/api/stats/task', {
+            method: 'PUT',
+            credentials: 'include',
+            headers,
+          });
+          await refreshStats();
+        } catch (err) {
+          console.error('Failed to update completed tasks on server:', err);
+        }
+      }
     } catch (error) {
       console.error('Failed to update task status:', error);
     }

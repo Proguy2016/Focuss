@@ -95,6 +95,7 @@ const AppContext = createContext<{
   state: AppState;
   dispatch: React.Dispatch<AppAction>;
   dataService: DataService;
+  refreshStats: () => Promise<void>;
 } | null>(null);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -102,9 +103,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const { user } = useAuth();
   const dataService = new DataService();
 
+  // Function to fetch stats from backend and update analytics
+  const refreshStats = async () => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch('http://localhost:5001/api/stats/get', {
+        method: 'GET',
+        credentials: 'include',
+        headers,
+      });
+      const data = await res.json();
+      if (data && data.stats) {
+        dispatch({
+          type: 'SET_ANALYTICS',
+          payload: {
+            overall: {
+              productivityScore: data.stats.productivityScore,
+              achievements: [],
+            },
+            focusSessions: {
+              totalSessions: data.stats.focusSessions,
+              totalFocusTime: data.stats.focusTime,
+              averageSessionLength: 0,
+              completionRate: 0,
+              productivityTrends: [],
+              peakProductivity: { time: '', day: '' },
+            },
+            tasks: {
+              totalTasks: data.stats.tasksCompleted.totalTasks,
+              completionRate: 0,
+              overdueTasks: 0,
+            },
+            habits: {
+              totalHabits: 0,
+              completionRate: 0,
+              streaks: [],
+            },
+          },
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch stats:', err);
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
+  };
+
   useEffect(() => {
     if (user) {
       initializeApp();
+      refreshStats(); // Always fetch stats on user change
     }
   }, [user]);
 
@@ -130,7 +181,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   return (
-    <AppContext.Provider value={{ state, dispatch, dataService }}>
+    <AppContext.Provider value={{ state, dispatch, dataService, refreshStats }}>
       {children}
     </AppContext.Provider>
   );
