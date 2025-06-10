@@ -174,7 +174,7 @@ export const FocusTimer: React.FC = () => {
           method: 'PUT',
           credentials: 'include',
           headers,
-          body: JSON.stringify({ time: settings.workDuration })
+          body: JSON.stringify({ time: settings.workDuration, distractions: distractions })
         });
         // Refresh stats in real time
         await refreshStats();
