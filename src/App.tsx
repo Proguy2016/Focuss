@@ -19,6 +19,7 @@ import { Achievements } from './pages/Achievements';
 import { Settings } from './pages/Settings';
 import Auth from './pages/Auth';
 import PDFViewer from './pages/PDFViewer';
+import Library from './pages/Library';
 import CollaborationRoomApp from './pages/CollaborationRoom';
 
 // Layout components
@@ -84,7 +85,9 @@ function AppContent() {
             <Route path="/habits" element={<ProtectedRoute><AppLayout><Habits /></AppLayout></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><AppLayout><Analytics /></AppLayout></ProtectedRoute>} />
             <Route path="/social" element={<ProtectedRoute><AppLayout><Social /></AppLayout></ProtectedRoute>} />
+            <Route path="/library" element={<ProtectedRoute><AppLayout><Library /></AppLayout></ProtectedRoute>} />
             <Route path="/pdf-viewer" element={<ProtectedRoute><AppLayout><PDFViewer /></AppLayout></ProtectedRoute>} />
+            <Route path="/pdf-viewer/:fileId" element={<ProtectedRoute><AppLayout><PDFViewer /></AppLayout></ProtectedRoute>} />
             <Route path="/soundscapes" element={<ProtectedRoute><AppLayout><Soundscapes /></AppLayout></ProtectedRoute>} />
             <Route path="/knowledge" element={<ProtectedRoute><AppLayout><Knowledge /></AppLayout></ProtectedRoute>} />
             <Route path="/ai-coach" element={<ProtectedRoute><AppLayout><AICoach /></AppLayout></ProtectedRoute>} />
