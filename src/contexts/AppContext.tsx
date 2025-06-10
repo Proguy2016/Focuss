@@ -14,6 +14,7 @@ interface AppState {
   theme: 'light' | 'dark' | 'auto';
   sidebarOpen: boolean;
   activeView: string;
+  user?: any;
 }
 
 type AppAction =
@@ -181,7 +182,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   return (
-    <AppContext.Provider value={{ state, dispatch, dataService, refreshStats }}>
+    <AppContext.Provider value={{ state: { ...state, user }, dispatch, dataService, refreshStats }}>
       {children}
     </AppContext.Provider>
   );

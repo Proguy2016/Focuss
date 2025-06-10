@@ -28,8 +28,8 @@ export const StatsGrid: React.FC = () => {
     {
       icon: CheckCircle,
       label: 'Tasks Completed',
-      value: Math.floor((analytics?.tasks.totalTasks || 0) * (analytics?.tasks.completionRate || 0) / 100),
-      subtext: `${analytics?.tasks.completionRate || 0}% completion rate`,
+      value: analytics?.tasks.totalTasks || 0,
+      subtext: 'Completed tasks',
       color: 'from-success-500 to-success-600',
       bgColor: 'bg-success-500/10',
     },
@@ -82,12 +82,12 @@ export const StatsGrid: React.FC = () => {
                 </motion.p>
                 <p className="text-white/40 text-xs mt-1">{stat.subtext}</p>
               </div>
-              
+
               <div className={`p-3 rounded-xl ${stat.bgColor}`}>
                 <stat.icon className="w-6 h-6 text-white" />
               </div>
             </div>
-            
+
             {/* Animated background gradient */}
             <motion.div
               className={`absolute inset-0 bg-gradient-to-r ${stat.color} opacity-5 -z-10`}

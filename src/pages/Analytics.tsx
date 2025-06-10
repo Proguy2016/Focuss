@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  TrendingUp, Calendar, Clock, Target, Zap, Award, 
+import {
+  TrendingUp, Calendar, Clock, Target, Zap, Award,
   BarChart3, PieChart, Activity, Brain, Filter, Download
 } from 'lucide-react';
-import { 
+import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Legend
 } from 'recharts';
@@ -24,6 +24,7 @@ export const Analytics: React.FC = () => {
   const habitCategoryData = state.analytics?.habits.categoryBreakdown || [];
   const taskPriorityData = state.analytics?.tasks.priorityDistribution || [];
   const hourlyProductivity = state.analytics?.tasks.productivityByHour || [];
+  const weeklyPatterns = state.analytics?.habits.weeklyPatterns || [];
 
   const COLORS = ['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#EC4899'];
 
@@ -48,9 +49,8 @@ export const Analytics: React.FC = () => {
         <div className={`p-3 rounded-xl bg-${color}-500/20`}>
           <Icon className={`w-6 h-6 text-${color}-400`} />
         </div>
-        <div className={`text-sm font-medium ${
-          change >= 0 ? 'text-success-400' : 'text-error-400'
-        }`}>
+        <div className={`text-sm font-medium ${change >= 0 ? 'text-success-400' : 'text-error-400'
+          }`}>
           {change >= 0 ? '+' : ''}{change}%
         </div>
       </div>
@@ -58,6 +58,14 @@ export const Analytics: React.FC = () => {
       <div className="text-white/60 text-sm">{title}</div>
     </Card>
   );
+
+  if (!state.analytics) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <span className="text-white text-xl">Loading analytics...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -73,7 +81,7 @@ export const Analytics: React.FC = () => {
             Insights into your productivity patterns and progress
           </p>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <select
             value={timeRange}
@@ -85,7 +93,7 @@ export const Analytics: React.FC = () => {
             <option value="90d">Last 90 days</option>
             <option value="1y">Last year</option>
           </select>
-          
+
           <Button variant="secondary" icon={Download}>
             Export
           </Button>
@@ -147,25 +155,25 @@ export const Analytics: React.FC = () => {
               </Button>
             </div>
           </div>
-          
+
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={productivityData}>
                 <defs>
                   <linearGradient id="productivityGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                <XAxis 
-                  dataKey="date" 
+                <XAxis
+                  dataKey="date"
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }}
                   tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 />
-                <YAxis 
+                <YAxis
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }}
@@ -197,14 +205,14 @@ export const Analytics: React.FC = () => {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={hourlyProductivity.slice(6, 24)}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                <XAxis 
+                <XAxis
                   dataKey="hour"
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }}
                   tickFormatter={(value) => `${value}:00`}
                 />
-                <YAxis 
+                <YAxis
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }}
@@ -304,9 +312,8 @@ export const Analytics: React.FC = () => {
           <h2 className="text-xl font-semibold text-white mb-6">Weekly Pattern</h2>
           <div className="space-y-3">
             {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, index) => {
-              const pattern = state.analytics?.habits.weeklyPatterns[index];
-              const completionRate = pattern?.completionRate || Math.random() * 100;
-              
+              const pattern = weeklyPatterns[index] || {};
+              const completionRate = pattern.completionRate || 0;
               return (
                 <div key={day} className="flex items-center gap-3">
                   <div className="w-8 text-white/60 text-sm">{day}</div>
@@ -332,28 +339,28 @@ export const Analytics: React.FC = () => {
           <Brain className="w-6 h-6 text-primary-400" />
           <h2 className="text-xl font-semibold text-white">AI Insights</h2>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div className="space-y-3">
             <h3 className="font-semibold text-white">🎯 Focus Patterns</h3>
             <p className="text-white/70 text-sm">
-              Your peak focus hours are between 9-11 AM with an average productivity score of 87. 
+              Your peak focus hours are between 9-11 AM with an average productivity score of 87.
               Consider scheduling your most important tasks during this window.
             </p>
           </div>
-          
+
           <div className="space-y-3">
             <h3 className="font-semibold text-white">📈 Improvement Areas</h3>
             <p className="text-white/70 text-sm">
-              Your habit completion rate drops by 23% on weekends. Try setting easier weekend goals 
+              Your habit completion rate drops by 23% on weekends. Try setting easier weekend goals
               or using habit stacking to maintain consistency.
             </p>
           </div>
-          
+
           <div className="space-y-3">
             <h3 className="font-semibold text-white">🏆 Achievements</h3>
             <p className="text-white/70 text-sm">
-              You've maintained a 7-day streak! Research shows that habits become automatic after 
+              You've maintained a 7-day streak! Research shows that habits become automatic after
               66 days on average. Keep up the great work!
             </p>
           </div>
@@ -371,7 +378,7 @@ export const Analytics: React.FC = () => {
             {state.analytics?.focusSessions.totalSessions || 0} total sessions
           </div>
         </Card>
-        
+
         <Card variant="glass" className="p-6 text-center">
           <div className="text-3xl font-bold text-secondary-400 mb-2">
             {Math.round(state.analytics?.focusSessions.averageSessionLength || 0)}m
@@ -381,7 +388,7 @@ export const Analytics: React.FC = () => {
             Target: 25 minutes
           </div>
         </Card>
-        
+
         <Card variant="glass" className="p-6 text-center">
           <div className="text-3xl font-bold text-success-400 mb-2">
             {state.analytics?.tasks.completionRate || 0}%
@@ -391,7 +398,7 @@ export const Analytics: React.FC = () => {
             {state.analytics?.tasks.totalTasks || 0} total tasks
           </div>
         </Card>
-        
+
         <Card variant="glass" className="p-6 text-center">
           <div className="text-3xl font-bold text-accent-400 mb-2">
             {state.user?.level || 1}

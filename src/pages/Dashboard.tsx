@@ -39,7 +39,7 @@ export const Dashboard: React.FC = () => {
                 peakProductivity: { time: '', day: '' },
               },
               tasks: {
-                totalTasks: data.stats.tasksCompleted.totalTasks,
+                totalTasks: data.stats.tasksCompleted.Completedtasks,
                 completionRate: 0,
                 overdueTasks: 0,
               },
