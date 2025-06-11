@@ -1,6 +1,6 @@
 export interface User {
   id: string;
-  name: string;  
+  name: string;
   email: string;
   avatar?: string;
   level: number;
@@ -49,21 +49,19 @@ export interface FocusSession {
 
 export interface Habit {
   id: string;
+  habitId: string;
   userId: string;
   name: string;
   description?: string;
-  category: HabitCategory;
-  frequency: HabitFrequency;
+  category: string;
+  frequency: 'Daily' | 'Weekly' | 'Monthly';
   targetCount: number;
+  priority: 'Low' | 'Medium' | 'High';
   currentStreak: number;
-  bestStreak: number;
-  totalCompletions: number;
-  color: string;
-  icon: string;
-  priority: 'low' | 'medium' | 'high';
+  longestStreak: number;
+  lastCompleted: Date;
+  completions: HabitCompletion[];
   createdAt: Date;
-  reminders: HabitReminder[];
-  stackedWith?: string[]; // IDs of habits this one is stacked with
 }
 
 export interface HabitCategory {

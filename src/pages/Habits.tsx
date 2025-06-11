@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Check, Calendar, MoreHorizontal, Edit, Trash2,
@@ -65,28 +65,47 @@ export const Habits: React.FC = () => {
     { id: '5', name: 'Mindfulness', color: '#EC4899', icon: 'Brain' },
   ];
 
-  // Check if a habit is completed for a specific date
-  const isHabitCompletedForDate = (habit: Habit, date: Date): boolean => {
-    if (!Array.isArray(state.habitCompletions)) {
-      return false;
-    }
-    try {
-      return state.habitCompletions.some(
-        (completion) => {
-          if (!completion || !completion.date) {
-            return false;
-          }
-          const completionDate = new Date(completion.date);
-          if (isNaN(completionDate.getTime())) {
-            return false;
-          }
-          return completion.habitId === habit.id && isSameDay(completionDate, date);
+  useEffect(() => {
+    const fetchHabits = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
         }
-      );
-    } catch (error) {
-      console.error("Error in isHabitCompletedForDate:", error);
+
+        const response = await fetch('http://localhost:5001/api/stats/getHabits', {
+          method: 'GET',
+          headers,
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch habits');
+        }
+
+        const data = await response.json();
+        if (data && data.habits) {
+          dispatch({ type: 'SET_HABITS', payload: data.habits });
+        }
+      } catch (error) {
+        console.error("Failed to fetch habits:", error);
+      }
+    };
+
+    fetchHabits();
+  }, [dispatch]);
+
+  // Check if a habit is completed for a specific date
+  const isHabitCompletedForDate = (habit: Habit, date: Date) => {
+    if (!habit.completions) {
       return false;
     }
+    return habit.completions.some(c => {
+      const completionDate = new Date(c.date);
+      return completionDate.getFullYear() === date.getFullYear() &&
+        completionDate.getMonth() === date.getMonth() &&
+        completionDate.getDate() === date.getDate();
+    });
   };
 
   const getCategoryColor = (categoryName: string) => {
@@ -95,125 +114,186 @@ export const Habits: React.FC = () => {
   };
 
   // Filter and sort habits
-  const filteredHabits = useMemo(() => {
-    return state.habits.filter(habit => {
+  const filteredAndSortedHabits = useMemo(() => {
+    return [...state.habits].sort((a, b) => {
       // Search filter
-      if (searchTerm && !habit.name.toLowerCase().includes(searchTerm.toLowerCase())) {
-        return false;
+      if (searchTerm && !a.name.toLowerCase().includes(searchTerm.toLowerCase()) && !b.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+        return 0;
+      }
+      if (searchTerm && !a.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+        return 1;
+      }
+      if (searchTerm && !b.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+        return -1;
       }
 
       // Status filter
-      switch (filterType) {
-        case 'completed':
-          // Check if habit is completed for the selected date
-          return isHabitCompletedForDate(habit, selectedDate);
-        case 'incomplete':
-          return !isHabitCompletedForDate(habit, selectedDate);
-        case 'high':
-          return habit.priority === 'high';
-        case 'medium':
-          return habit.priority === 'medium';
-        case 'low':
-          return habit.priority === 'low';
-        default:
-          return true;
+      const aCompleted = isHabitCompletedForDate(a, selectedDate);
+      const bCompleted = isHabitCompletedForDate(b, selectedDate);
+      if (aCompleted && !bCompleted) {
+        return -1;
       }
+      if (!aCompleted && bCompleted) {
+        return 1;
+      }
+
+      // Priority filter
+      if (a.priority === 'high' && b.priority !== 'high') {
+        return -1;
+      }
+      if (a.priority !== 'high' && b.priority === 'high') {
+        return 1;
+      }
+
+      // Frequency filter
+      if (a.frequency.type === 'daily' && b.frequency.type !== 'daily') {
+        return -1;
+      }
+      if (a.frequency.type !== 'daily' && b.frequency.type === 'daily') {
+        return 1;
+      }
+
+      return 0;
     });
-  }, [state.habits, state.habitCompletions, searchTerm, filterType, selectedDate]);
+  }, [state.habits, state.habitCompletions, searchTerm, selectedDate]);
 
   const handleCreateHabit = async () => {
     if (!newHabit.name.trim()) return;
 
-    const categoryObj = categories.find(cat => cat.name === newHabit.category) || categories[0];
-
-    const habitData: Omit<Habit, 'id'> = {
-      userId: state.user?.id || 'user-1',
+    const habitPayload = {
       name: newHabit.name,
-      description: newHabit.description || undefined,
-      category: categoryObj,
-      frequency: { type: newHabit.frequency as 'daily' | 'weekly' | 'custom' },
+      description: newHabit.description,
+      frequency: newHabit.frequency.charAt(0).toUpperCase() + newHabit.frequency.slice(1),
+      category: newHabit.category,
       targetCount: newHabit.targetCount,
-      currentStreak: 0,
-      bestStreak: 0,
-      totalCompletions: 0,
-      color: getCategoryColor(newHabit.category),
-      icon: categoryObj.icon,
-      priority: newHabit.priority,
-      createdAt: new Date(),
-      reminders: newHabit.reminders,
+      priority: newHabit.priority.charAt(0).toUpperCase() + newHabit.priority.slice(1),
     };
 
     try {
-      const createdHabit = await dataService.createHabit(habitData);
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch('http://localhost:5001/api/stats/addHabit', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(habitPayload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+      }
+
+      const { habit: createdHabit } = await response.json();
+
       dispatch({ type: 'ADD_HABIT', payload: createdHabit });
+
+      // Reset form and close modal
       setShowCreateModal(false);
-      resetNewHabitForm();
+      setNewHabit({
+        name: '',
+        description: '',
+        frequency: 'daily',
+        category: '',
+        targetCount: 1,
+        priority: 'medium',
+        currentStreak: 0,
+        longestStreak: 0,
+        completions: [],
+      });
     } catch (error) {
-      console.error('Failed to create habit:', error);
+      console.error("Failed to create habit:", error);
     }
   };
 
   const handleUpdateHabit = async () => {
     if (!editingHabit) return;
 
-    const categoryObj = categories.find(cat => cat.name === editingHabit.category.name) || categories[0];
-    const updatedHabit = {
+    const habitPayload = {
       ...editingHabit,
-      category: categoryObj,
-      color: getCategoryColor(editingHabit.category.name),
-      icon: categoryObj.icon,
+      frequency: editingHabit.frequency.charAt(0).toUpperCase() + editingHabit.frequency.slice(1),
+      priority: editingHabit.priority.charAt(0).toUpperCase() + editingHabit.priority.slice(1),
     };
 
     try {
-      await dataService.updateHabit(updatedHabit);
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch('http://localhost:5001/api/stats/updateHabit', {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(habitPayload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+      }
+
+      const { habit: updatedHabit } = await response.json();
+
       dispatch({ type: 'UPDATE_HABIT', payload: updatedHabit });
       setEditingHabit(null);
     } catch (error) {
-      console.error('Failed to update habit:', error);
+      console.error("Failed to update habit:", error);
     }
   };
 
   const handleDeleteHabit = async (habitId: string) => {
     try {
-      await dataService.deleteHabit(habitId);
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch('http://localhost:5001/api/stats/removeHabit', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ habitId }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+      }
+
       dispatch({ type: 'DELETE_HABIT', payload: habitId });
     } catch (error) {
-      console.error('Failed to delete habit:', error);
+      console.error("Failed to delete habit:", error);
     }
   };
 
-  const handleCompleteHabit = async () => {
-    if (!completingHabit) return;
-
+  const handleCompleteHabit = async (habitId: string) => {
     try {
-      const updatedHabit = {
-        ...completingHabit,
-        currentStreak: completingHabit.currentStreak + 1,
-        bestStreak: Math.max(completingHabit.bestStreak, completingHabit.currentStreak + 1),
-        totalCompletions: completingHabit.totalCompletions + completionCount
-      };
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
 
-      // Create a habit completion record
-      const completion: HabitCompletion = {
-        id: `completion-${Date.now()}`,
-        habitId: completingHabit.id,
-        date: new Date(),
-        count: completionCount,
-        notes: completionNote || undefined
-      };
+      const response = await fetch('http://localhost:5001/api/stats/progressHabit', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ habitId }),
+      });
 
-      await dataService.saveHabitCompletion(completion);
-      dispatch({ type: 'ADD_HABIT_COMPLETION', payload: completion });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+      }
 
-      await dataService.updateHabit(updatedHabit);
+      const { habit: updatedHabit } = await response.json();
       dispatch({ type: 'UPDATE_HABIT', payload: updatedHabit });
 
-      setShowCompletionModal(false);
-      setCompletingHabit(null);
-      setCompletionCount(1);
-      setCompletionNote('');
     } catch (error) {
-      console.error('Failed to complete habit:', error);
+      console.error("Failed to progress habit:", error);
     }
   };
 
@@ -333,105 +413,105 @@ export const Habits: React.FC = () => {
       </div>
 
       {/* Habits List */}
-      {filteredHabits.length > 0 ? (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <AnimatePresence>
-          {filteredHabits.map((habit, index) => (
-            <motion.div
-              key={habit.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9 }}
+      {filteredAndSortedHabits.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <AnimatePresence>
+            {filteredAndSortedHabits.map((habit, index) => (
+              <motion.div
+                key={habit.habitId || index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ duration: 0.3, delay: index * 0.05 }}
-            >
-              <Card
-                variant="glass"
-                className="p-5 border-l-4"
-                style={{ borderLeftColor: habit.color }}
               >
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-10 h-10 rounded-lg flex items-center justify-center"
-                      style={{ backgroundColor: `${habit.color}30` }}
-                    >
-                      <HabitIcon name={habit.icon} className="w-5 h-5" style={{ color: habit.color }} />
+                <Card
+                  variant="glass"
+                  className="p-5 border-l-4"
+                  style={{ borderLeftColor: habit.color }}
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-lg flex items-center justify-center"
+                        style={{ backgroundColor: `${habit.color}30` }}
+                      >
+                        <HabitIcon name={habit.icon} className="w-5 h-5" style={{ color: habit.color }} />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-white text-lg">{habit.name}</h3>
+                        <p className="text-white/60 text-sm">{habit.category.name}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-white text-lg">{habit.name}</h3>
-                      <p className="text-white/60 text-sm">{habit.category.name}</p>
+
+                    <div className="flex items-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="p-1"
+                        onClick={() => {
+                          if (!isHabitCompletedForDate(habit, selectedDate)) {
+                            setCompletingHabit(habit);
+                            setShowCompletionModal(true);
+                          }
+                        }}
+                      >
+                        {isHabitCompletedForDate(habit, selectedDate) ? (
+                          <CheckCircle2 className="w-5 h-5 text-success-400" />
+                        ) : (
+                          <Circle className="w-5 h-5 text-white/40" />
+                        )}
+                      </Button>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="p-1"
+                        icon={MoreHorizontal}
+                        onClick={() => setEditingHabit(habit)}
+                      />
                     </div>
                   </div>
 
-                  <div className="flex items-center">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="p-1"
-                      onClick={() => {
-                        if (!isHabitCompletedForDate(habit, selectedDate)) {
-                          setCompletingHabit(habit);
-                          setShowCompletionModal(true);
-                        }
-                      }}
-                    >
-                      {isHabitCompletedForDate(habit, selectedDate) ? (
-                        <CheckCircle2 className="w-5 h-5 text-success-400" />
-                      ) : (
-                        <Circle className="w-5 h-5 text-white/40" />
-                      )}
-                    </Button>
+                  {habit.description && (
+                    <p className="text-white/70 text-sm mb-3">{habit.description}</p>
+                  )}
 
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="p-1"
-                      icon={MoreHorizontal}
-                      onClick={() => setEditingHabit(habit)}
-                    />
+                  <div className="flex justify-between items-center text-sm text-white/60">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="w-4 h-4" />
+                      <span>{habit.frequency.type}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Zap className="w-4 h-4" />
+                      <span>{habit.currentStreak} day streak</span>
+                    </div>
                   </div>
-                </div>
 
-                {habit.description && (
-                  <p className="text-white/70 text-sm mb-3">{habit.description}</p>
-                )}
-
-                <div className="flex justify-between items-center text-sm text-white/60">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    <span>{habit.frequency.type}</span>
+                  {/* Progress Bar */}
+                  <div className="mt-4">
+                    <div className="flex justify-between text-xs text-white/60 mb-1">
+                      <span>Progress</span>
+                      <span>
+                        {isHabitCompletedForDate(habit, selectedDate) ? habit.targetCount : 0} / {habit.targetCount}
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                      <motion.div
+                        className="h-full"
+                        style={{ backgroundColor: habit.color }}
+                        initial={{ width: 0 }}
+                        animate={{
+                          width: isHabitCompletedForDate(habit, selectedDate) ? '100%' : '0%'
+                        }}
+                        transition={{ duration: 0.5 }}
+                      />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Zap className="w-4 h-4" />
-                    <span>{habit.currentStreak} day streak</span>
-                  </div>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="mt-4">
-                  <div className="flex justify-between text-xs text-white/60 mb-1">
-                    <span>Progress</span>
-                    <span>
-                      {isHabitCompletedForDate(habit, selectedDate) ? habit.targetCount : 0} / {habit.targetCount}
-                    </span>
-                  </div>
-                  <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                    <motion.div
-                      className="h-full"
-                      style={{ backgroundColor: habit.color }}
-                      initial={{ width: 0 }}
-                      animate={{
-                        width: isHabitCompletedForDate(habit, selectedDate) ? '100%' : '0%'
-                      }}
-                      transition={{ duration: 0.5 }}
-                    />
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
+                </Card>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
       ) : (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -740,7 +820,7 @@ export const Habits: React.FC = () => {
               </Button>
               <Button
                 variant="primary"
-                onClick={handleCompleteHabit}
+                onClick={() => handleCompleteHabit(completingHabit.habitId)}
               >
                 Mark as Complete
               </Button>

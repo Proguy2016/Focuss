@@ -29,12 +29,12 @@ export const Dashboard: React.FC = () => {
       setLoading(true);
       try {
         // Use the API service instead of fetch directly
-        const response = await api.get('/stats/get');
-        
+        const response = await api.get('/api/stats/get');
+
         // Handle successful response
         const data = response.data;
         console.log('API Response Data:', data);
-        
+
         if (data && data.stats) {
           // Update analytics and user state
           dispatch({
@@ -84,14 +84,14 @@ export const Dashboard: React.FC = () => {
         }
       } catch (err: unknown) {
         console.log('Stats fetch error:', err);
-        
+
         // Check if it's a 404 with the specific "Stats not found" message
         const axiosError = err as AxiosError<ErrorResponse>;
-        if (axiosError.response && axiosError.response.status === 404 && 
-            axiosError.response.data && axiosError.response.data.message === "Stats not found for this user.") {
-          
+        if (axiosError.response && axiosError.response.status === 404 &&
+          axiosError.response.data && axiosError.response.data.message === "Stats not found for this user.") {
+
           console.log("No stats found for this user. Using defaults.");
-          
+
           // Create default empty stats
           dispatch({
             type: 'SET_ANALYTICS',
@@ -139,7 +139,7 @@ export const Dashboard: React.FC = () => {
         setLoading(false);
       }
     };
-    
+
     fetchStats();
     // eslint-disable-next-line
   }, []);

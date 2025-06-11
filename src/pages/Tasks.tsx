@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, Filter, Calendar, Clock, Flag, CheckCircle2,
@@ -37,6 +37,83 @@ export const Tasks: React.FC = () => {
     dueDate: '',
     estimatedTime: '',
   });
+
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch('http://localhost:5001/api/tasks/getTasks', {
+          method: 'GET',
+          headers,
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch tasks');
+        }
+
+        const data = await response.json();
+
+        if (data && data.tasks) {
+          const getStatusInfo = (status?: string): TaskStatus => {
+            const s = status?.toLowerCase().replace(' ', '');
+            if (s === 'inprogress') {
+              return { type: 'inProgress', label: 'In Progress', color: '#F59E0B' };
+            }
+            if (s === 'completed') {
+              return { type: 'completed', label: 'Completed', color: '#10B981' };
+            }
+            return { type: 'todo', label: 'To Do', color: '#6B7280' };
+          };
+
+          const mappedTasks: Task[] = data.tasks.map((task: any): Task => {
+            const priorityLevel = (task.priority?.toLowerCase() || 'medium') as TaskPriority['level'];
+
+            return {
+              id: task.taskId,
+              userId: state.user?.id || '',
+              title: task.taskTitle,
+              description: task.taskDescription,
+              priority: {
+                level: priorityLevel,
+                color: getPriorityColor(priorityLevel),
+              },
+              urgency: {
+                level: priorityLevel,
+                color: getPriorityColor(priorityLevel),
+              },
+              status: getStatusInfo(task.status),
+              category: task.category,
+              tags: task.tags || [],
+              dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
+              estimatedTime: task.estimatedTime,
+              subtasks: (task.subTasks || []).map((title: string, index: number): SubTask => ({
+                id: `${task.taskId}-sub-${index}`,
+                title,
+                completed: false,
+              })),
+              dependencies: [],
+              createdAt: task.createdAt ? new Date(task.createdAt) : new Date(),
+              updatedAt: task.updatedAt ? new Date(task.updatedAt) : new Date(),
+              completedAt: task.completedAt ? new Date(task.completedAt) : undefined,
+            };
+          });
+
+          dispatch({ type: 'SET_TASKS', payload: mappedTasks });
+        }
+      } catch (error) {
+        console.error("Failed to fetch tasks:", error);
+      }
+    };
+
+    if (state.user?.id) {
+      fetchTasks();
+    }
+  }, [dispatch, state.user?.id]);
 
   const filteredAndSortedTasks = useMemo(() => {
     let filtered = state.tasks.filter(task => {
@@ -101,30 +178,68 @@ export const Tasks: React.FC = () => {
   const handleCreateTask = async () => {
     if (!newTask.title.trim()) return;
 
-    const taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> = {
-      userId: state.user?.id || '',
-      title: newTask.title,
-      description: newTask.description || undefined,
-      priority: {
-        level: newTask.priority,
-        color: getPriorityColor(newTask.priority)
-      },
-      urgency: {
-        level: newTask.priority,
-        color: getPriorityColor(newTask.priority)
-      },
-      status: { type: 'todo', label: 'To Do', color: '#6B7280' },
+    const taskPayload = {
+      taskTitle: newTask.title,
+      taskDescription: newTask.description,
+      priority: newTask.priority.charAt(0).toUpperCase() + newTask.priority.slice(1),
       category: newTask.category || 'General',
-      tags: newTask.tags,
-      dueDate: newTask.dueDate ? new Date(newTask.dueDate) : undefined,
       estimatedTime: newTask.estimatedTime ? parseInt(newTask.estimatedTime) : undefined,
-      subtasks: newTask.subtasks.map(st => ({ id: Date.now().toString() + st.title, title: st.title, completed: false })),
-      dependencies: [],
+      dueDate: newTask.dueDate ? new Date(newTask.dueDate).toISOString() : undefined,
+      tags: newTask.tags,
+      subTasks: newTask.subtasks.map(st => st.title),
     };
 
     try {
-      const createdTask = await dataService.createTask(taskData);
-      dispatch({ type: 'ADD_TASK', payload: createdTask });
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch('http://localhost:5001/api/tasks/addTask', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(taskPayload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+      }
+
+      const apiResponse = await response.json();
+      // Assuming the task is nested in the response under a 'task' key
+      const returnedTask = apiResponse.task;
+
+      if (!returnedTask || !returnedTask._id) {
+        throw new Error("API did not return a valid task object with an _id");
+      }
+
+      const createdTaskForState: Task = {
+        id: returnedTask._id, // from backend
+        userId: state.user?.id || '', // from current state
+        title: newTask.title,
+        description: newTask.description,
+        priority: {
+          level: newTask.priority,
+          color: getPriorityColor(newTask.priority)
+        },
+        urgency: {
+          level: newTask.priority,
+          color: getPriorityColor(newTask.priority)
+        },
+        status: { type: 'todo', label: 'To Do', color: '#6B7280' },
+        category: newTask.category || 'General',
+        tags: newTask.tags,
+        dueDate: newTask.dueDate ? new Date(newTask.dueDate) : undefined,
+        estimatedTime: newTask.estimatedTime ? parseInt(newTask.estimatedTime) : undefined,
+        subtasks: newTask.subtasks.map((st, i) => ({ id: `${returnedTask._id}-sub-${i}`, title: st.title, completed: false })),
+        dependencies: [],
+        createdAt: new Date(returnedTask.createdAt), // from backend
+        updatedAt: new Date(returnedTask.updatedAt), // from backend
+      };
+
+      dispatch({ type: 'ADD_TASK', payload: createdTaskForState });
       setShowCreateModal(false);
       setNewTask({
         title: '',
@@ -136,6 +251,7 @@ export const Tasks: React.FC = () => {
         dueDate: '',
         estimatedTime: '',
       });
+      await refreshStats();
     } catch (error) {
       console.error('Failed to create task:', error);
     }
@@ -144,10 +260,40 @@ export const Tasks: React.FC = () => {
   const handleUpdateTask = async () => {
     if (!editingTask) return;
 
+    const taskPayload = {
+      taskId: editingTask.id,
+      taskTitle: editingTask.title,
+      taskDescription: editingTask.description,
+      priority: editingTask.priority.level.charAt(0).toUpperCase() + editingTask.priority.level.slice(1),
+      category: editingTask.category,
+      estimatedTime: editingTask.estimatedTime,
+      dueDate: editingTask.dueDate ? new Date(editingTask.dueDate).toISOString() : undefined,
+      tags: editingTask.tags,
+      subTasks: editingTask.subtasks.map(st => st.title),
+    };
+
     try {
-      await dataService.updateTask(editingTask);
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch('http://localhost:5001/api/tasks/updateTask', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(taskPayload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+      }
+
       dispatch({ type: 'UPDATE_TASK', payload: editingTask });
       setEditingTask(null);
+      await refreshStats();
+
     } catch (error) {
       console.error('Failed to update task:', error);
     }
@@ -182,6 +328,17 @@ export const Tasks: React.FC = () => {
         } catch (err) {
           console.error('Failed to update completed tasks on server:', err);
         }
+      } else {
+        try {
+          await fetch('http://localhost:5001/api/stats/dec', {
+            method: 'PUT',
+            credentials: 'include',
+            headers,
+          });
+          await refreshStats();
+        } catch (err) {
+          console.error('Failed to decrement completed tasks on server:', err);
+        }
       }
     } catch (error) {
       console.error('Failed to update task status:', error);
@@ -190,8 +347,28 @@ export const Tasks: React.FC = () => {
 
   const deleteTask = async (taskId: string) => {
     try {
-      await dataService.deleteTask(taskId);
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch('http://localhost:5001/api/tasks/removeTask', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          taskId: taskId,
+          deleteTask: true
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+      }
+
       dispatch({ type: 'DELETE_TASK', payload: taskId });
+      await refreshStats();
     } catch (error) {
       console.error('Failed to delete task:', error);
     }
