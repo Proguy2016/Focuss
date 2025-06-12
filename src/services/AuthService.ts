@@ -28,6 +28,8 @@ export interface UserProfile {
     bio?: string;
     profilePicture?: string;
     settings?: any;
+    level?: number;
+    xp?: number;
 }
 
 // Error response interface

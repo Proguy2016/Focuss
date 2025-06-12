@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Trophy, Star, Target, Zap, Calendar, Award,
   Crown, Medal, Shield, Flame, Lock, CheckCircle2,
-  TrendingUp, Clock, Users, BookOpen, Filter, Search
+  TrendingUp, Clock, Users, BookOpen, Filter, Search,
+  MessageSquare, UserPlus, PlusSquare, Brain
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { Card } from '../components/common/Card';
@@ -33,7 +34,7 @@ interface Badge {
   earnedAt: Date;
 }
 
-type FilterType = 'all' | 'unlocked' | 'locked' | 'focus' | 'habit' | 'task' | 'streak' | 'level' | 'social';
+type FilterType = 'all' | 'unlocked' | 'locked' | 'focus' | 'habit' | 'task' | 'streak' | 'level' | 'social' | 'special';
 
 export const Achievements: React.FC = () => {
   const { state } = useApp();
@@ -204,6 +205,211 @@ export const Achievements: React.FC = () => {
       xpReward: 800,
       rarity: 'epic',
     },
+    // Adding 10 achievements for completing sessions
+    {
+      id: '13',
+      name: 'Session Starter',
+      description: 'Complete 5 sessions',
+      icon: Target,
+      type: 'focus',
+      tier: 'bronze',
+      requirement: 5,
+      progress: 5,
+      unlocked: true,
+      unlockedAt: new Date('2024-02-10'),
+      xpReward: 75,
+      rarity: 'common',
+    },
+    {
+      id: '14',
+      name: 'Session Pro',
+      description: 'Complete 25 sessions',
+      icon: Target,
+      type: 'focus',
+      tier: 'silver',
+      requirement: 25,
+      progress: 25,
+      unlocked: true,
+      unlockedAt: new Date('2024-02-15'),
+      xpReward: 150,
+      rarity: 'rare',
+    },
+    {
+      id: '15',
+      name: 'Session Veteran',
+      description: 'Complete 75 sessions',
+      icon: Target,
+      type: 'gold',
+      requirement: 75,
+      progress: 60,
+      unlocked: false,
+      xpReward: 400,
+      rarity: 'epic',
+    },
+    {
+      id: '16',
+      name: 'Session Elite',
+      description: 'Complete 150 sessions',
+      icon: Crown,
+      type: 'focus',
+      tier: 'platinum',
+      requirement: 150,
+      progress: 60,
+      unlocked: false,
+      xpReward: 700,
+      rarity: 'legendary',
+    },
+    // Adding achievements for session times
+    {
+      id: '17',
+      name: 'Quick Sprint',
+      description: 'Accumulate 10 hours of focus time',
+      icon: Clock,
+      type: 'focus',
+      tier: 'bronze',
+      requirement: 600, // 10 hours in minutes
+      progress: 600,
+      unlocked: true,
+      unlockedAt: new Date('2024-02-12'),
+      xpReward: 100,
+      rarity: 'common',
+    },
+    {
+      id: '18',
+      name: 'Marathon Runner',
+      description: 'Accumulate 50 hours of focus time',
+      icon: Clock,
+      type: 'focus',
+      tier: 'silver',
+      requirement: 3000, // 50 hours in minutes
+      progress: 2940,
+      unlocked: false,
+      xpReward: 400,
+      rarity: 'rare',
+    },
+    {
+      id: '19',
+      name: 'Endurance Expert',
+      description: 'Accumulate 200 hours of focus time',
+      icon: Clock,
+      type: 'focus',
+      tier: 'gold',
+      requirement: 12000, // 200 hours in minutes
+      progress: 2940,
+      unlocked: false,
+      xpReward: 1200,
+      rarity: 'epic',
+    },
+    {
+      id: '20',
+      name: 'Timeless',
+      description: 'Accumulate 1000 hours of focus time',
+      icon: Clock,
+      type: 'focus',
+      tier: 'diamond',
+      requirement: 60000, // 1000 hours in minutes
+      progress: 2940,
+      unlocked: false,
+      xpReward: 5000,
+      rarity: 'legendary',
+    },
+    // Adding a couple more for variety
+    {
+      id: '21',
+      name: 'Task Manager',
+      description: 'Complete 50 tasks',
+      icon: CheckCircle2,
+      type: 'task',
+      tier: 'bronze',
+      requirement: 50,
+      progress: 50,
+      unlocked: true,
+      unlockedAt: new Date('2024-02-18'),
+      xpReward: 200,
+      rarity: 'common',
+    },
+    {
+      id: '22',
+      name: 'Perfect Week',
+      description: 'Complete all habits for 7 days in a row',
+      icon: Calendar,
+      type: 'streak',
+      tier: 'silver',
+      requirement: 7,
+      progress: 3,
+      unlocked: false,
+      xpReward: 300,
+      rarity: 'rare',
+    },
+    // Community & Social Achievements
+    {
+      id: '23',
+      name: 'Community Contributor',
+      description: 'Create 5 posts in the social feed',
+      icon: MessageSquare,
+      type: 'social',
+      tier: 'bronze',
+      requirement: 5,
+      progress: 2,
+      unlocked: false,
+      xpReward: 150,
+      rarity: 'common',
+    },
+    {
+      id: '24',
+      name: 'Friend Finder',
+      description: 'Add 5 friends to your network',
+      icon: UserPlus,
+      type: 'social',
+      tier: 'bronze',
+      requirement: 5,
+      progress: 5,
+      unlocked: true,
+      unlockedAt: new Date('2024-02-20'),
+      xpReward: 150,
+      rarity: 'common',
+    },
+    {
+      id: '25',
+      name: 'Team Player',
+      description: 'Join 10 collaboration rooms',
+      icon: Users,
+      type: 'social',
+      tier: 'silver',
+      requirement: 10,
+      progress: 3,
+      unlocked: false,
+      xpReward: 300,
+      rarity: 'rare',
+    },
+    {
+      id: '26',
+      name: 'The Architect',
+      description: 'Create your first collaboration room',
+      icon: PlusSquare,
+      type: 'social',
+      tier: 'bronze',
+      requirement: 1,
+      progress: 1,
+      unlocked: true,
+      unlockedAt: new Date('2024-02-22'),
+      xpReward: 100,
+      rarity: 'common',
+    },
+    // Feature-specific achievements
+    {
+      id: '27',
+      name: 'AI Prodigy',
+      description: 'Study a set of flashcards generated by the AI Coach',
+      icon: Brain,
+      type: 'special',
+      tier: 'silver',
+      requirement: 1,
+      progress: 0,
+      unlocked: false,
+      xpReward: 250,
+      rarity: 'rare',
+    }
   ];
 
   const badges: Badge[] = [
@@ -233,7 +439,7 @@ export const Achievements: React.FC = () => {
     },
   ];
 
-  const filteredAchievements = achievements.filter(achievement => {
+  const filteredAndSortedAchievements = achievements.filter(achievement => {
     // Search filter
     if (searchTerm && !achievement.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
       !achievement.description.toLowerCase().includes(searchTerm.toLowerCase())) {
@@ -252,6 +458,7 @@ export const Achievements: React.FC = () => {
       case 'streak':
       case 'level':
       case 'social':
+      case 'special':
         return achievement.type === filterType;
       default:
         return true;
@@ -369,8 +576,8 @@ export const Achievements: React.FC = () => {
   };
 
   const stats = {
-    total: achievements.length,
-    unlocked: achievements.filter(a => a.unlocked).length,
+    total: filteredAndSortedAchievements.length,
+    unlocked: filteredAndSortedAchievements.filter(a => a.unlocked).length,
     totalXP: achievements.filter(a => a.unlocked).reduce((sum, a) => sum + a.xpReward, 0),
     rarest: achievements.filter(a => a.unlocked && a.rarity === 'legendary').length,
   };
@@ -392,7 +599,7 @@ export const Achievements: React.FC = () => {
 
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <div className="text-2xl font-bold text-white">{stats.unlocked}/{stats.total}</div>
+            <div className="text-2xl font-bold text-white">{stats.unlocked}/{filteredAndSortedAchievements.length}</div>
             <div className="text-white/60 text-sm">Unlocked</div>
           </div>
         </div>
@@ -452,6 +659,7 @@ export const Achievements: React.FC = () => {
               { value: 'streak', label: 'Streaks' },
               { value: 'level', label: 'Levels' },
               { value: 'social', label: 'Social' },
+              { value: 'special', label: 'Special' },
             ].map(filter => (
               <Button
                 key={filter.value}
@@ -470,12 +678,12 @@ export const Achievements: React.FC = () => {
         {/* Achievements Grid */}
         <div className="lg:col-span-2">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredAchievements.map((achievement, index) => (
+            {filteredAndSortedAchievements.map((achievement, index) => (
               <AchievementCard key={achievement.id} achievement={achievement} index={index} />
             ))}
           </div>
 
-          {filteredAchievements.length === 0 && (
+          {filteredAndSortedAchievements.length === 0 && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -532,7 +740,7 @@ export const Achievements: React.FC = () => {
                       className="w-10 h-10 rounded-lg flex items-center justify-center"
                       style={{ backgroundColor: `${badge.color}20` }}
                     >
-                      <IconComponent className="w-5 h-5" style={{ color: badge.color }} />
+                      <IconComponent className="w-5 h-5" />
                     </div>
                     <div className="flex-1">
                       <div className="text-white/80 text-sm">{badge.name}</div>
@@ -643,7 +851,7 @@ export const Achievements: React.FC = () => {
 
               {selectedAchievement.unlocked && selectedAchievement.unlockedAt && (
                 <div className="text-success-400 text-sm mb-6">
-                  ✓ Unlocked on {selectedAchievement.unlockedAt.toLocaleDateString()}
+                  ✓ Unlocked on {new Date(selectedAchievement.unlockedAt).toLocaleDateString()}
                 </div>
               )}
 

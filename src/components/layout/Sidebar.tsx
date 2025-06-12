@@ -15,7 +15,6 @@ const navigationItems = [
   { icon: Target, label: 'Focus Timer', path: '/focus' },
   { icon: CheckSquare, label: 'Tasks', path: '/tasks' },
   { icon: Zap, label: 'Habits', path: '/habits' },
-  { icon: TrendingUp, label: 'Analytics', path: '/analytics' },
   { icon: Users, label: 'Social', path: '/social' },
   { icon: LibraryIcon, label: 'Library', path: '/library' },
   { icon: Users, label: 'Collaboration', path: '/collaboration' },

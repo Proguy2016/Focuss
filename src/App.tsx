@@ -10,7 +10,6 @@ import { Dashboard } from './pages/Dashboard';
 import { FocusTimer } from './pages/FocusTimer';
 import { Tasks } from './pages/Tasks';
 import { Habits } from './pages/Habits';
-import { Analytics } from './pages/Analytics';
 import { Social } from './pages/Social';
 import { Soundscapes } from './pages/Soundscapes';
 import { Knowledge } from './pages/Knowledge';
@@ -83,7 +82,6 @@ function AppContent() {
             <Route path="/focus" element={<ProtectedRoute><AppLayout><FocusTimer /></AppLayout></ProtectedRoute>} />
             <Route path="/tasks" element={<ProtectedRoute><AppLayout><Tasks /></AppLayout></ProtectedRoute>} />
             <Route path="/habits" element={<ProtectedRoute><AppLayout><Habits /></AppLayout></ProtectedRoute>} />
-            <Route path="/analytics" element={<ProtectedRoute><AppLayout><Analytics /></AppLayout></ProtectedRoute>} />
             <Route path="/social" element={<ProtectedRoute><AppLayout><Social /></AppLayout></ProtectedRoute>} />
             <Route path="/library" element={<ProtectedRoute><AppLayout><Library /></AppLayout></ProtectedRoute>} />
             <Route path="/pdf-viewer" element={<ProtectedRoute><AppLayout><PDFViewer /></AppLayout></ProtectedRoute>} />

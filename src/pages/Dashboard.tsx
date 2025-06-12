@@ -6,6 +6,9 @@ import { QuickActions } from '../components/dashboard/QuickActions';
 import { RecentActivity } from '../components/dashboard/RecentActivity';
 import { UpcomingTasks } from '../components/dashboard/UpcomingTasks';
 import { ProductivityChart } from '../components/dashboard/ProductivityChart';
+import { ProductivityByHourChart } from '../components/dashboard/ProductivityByHourChart';
+import { AiInsights } from '../components/dashboard/AiInsights';
+import { AnalyticsStats } from '../components/dashboard/AnalyticsStats';
 import api from '../services/api';
 import { AxiosError } from 'axios';
 
@@ -19,24 +22,17 @@ export const Dashboard: React.FC = () => {
   const hasFetched = useRef(false);
 
   useEffect(() => {
-    if (hasFetched.current) {
-      return;
-    }
-
-    hasFetched.current = true;
-
     const fetchStats = async () => {
-      setLoading(true);
-      try {
-        // Use the API service instead of fetch directly
-        const response = await api.get('/api/stats/get');
+      if (!state.user) return; // Don't fetch if no user
 
-        // Handle successful response
+      setLoading(true);
+      hasFetched.current = true; // Mark as fetched once we start
+      try {
+        const response = await api.get('/api/stats/get');
         const data = response.data;
         console.log('API Response Data:', data);
 
         if (data && data.stats) {
-          // Update analytics and user state
           dispatch({
             type: 'SET_ANALYTICS',
             payload: {
@@ -70,7 +66,7 @@ export const Dashboard: React.FC = () => {
                 completionRate: 0,
                 averageCompletionTime: 0,
                 priorityDistribution: [],
-                productivityByHour: [],
+                productivityByHour: data.stats.productivityByHour || [],
               },
               habits: {
                 totalHabits: 0,
@@ -141,8 +137,7 @@ export const Dashboard: React.FC = () => {
     };
 
     fetchStats();
-    // eslint-disable-next-line
-  }, []);
+  }, [state.user, dispatch]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -186,13 +181,15 @@ export const Dashboard: React.FC = () => {
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-8">
           <ProductivityChart />
-          <QuickActions />
+          <AnalyticsStats />
+          <ProductivityByHourChart />
         </div>
 
         {/* Right Column */}
         <div className="space-y-8">
           <UpcomingTasks />
           <RecentActivity />
+          <AiInsights />
         </div>
       </div>
 
