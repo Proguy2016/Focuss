@@ -19,7 +19,6 @@ const navigationItems = [
   { icon: LibraryIcon, label: 'Library', path: '/library' },
   { icon: Users, label: 'Collaboration', path: '/collaboration' },
   { icon: Music, label: 'Soundscapes', path: '/soundscapes' },
-  { icon: Book, label: 'Knowledge', path: '/knowledge' },
   { icon: Brain, label: 'AI Coach', path: '/ai-coach' },
   { icon: Award, label: 'Achievements', path: '/achievements' },
   { icon: Settings, label: 'Settings', path: '/settings' },

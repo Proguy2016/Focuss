@@ -12,7 +12,6 @@ import { Tasks } from './pages/Tasks';
 import { Habits } from './pages/Habits';
 import { Social } from './pages/Social';
 import { Soundscapes } from './pages/Soundscapes';
-import { Knowledge } from './pages/Knowledge';
 import { AICoach } from './pages/AICoach';
 import { Achievements } from './pages/Achievements';
 import { Settings } from './pages/Settings';
@@ -87,7 +86,6 @@ function AppContent() {
             <Route path="/pdf-viewer" element={<ProtectedRoute><AppLayout><PDFViewer /></AppLayout></ProtectedRoute>} />
             <Route path="/pdf-viewer/:fileId" element={<ProtectedRoute><AppLayout><PDFViewer /></AppLayout></ProtectedRoute>} />
             <Route path="/soundscapes" element={<ProtectedRoute><AppLayout><Soundscapes /></AppLayout></ProtectedRoute>} />
-            <Route path="/knowledge" element={<ProtectedRoute><AppLayout><Knowledge /></AppLayout></ProtectedRoute>} />
             <Route path="/ai-coach" element={<ProtectedRoute><AppLayout><AICoach /></AppLayout></ProtectedRoute>} />
             <Route path="/achievements" element={<ProtectedRoute><AppLayout><Achievements /></AppLayout></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><AppLayout><Settings /></AppLayout></ProtectedRoute>} />

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Brain, Send, Mic, MicOff, Settings, Download, 
+import {
+  Brain, Send, Mic, MicOff, Settings, Download,
   Lightbulb, Target, TrendingUp, Calendar, Clock,
   User, Bot, Zap, Star, BookOpen, MessageCircle
 } from 'lucide-react';
@@ -184,7 +184,7 @@ export const AICoach: React.FC = () => {
 
   const generateAIResponse = (userInput: string): Message => {
     const input = userInput.toLowerCase();
-    
+
     let response = '';
     let suggestions: string[] = [];
 
@@ -276,7 +276,7 @@ What area interests you most?`;
   const formatDeadline = (date: Date) => {
     const now = new Date();
     const diffInDays = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     if (diffInDays < 0) return 'Overdue';
     if (diffInDays === 0) return 'Due today';
     if (diffInDays === 1) return 'Due tomorrow';
@@ -299,7 +299,7 @@ What area interests you most?`;
             Your personal productivity assistant powered by AI
           </p>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <Button
             variant="secondary"
@@ -318,7 +318,7 @@ What area interests you most?`;
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Chat Interface */}
         <div className="lg:col-span-2">
-          <Card variant="glass" className="p-6 h-96 flex flex-col">
+          <Card variant="glass" className="p-6 h-[600px] flex flex-col">
             <div className="flex items-center gap-3 mb-4 pb-4 border-b border-white/10">
               <div className="w-10 h-10 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center">
                 <Brain className="w-5 h-5 text-white" />
@@ -344,17 +344,16 @@ What area interests you most?`;
                         <Bot className="w-4 h-4 text-white" />
                       </div>
                     )}
-                    
-                    <div className={`max-w-xs lg:max-w-md ${
-                      message.type === 'user' 
-                        ? 'bg-primary-500 text-white' 
-                        : 'glass text-white'
-                    } rounded-lg p-3`}>
+
+                    <div className={`max-w-xs lg:max-w-md ${message.type === 'user'
+                      ? 'bg-primary-500 text-white'
+                      : 'glass text-white'
+                      } rounded-lg p-3`}>
                       <p className="text-sm whitespace-pre-line">{message.content}</p>
                       <p className="text-xs opacity-60 mt-1">
                         {message.timestamp.toLocaleTimeString()}
                       </p>
-                      
+
                       {message.suggestions && (
                         <div className="mt-3 space-y-1">
                           {message.suggestions.map((suggestion, index) => (
@@ -369,7 +368,7 @@ What area interests you most?`;
                         </div>
                       )}
                     </div>
-                    
+
                     {message.type === 'user' && (
                       <div className="w-8 h-8 rounded-full bg-gradient-to-r from-accent-500 to-primary-500 flex items-center justify-center flex-shrink-0">
                         <User className="w-4 h-4 text-white" />
@@ -378,7 +377,7 @@ What area interests you most?`;
                   </motion.div>
                 ))}
               </AnimatePresence>
-              
+
               {isTyping && (
                 <motion.div
                   initial={{ opacity: 0 }}
@@ -397,34 +396,41 @@ What area interests you most?`;
                   </div>
                 </motion.div>
               )}
-              
+
               <div ref={messagesEndRef} />
             </div>
 
             {/* Input */}
             <div className="flex gap-2">
               <div className="flex-1 relative">
-                <input
-                  type="text"
+                <textarea
+                  placeholder="Ask your AI coach anything..."
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                  placeholder="Ask me anything about productivity..."
-                  className="w-full glass px-4 py-2 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      sendMessage();
+                    }
+                  }}
+                  className="w-full pr-24 pl-4 py-3 rounded-xl bg-gray-800/60 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                  rows={2}
                 />
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    icon={isListening ? MicOff : Mic}
+                    onClick={toggleVoiceInput}
+                    className={isListening ? 'text-error-400' : ''}
+                  />
+                  <Button
+                    variant="primary"
+                    icon={Send}
+                    onClick={sendMessage}
+                    disabled={!inputMessage.trim()}
+                  />
+                </div>
               </div>
-              <Button
-                variant="ghost"
-                icon={isListening ? MicOff : Mic}
-                onClick={toggleVoiceInput}
-                className={isListening ? 'text-error-400' : ''}
-              />
-              <Button
-                variant="primary"
-                icon={Send}
-                onClick={sendMessage}
-                disabled={!inputMessage.trim()}
-              />
             </div>
           </Card>
         </div>
@@ -437,7 +443,7 @@ What area interests you most?`;
               <Lightbulb className="w-5 h-5 text-warning-400" />
               <h3 className="text-lg font-semibold text-white">AI Insights</h3>
             </div>
-            
+
             <div className="space-y-3">
               {insights.slice(0, 3).map(insight => {
                 const IconComponent = insight.icon;
@@ -469,7 +475,7 @@ What area interests you most?`;
               <Target className="w-5 h-5 text-success-400" />
               <h3 className="text-lg font-semibold text-white">Goal Progress</h3>
             </div>
-            
+
             <div className="space-y-4">
               {goals.map(goal => (
                 <div key={goal.id} className="space-y-2">
@@ -482,7 +488,7 @@ What area interests you most?`;
                       {goal.priority}
                     </span>
                   </div>
-                  
+
                   <div className="flex items-center gap-2 text-sm">
                     <div className="flex-1 bg-white/10 rounded-full h-2">
                       <div
@@ -587,7 +593,7 @@ What area interests you most?`;
                 />
                 <span className="text-white/80">Voice responses</span>
               </label>
-              
+
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -597,7 +603,7 @@ What area interests you most?`;
                 />
                 <span className="text-white/80">Proactive insights</span>
               </label>
-              
+
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
