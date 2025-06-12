@@ -10,7 +10,7 @@ import { useApp } from '../contexts/AppContext';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
-import { Habit, HabitCategory, HabitCompletion } from '../types';
+import { Habit, HabitCategory } from '../types';
 
 type FilterType = 'all' | 'completed' | 'incomplete' | 'high' | 'medium' | 'low';
 
@@ -46,14 +46,7 @@ export const Habits: React.FC = () => {
     category: 'Wellness',
     frequency: 'daily',
     targetCount: 1,
-    priority: 'medium' as 'low' | 'medium' | 'high',
-    color: '#10B981',
-    icon: 'Zap',
-    reminders: [{
-      time: '09:00',
-      enabled: true,
-      message: 'Time for your habit!',
-    }]
+    priority: 'Medium' as 'Low' | 'Medium' | 'High',
   });
 
   // Available categories
@@ -85,7 +78,22 @@ export const Habits: React.FC = () => {
 
         const data = await response.json();
         if (data && data.habits) {
-          dispatch({ type: 'SET_HABITS', payload: data.habits });
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const transformedHabits = data.habits.map((habit: any) => {
+            const categoryObj = categories.find(c => c.name === habit.category);
+            return {
+              ...habit,
+              id: habit.habitId,
+              currentStreak: habit.streak,
+              longestStreak: habit.streak,
+              createdAt: new Date(habit.startDate),
+              lastCompleted: habit.lastCompleted ? new Date(habit.lastCompleted) : null,
+              completions: [],
+              category: categoryObj || { id: 'default', name: habit.category, color: '#A8A29E', icon: 'Zap' },
+              frequency: { type: habit.frequency.toLowerCase() },
+            };
+          });
+          dispatch({ type: 'SET_HABITS', payload: transformedHabits });
         }
       } catch (error) {
         console.error("Failed to fetch habits:", error);
@@ -108,57 +116,56 @@ export const Habits: React.FC = () => {
     });
   };
 
+  const getCategory = (categoryName: string) => {
+    return categories.find(c => c.name === categoryName);
+  };
+
   const getCategoryColor = (categoryName: string) => {
-    const category = categories.find(c => c.name === categoryName);
-    return category ? category.color : '#6B7280'; // Default gray
+    return getCategory(categoryName)?.color || '#6B7280'; // Default gray
+  };
+
+  const getCategoryIcon = (categoryName: string) => {
+    return getCategory(categoryName)?.icon || 'Zap'; // Default icon
   };
 
   // Filter and sort habits
   const filteredAndSortedHabits = useMemo(() => {
-    return [...state.habits].sort((a, b) => {
-      // Search filter
-      if (searchTerm && !a.name.toLowerCase().includes(searchTerm.toLowerCase()) && !b.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+    return [...state.habits]
+      .filter(habit => {
+        switch (filterType) {
+          case 'completed':
+            return isHabitCompletedForDate(habit, selectedDate);
+          case 'incomplete':
+            return !isHabitCompletedForDate(habit, selectedDate);
+          case 'high':
+            return habit.priority === 'High';
+          case 'medium':
+            return habit.priority === 'Medium';
+          case 'low':
+            return habit.priority === 'Low';
+          default:
+            return true;
+        }
+      })
+      .filter(habit =>
+        habit.name.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .sort((a, b) => {
+        const aCompleted = isHabitCompletedForDate(a, selectedDate);
+        const bCompleted = isHabitCompletedForDate(b, selectedDate);
+        if (aCompleted && !bCompleted) return 1;
+        if (!aCompleted && bCompleted) return -1;
+
+        const priorityOrder = { High: 0, Medium: 1, Low: 2 };
+        if (priorityOrder[a.priority] < priorityOrder[b.priority]) return -1;
+        if (priorityOrder[a.priority] > priorityOrder[b.priority]) return 1;
+
         return 0;
-      }
-      if (searchTerm && !a.name.toLowerCase().includes(searchTerm.toLowerCase())) {
-        return 1;
-      }
-      if (searchTerm && !b.name.toLowerCase().includes(searchTerm.toLowerCase())) {
-        return -1;
-      }
-
-      // Status filter
-      const aCompleted = isHabitCompletedForDate(a, selectedDate);
-      const bCompleted = isHabitCompletedForDate(b, selectedDate);
-      if (aCompleted && !bCompleted) {
-        return -1;
-      }
-      if (!aCompleted && bCompleted) {
-        return 1;
-      }
-
-      // Priority filter
-      if (a.priority === 'high' && b.priority !== 'high') {
-        return -1;
-      }
-      if (a.priority !== 'high' && b.priority === 'high') {
-        return 1;
-      }
-
-      // Frequency filter
-      if (a.frequency.type === 'daily' && b.frequency.type !== 'daily') {
-        return -1;
-      }
-      if (a.frequency.type !== 'daily' && b.frequency.type === 'daily') {
-        return 1;
-      }
-
-      return 0;
-    });
-  }, [state.habits, state.habitCompletions, searchTerm, selectedDate]);
+      });
+  }, [state.habits, searchTerm, selectedDate, filterType]);
 
   const handleCreateHabit = async () => {
-    if (!newHabit.name.trim()) return;
+    if (!newHabit.name.trim() || !newHabit.description.trim()) return;
 
     const habitPayload = {
       name: newHabit.name,
@@ -166,7 +173,7 @@ export const Habits: React.FC = () => {
       frequency: newHabit.frequency.charAt(0).toUpperCase() + newHabit.frequency.slice(1),
       category: newHabit.category,
       targetCount: newHabit.targetCount,
-      priority: newHabit.priority.charAt(0).toUpperCase() + newHabit.priority.slice(1),
+      priority: newHabit.priority,
     };
 
     try {
@@ -197,12 +204,9 @@ export const Habits: React.FC = () => {
         name: '',
         description: '',
         frequency: 'daily',
-        category: '',
+        category: 'Wellness',
         targetCount: 1,
-        priority: 'medium',
-        currentStreak: 0,
-        longestStreak: 0,
-        completions: [],
+        priority: 'Medium',
       });
     } catch (error) {
       console.error("Failed to create habit:", error);
@@ -214,8 +218,9 @@ export const Habits: React.FC = () => {
 
     const habitPayload = {
       ...editingHabit,
-      frequency: editingHabit.frequency.charAt(0).toUpperCase() + editingHabit.frequency.slice(1),
-      priority: editingHabit.priority.charAt(0).toUpperCase() + editingHabit.priority.slice(1),
+      habitId: editingHabit.habitId,
+      frequency: editingHabit.frequency.type.charAt(0).toUpperCase() + editingHabit.frequency.type.slice(1),
+      priority: editingHabit.priority,
     };
 
     try {
@@ -253,10 +258,9 @@ export const Habits: React.FC = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch('http://localhost:5001/api/stats/removeHabit', {
-        method: 'POST',
+      const response = await fetch(`http://localhost:5001/api/stats/removeHabit/${habitId}`, {
+        method: 'DELETE',
         headers,
-        body: JSON.stringify({ habitId }),
       });
 
       if (!response.ok) {
@@ -278,10 +282,9 @@ export const Habits: React.FC = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch('http://localhost:5001/api/stats/progressHabit', {
-        method: 'POST',
+      const response = await fetch(`http://localhost:5001/api/stats/progressHabit/${habitId}`, {
+        method: 'PUT',
         headers,
-        body: JSON.stringify({ habitId }),
       });
 
       if (!response.ok) {
@@ -304,14 +307,7 @@ export const Habits: React.FC = () => {
       category: 'Wellness',
       frequency: 'daily',
       targetCount: 1,
-      priority: 'medium',
-      color: '#10B981',
-      icon: 'Zap',
-      reminders: [{
-        time: '09:00',
-        enabled: true,
-        message: 'Time for your habit!',
-      }]
+      priority: 'Medium',
     });
   };
 
@@ -427,15 +423,15 @@ export const Habits: React.FC = () => {
                 <Card
                   variant="glass"
                   className="p-5 border-l-4"
-                  style={{ borderLeftColor: habit.color }}
+                  style={{ borderLeftColor: habit.category.color }}
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-3">
                       <div
                         className="w-10 h-10 rounded-lg flex items-center justify-center"
-                        style={{ backgroundColor: `${habit.color}30` }}
+                        style={{ backgroundColor: `${habit.category.color}30` }}
                       >
-                        <HabitIcon name={habit.icon} className="w-5 h-5" style={{ color: habit.color }} />
+                        <HabitIcon name={habit.category.icon} className="w-5 h-5" style={{ color: habit.category.color }} />
                       </div>
                       <div>
                         <h3 className="font-semibold text-white text-lg">{habit.name}</h3>
@@ -498,7 +494,7 @@ export const Habits: React.FC = () => {
                     <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
                       <motion.div
                         className="h-full"
-                        style={{ backgroundColor: habit.color }}
+                        style={{ backgroundColor: habit.category.color }}
                         initial={{ width: 0 }}
                         animate={{
                           width: isHabitCompletedForDate(habit, selectedDate) ? '100%' : '0%'
@@ -557,7 +553,7 @@ export const Habits: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-white mb-2">Description (Optional)</label>
+            <label className="block text-white mb-2">Description</label>
             <textarea
               value={newHabit.description}
               onChange={(e) => setNewHabit({ ...newHabit, description: e.target.value })}
@@ -610,26 +606,26 @@ export const Habits: React.FC = () => {
             <label className="block text-white mb-2">Priority</label>
             <div className="flex gap-2">
               <Button
-                variant={newHabit.priority === 'low' ? 'primary' : 'outline'}
+                variant={newHabit.priority === 'Low' ? 'primary' : 'outline'}
                 size="sm"
                 fullWidth
-                onClick={() => setNewHabit({ ...newHabit, priority: 'low' })}
+                onClick={() => setNewHabit({ ...newHabit, priority: 'Low' })}
               >
                 Low
               </Button>
               <Button
-                variant={newHabit.priority === 'medium' ? 'primary' : 'outline'}
+                variant={newHabit.priority === 'Medium' ? 'primary' : 'outline'}
                 size="sm"
                 fullWidth
-                onClick={() => setNewHabit({ ...newHabit, priority: 'medium' })}
+                onClick={() => setNewHabit({ ...newHabit, priority: 'Medium' })}
               >
                 Medium
               </Button>
               <Button
-                variant={newHabit.priority === 'high' ? 'primary' : 'outline'}
+                variant={newHabit.priority === 'High' ? 'primary' : 'outline'}
                 size="sm"
                 fullWidth
-                onClick={() => setNewHabit({ ...newHabit, priority: 'high' })}
+                onClick={() => setNewHabit({ ...newHabit, priority: 'High' })}
               >
                 High
               </Button>
@@ -691,13 +687,13 @@ export const Habits: React.FC = () => {
                   value={editingHabit.priority}
                   onChange={(e) => setEditingHabit({
                     ...editingHabit,
-                    priority: e.target.value as 'low' | 'medium' | 'high'
+                    priority: e.target.value as 'Low' | 'Medium' | 'High'
                   })}
                   className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
                 >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
                 </select>
               </div>
 
@@ -720,7 +716,7 @@ export const Habits: React.FC = () => {
               <Button
                 variant="danger"
                 onClick={() => {
-                  handleDeleteHabit(editingHabit.id);
+                  handleDeleteHabit(editingHabit.habitId);
                   setEditingHabit(null);
                 }}
               >
@@ -760,9 +756,9 @@ export const Habits: React.FC = () => {
             <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
               <div
                 className="w-10 h-10 rounded-lg flex items-center justify-center"
-                style={{ backgroundColor: `${completingHabit.color}30` }}
+                style={{ backgroundColor: `${completingHabit.category.color}30` }}
               >
-                <HabitIcon name={completingHabit.icon} className="w-5 h-5" style={{ color: completingHabit.color }} />
+                <HabitIcon name={completingHabit.category.icon} className="w-5 h-5" style={{ color: completingHabit.category.color }} />
               </div>
               <div>
                 <h3 className="font-semibold text-white">{completingHabit.name}</h3>

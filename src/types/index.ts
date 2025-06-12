@@ -30,6 +30,7 @@ export interface CustomTheme {
   secondary: string;
   accent: string;
   background: string;
+  productivity: number; // 1-10 rating
 }
 
 export interface FocusSession {
@@ -52,16 +53,18 @@ export interface Habit {
   habitId: string;
   userId: string;
   name: string;
-  description?: string;
-  category: string;
-  frequency: 'Daily' | 'Weekly' | 'Monthly';
+  description: string;
+  category: HabitCategory;
+  frequency: HabitFrequency;
   targetCount: number;
   priority: 'Low' | 'Medium' | 'High';
   currentStreak: number;
   longestStreak: number;
-  lastCompleted: Date;
+  lastCompleted: Date | null;
   completions: HabitCompletion[];
   createdAt: Date;
+  progress: number;
+  completed: boolean;
 }
 
 export interface HabitCategory {
