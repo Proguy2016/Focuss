@@ -1,680 +1,427 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  FolderOpen, File, Upload, Trash2, Download, Search,
-  List, Grid, Settings, Plus, X, FolderPlus, FileText,
-  RefreshCw, ChevronLeft, ArrowLeft, UploadCloud, LayoutGrid,
-  MoreVertical, Folder, Loader2 as Loader, BookOpen
-} from 'lucide-react';
-import { Button } from '../components/common/Button';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Card } from '../components/common/Card';
-import { Modal } from '../components/common/Modal';
-import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
-import { Knowledge } from './Knowledge';
+import React, { useState, useEffect } from 'react';
+import { ChevronDown, ChevronRight, Upload, FileText, Brain, BookOpen, HelpCircle, Eye, Menu, X } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Separator } from '@/components/ui/separator';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
-interface LibraryItem {
+interface LectureData {
   id: string;
-  type: 'folder' | 'file';
-  name: string;
-  size?: string;
-  modified: string;
-  parentId?: string | null;
-  url?: string; // For files, this is the Wasabi URL
-  path?: string[];
-  contentType?: string; // For files, the MIME type
+  title: string;
+  pdfFile?: File;
+  summary?: string;
+  flashcards?: Array<{ question: string; answer: string }>;
+  examQuestions?: string[];
+  revision?: string;
 }
 
-type ViewType = 'library' | 'knowledge';
+interface Subject {
+  id: string;
+  name: string;
+  color: string;
+  lectures: LectureData[];
+}
 
-const LibraryHeader = ({
-  onBack,
-  currentFolder,
-  onCreateFolder,
-  onUpload,
-  currentView,
-  onViewChange
-}: {
-  onBack: () => void;
-  currentFolder: string | null;
-  onCreateFolder: () => void;
-  onUpload: () => void;
-  currentView: ViewType;
-  onViewChange: (view: ViewType) => void;
+interface LibraryPageProps {
+  subjects?: Subject[];
+}
+
+const LibraryPage: React.FC<LibraryPageProps> = ({
+  subjects = [
+    {
+      id: '1',
+      name: 'APT',
+      color: 'bg-blue-500',
+      lectures: [
+        {
+          id: '1-1',
+          title: 'Lecture 1',
+          summary: 'Introduction to Advanced Programming Techniques covering basic concepts and methodologies.',
+          flashcards: [
+            { question: 'What is APT?', answer: 'Advanced Programming Techniques' },
+            { question: 'Key programming paradigms?', answer: 'OOP, Functional, Procedural' }
+          ],
+          examQuestions: ['Explain the concept of polymorphism', 'Compare different programming paradigms'],
+          revision: 'APT focuses on advanced programming concepts including design patterns, algorithms, and software architecture principles.'
+        },
+        { id: '1-2', title: 'Lecture 2' },
+        { id: '1-3', title: 'Lecture 3' }
+      ]
+    },
+    {
+      id: '2',
+      name: 'OS',
+      color: 'bg-green-500',
+      lectures: [
+        {
+          id: '2-1',
+          title: 'Lecture 1',
+          summary: 'Operating Systems fundamentals including process management and memory allocation.',
+          flashcards: [
+            { question: 'What is an OS?', answer: 'Operating System - manages computer hardware and software resources' },
+            { question: 'Types of OS?', answer: 'Batch, Time-sharing, Real-time, Distributed' }
+          ],
+          examQuestions: ['Describe process scheduling algorithms', 'Explain memory management techniques'],
+          revision: 'OS manages system resources, provides interface between user and hardware, handles process scheduling and memory management.'
+        },
+        { id: '2-2', title: 'Lecture 2' }
+      ]
+    },
+    {
+      id: '3',
+      name: 'Database Systems',
+      color: 'bg-purple-500',
+      lectures: [
+        { id: '3-1', title: 'Lecture 1' },
+        { id: '3-2', title: 'Lecture 2' },
+        { id: '3-3', title: 'Lecture 3' },
+        { id: '3-4', title: 'Lecture 4' }
+      ]
+    }
+  ]
 }) => {
-  return (
-    <div className="flex items-center justify-between mb-6">
-      <div className="flex items-center gap-4">
-        {currentView === 'library' && currentFolder && (
-          <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-            <Button variant="ghost" size="sm" className="p-2" onClick={onBack}>
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-          </motion.div>
-        )}
-        <div className="flex items-center gap-2 rounded-lg bg-slate-900/50 p-1">
-          <Button
-            variant={currentView === 'library' ? 'primary' : 'ghost'}
-            size="sm"
-            onClick={() => onViewChange('library')}
-            className="!m-0"
-          >
-            <LayoutGrid className="w-4 h-4 mr-2" />
-            My Library
-          </Button>
-          <Button
-            variant={currentView === 'knowledge' ? 'primary' : 'ghost'}
-            size="sm"
-            onClick={() => onViewChange('knowledge')}
-            className="!m-0"
-          >
-            <BookOpen className="w-4 h-4 mr-2" />
-            Knowledge
-          </Button>
-        </div>
-        <AnimatePresence>
-          {currentView === 'library' && (
-            <motion.h1
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="text-2xl font-bold text-white"
-            >
-              {currentFolder ? `/ ${currentFolder}` : ''}
-            </motion.h1>
-          )}
-        </AnimatePresence>
-      </div>
-      <div className="flex items-center gap-2">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" />
-          <input
-            type="text"
-            placeholder="Search..."
-            className="w-full h-9 rounded-md border border-slate-800 bg-slate-900/50 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition pl-9 pr-3 py-1"
-          />
-        </div>
-        {currentView === 'library' && (
-          <>
-            <Button variant="primary" size="sm" onClick={onUpload}>
-              <UploadCloud className="w-4 h-4 mr-2" />
-              Upload
-            </Button>
-            <Button variant="secondary" size="sm" onClick={onCreateFolder}>
-              <Plus className="w-4 h-4 mr-2" />
-              New Folder
-            </Button>
-          </>
-        )}
-      </div>
-    </div>
-  );
-};
+  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
+  const [selectedLecture, setSelectedLecture] = useState<LectureData | null>(null);
+  const [activeView, setActiveView] = useState<'summary' | 'flashcards' | 'exam' | 'revision'>('summary');
+  const [subjectData, setSubjectData] = useState<Subject[]>(subjects);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // State for mobile sidebar
 
-const Breadcrumbs = ({ path, onNavigate }: { path: string[]; onNavigate: (index: number) => void }) => {
-  return (
-    <div className="flex items-center text-sm text-white/60 mb-4 overflow-x-auto">
-      <span
-        className="hover:text-white cursor-pointer"
-        onClick={() => onNavigate(-1)}
-      >
-        My Library
-      </span>
-
-      {path.map((folder, index) => (
-        <React.Fragment key={index}>
-          <span className="mx-2">/</span>
-          <span
-            className={`${index === path.length - 1 ? 'text-white' : 'hover:text-white cursor-pointer'}`}
-            onClick={() => onNavigate(index)}
-          >
-            {folder}
-          </span>
-        </React.Fragment>
-      ))}
-    </div>
-  );
-};
-
-const FileItem = ({ file, onClick }: { file: LibraryItem; onClick: () => void }) => {
-  const isFolder = file.type === 'folder';
-  const Icon = isFolder ? FolderOpen : File;
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.8 }}
-      transition={{ duration: 0.2 }}
-      className="group"
-      onClick={onClick}
-    >
-      <Card
-        variant="glass"
-        className="p-4 flex flex-col items-center justify-center text-center space-y-2 cursor-pointer
-                   hover:bg-primary-500/10 hover:border-primary-500/30 transition-all duration-200"
-      >
-        <Icon className={`w-12 h-12 ${isFolder ? 'text-primary-400' : 'text-slate-400'}`} />
-        <p className="text-sm font-medium text-white truncate w-full">{file.name}</p>
-        <p className="text-xs text-white/50">
-          {isFolder ? '' : `${file.size} · `}{file.modified}
-        </p>
-      </Card>
-    </motion.div>
-  );
-};
-
-const Library: React.FC = () => {
-  const navigate = useNavigate();
-  const [files, setFiles] = useState<LibraryItem[]>([]);
-  const [currentPath, setCurrentPath] = useState<string[]>([]);
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<ViewType>('library');
-
-  const [showNewFolderModal, setShowNewFolderModal] = useState<boolean>(false);
-  const [newFolderName, setNewFolderName] = useState<string>('');
-  const [showUploadModal, setShowUploadModal] = useState<boolean>(false);
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (currentView === 'library') {
-      fetchLibraryData();
-    }
-    // No specific data fetch needed for knowledge view as it has its own mock data for now
-  }, [currentView]);
-
-  // Filter files based on current folder
-  const filteredFiles = files.filter(file => file.parentId === currentFolderId);
-
-  // Log filtered files and current folder ID
-  useEffect(() => {
-    console.log('Current folder ID:', currentFolderId);
-    console.log('Total files in state:', files.length);
-    console.log('Filtered files for current folder:', filteredFiles.length);
-  }, [filteredFiles.length, currentFolderId, files.length]);
-
-  const handleFolderClick = (folder: LibraryItem) => {
-    setCurrentPath([...currentPath, folder.name]);
-    setCurrentFolderId(folder.id);
-  };
-
-  const handleBackClick = async () => {
-    if (currentPath.length === 0) return;
-
-    const newPath = [...currentPath];
-    newPath.pop();
-    setCurrentPath(newPath);
-
-    setIsLoading(true);
-    try {
-      if (newPath.length === 0) {
-        // Go back to root
-        setCurrentFolderId(null);
-      } else {
-        // We need to find the parent folder's ID
-        const pathString = '/' + newPath.join('/');
-        const response = await api.get(`/api/library/path?path=${encodeURIComponent(pathString)}`);
-
-        if (response.data && response.data.id) {
-          setCurrentFolderId(response.data.id);
-        } else {
-          // If we can't find the folder, go back to root
-          setCurrentFolderId(null);
-          setCurrentPath([]);
-        }
-      }
-    } catch (err) {
-      console.error('Error navigating back:', err);
-      setError('Failed to navigate. Returning to root.');
-      setCurrentFolderId(null);
-      setCurrentPath([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleBreadcrumbClick = async (index: number) => {
-    try {
-      setIsLoading(true);
-
-      if (index === -1) {
-        // Root level
-        setCurrentPath([]);
-        setCurrentFolderId(null);
-      } else {
-        const newPath = currentPath.slice(0, index + 1);
-        setCurrentPath(newPath);
-
-        // Find the folder ID by path
-        const pathString = '/' + newPath.join('/');
-        const response = await api.get(`/api/library/path?path=${encodeURIComponent(pathString)}`);
-
-        if (response.data && response.data.id) {
-          setCurrentFolderId(response.data.id);
-        } else {
-          throw new Error('Folder not found');
-        }
-      }
-    } catch (err) {
-      console.error('Error navigating to breadcrumb:', err);
-      setError('Failed to navigate. Returning to root.');
-      setCurrentPath([]);
-      setCurrentFolderId(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCreateFolder = async () => {
-    if (!newFolderName.trim()) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await api.post('/api/library/folder', {
-        name: newFolderName,
-        parentId: currentFolderId || 'root',
-        path: currentPath.length > 0 ? '/' + currentPath.join('/') : '/'
-      });
-
-      if (response.data && response.data.id) {
-        // Add the new folder to our state
-        const newFolder: LibraryItem = {
-          id: response.data.id,
-          type: 'folder',
-          name: newFolderName,
-          modified: new Date().toLocaleDateString(),
-          parentId: currentFolderId,
-          path: [...currentPath]
-        };
-
-        setFiles([...files, newFolder]);
-      }
-
-      setShowNewFolderModal(false);
-      setNewFolderName('');
-    } catch (err) {
-      console.error('Error creating folder:', err);
-      setError('Failed to create folder. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleUploadClick = () => {
-    setShowUploadModal(true);
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setUploadedFiles(Array.from(e.target.files));
-    }
-  };
-
-  const handleUploadFiles = async () => {
-    if (uploadedFiles.length === 0) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const newFiles: LibraryItem[] = [];
-
-      for (const file of uploadedFiles) {
-        // Set initial progress
-        setUploadProgress(prev => ({ ...prev, [file.name]: 0 }));
-
-        // Create form data for file upload
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('parentId', currentFolderId || 'root');
-        formData.append('path', currentPath.join('/'));
-
-        console.log(`Uploading file to /up/upload with parentId: ${currentFolderId || 'root'}`);
-
-        // Upload the file using the provided API endpoint
-        const response = await api.post('/up/upload', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          },
-          onUploadProgress: (progressEvent) => {
-            const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 100));
-            setUploadProgress(prev => ({ ...prev, [file.name]: percentCompleted }));
-          }
-        });
-
-        console.log('Upload response:', response.data);
-
-        // Add the newly uploaded file to our list
-        if (response.data && response.data.id) {
-          const newFile: LibraryItem = {
-            id: response.data.id,
-            type: 'file',
-            name: file.name,
-            size: formatSize(file.size),
-            modified: new Date().toLocaleDateString(),
-            parentId: currentFolderId,
-            path: [...currentPath],
-            contentType: file.type,
-            url: `/up/file/${response.data.id}` // Store the file URL using the provided endpoint
-          };
-
-          newFiles.push(newFile);
-        }
-      }
-
-      console.log(`${newFiles.length} files uploaded successfully`);
-
-      // Update the files list with the new uploads
-      if (newFiles.length > 0) {
-        setFiles(prev => [...prev, ...newFiles]);
-      }
-
-      // Refresh library data from server
-      await fetchLibraryData();
-
-      setShowUploadModal(false);
-      setUploadedFiles([]);
-      setUploadProgress({});
-    } catch (err) {
-      console.error('Error uploading files:', err);
-      setError('Failed to upload files. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleFileClick = async (file: LibraryItem) => {
-    if (file.type === 'folder') {
-      handleFolderClick(file);
-      return;
-    }
-
-    // For PDFs, download and open in PDF viewer
-    if (file.contentType === 'application/pdf' || file.name.endsWith('.pdf')) {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        // Store the file info in localStorage for the PDF viewer
-        localStorage.setItem('currentPdfName', file.name);
-        localStorage.setItem('currentPdfUrl', `/up/file/${file.id}`);
-
-        // Navigate to the PDF viewer with the file ID
-        navigate(`/pdf-viewer/${file.id}`);
-      } catch (err) {
-        console.error('Error opening file:', err);
-        setError('Failed to open file. Please try again.');
-      } finally {
-        setIsLoading(false);
-      }
+  const toggleSubject = (subjectId: string) => {
+    const newExpanded = new Set(expandedSubjects);
+    if (newExpanded.has(subjectId)) {
+      newExpanded.delete(subjectId);
     } else {
-      // For other file types, open the file directly
-      window.open(`/up/file/${file.id}`, '_blank');
+      newExpanded.add(subjectId);
+    }
+    setExpandedSubjects(newExpanded);
+  };
+
+  const handleFileUpload = (subjectId: string, lectureId: string, file: File) => {
+    setSubjectData(prev => prev.map(subject => {
+      if (subject.id === subjectId) {
+        return {
+          ...subject,
+          lectures: subject.lectures.map(lecture => {
+            if (lecture.id === lectureId) {
+              return { ...lecture, pdfFile: file };
+            }
+            return lecture;
+          })
+        };
+      }
+      return subject;
+    }));
+  };
+
+  const generateAIContent = (subjectId: string, lectureId: string) => {
+    setSubjectData(prev => prev.map(subject => {
+      if (subject.id === subjectId) {
+        return {
+          ...subject,
+          lectures: subject.lectures.map(lecture => {
+            if (lecture.id === lectureId) {
+              return {
+                ...lecture,
+                summary: `AI-generated summary for ${lecture.title} in ${subject.name}. This covers key concepts and important points from the uploaded material.`,
+                flashcards: [
+                  { question: `What is the main topic of ${lecture.title}?`, answer: `Core concepts in ${subject.name}` },
+                  { question: `Key takeaway from ${lecture.title}?`, answer: 'Important principles and applications' }
+                ],
+                examQuestions: [
+                  `Explain the main concepts covered in ${lecture.title}`,
+                  `How does ${lecture.title} relate to ${subject.name}?`
+                ],
+                revision: `Quick revision: ${lecture.title} covers essential topics in ${subject.name} with practical applications and theoretical foundations.`
+              };
+            }
+            return lecture;
+          })
+        };
+      }
+      return subject;
+    }));
+  };
+
+  const selectLecture = (lecture: LectureData) => {
+    setSelectedLecture(lecture);
+    setActiveView('summary');
+    if (window.innerWidth < 1024) { // Close sidebar on mobile/tablet after selecting lecture
+      setIsSidebarOpen(false);
     }
   };
 
-  const formatSize = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
+  const SidebarContent = () => (
+    <div className="p-4">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold mb-2">Library</h1>
+        <p className="text-sm text-muted-foreground">Organize and study your university subjects</p>
+      </div>
 
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
-  };
-
-  // Fetch library data function declaration
-  const fetchLibraryData = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const endpoint = currentFolderId
-        ? `/api/library/folder/${currentFolderId}`
-        : '/api/library';
-
-      console.log(`Fetching library data from ${endpoint}`);
-      const response = await api.get(endpoint);
-      console.log('Library API response:', response.data);
-
-      if (response.data && response.data.items) {
-        // Transform API data to our LibraryItem format if needed
-        const libraryItems = response.data.items.map((item: any) => ({
-          id: item.id,
-          type: item.type,
-          name: item.name,
-          size: item.size ? formatSize(item.size) : undefined,
-          modified: new Date(item.modifiedAt || item.createdAt).toLocaleDateString(),
-          parentId: item.parentId,
-          path: item.path ? item.path.split('/').filter(Boolean) : [],
-          contentType: item.contentType,
-          url: item.type === 'file' ? `/up/file/${item.id}` : undefined
-        }));
-
-        console.log('Transformed library items:', libraryItems);
-        setFiles(libraryItems);
-      } else {
-        console.log('No items found in library response');
-        setFiles([]);
-      }
-    } catch (err: any) {
-      console.error('Error fetching library data:', err);
-      // If we get a 404 for an empty library, just show an empty state
-      if (err.response && err.response.status === 404) {
-        console.log('404 response - showing empty state');
-        setFiles([]);
-      } else {
-        setError('Failed to load library. Please try again.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Effect to fetch files from API
-  useEffect(() => {
-    fetchLibraryData();
-  }, [currentFolderId]);
+      <div className="space-y-2">
+        {subjectData.map((subject) => (
+          <Collapsible
+            key={subject.id}
+            open={expandedSubjects.has(subject.id)}
+            onOpenChange={() => toggleSubject(subject.id)}
+          >
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className="w-full justify-start p-3 h-auto hover:bg-accent"
+              >
+                <div className="flex items-center gap-3 w-full">
+                  <div className={`w-3 h-3 rounded-full ${subject.color}`} />
+                  <span className="font-medium">{subject.name}</span>
+                  <div className="ml-auto">
+                    {expandedSubjects.has(subject.id) ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </div>
+                </div>
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="ml-6 mt-2 space-y-1">
+              {subject.lectures.map((lecture) => (
+                <Card
+                  key={lecture.id}
+                  className="p-3 cursor-pointer hover:bg-accent transition-colors"
+                  onClick={() => selectLecture(lecture)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{lecture.title}</span>
+                    </div>
+                    <div className="flex gap-1">
+                      {lecture.pdfFile && (
+                        <Badge variant="secondary" className="text-xs">PDF</Badge>
+                      )}
+                      {lecture.summary && (
+                        <Badge variant="outline" className="text-xs">AI</Badge>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
-    <div className="p-4 sm:p-6 h-full flex flex-col">
-      <LibraryHeader
-        onBack={handleBackClick}
-        currentFolder={currentPath.length > 0 ? currentPath[currentPath.length - 1] : null}
-        onCreateFolder={() => setShowNewFolderModal(true)}
-        onUpload={handleUploadClick}
-        currentView={currentView}
-        onViewChange={setCurrentView}
-      />
+    <div className="min-h-screen bg-background text-foreground flex flex-col lg:flex-row">
+      {/* Mobile/Tablet Header and Sidebar Trigger */}
+      <div className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-card">
+        <h1 className="text-xl font-bold">Library</h1>
+        <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <Menu className="h-6 w-6" />
+              <span className="sr-only">Toggle sidebar</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 w-64 sm:w-80">
+            {SidebarContent()}
+          </SheetContent>
+        </Sheet>
+      </div>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentView}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.2 }}
-          className="flex-1 overflow-y-auto flex flex-col"
-        >
-          {currentView === 'library' ? (
-            <>
-              <div className="flex items-center justify-between mb-4">
-                <Breadcrumbs path={currentPath} onNavigate={handleBreadcrumbClick} />
-                <div className="flex items-center">
-                  <Button variant="ghost" size="sm" onClick={() => setViewMode('grid')} className={`p-2 ${viewMode === 'grid' ? 'text-primary-400 bg-primary-500/10' : ''}`} title="Grid view">
-                    <Grid className="w-4 h-4" />
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:block w-80 border-r border-border bg-card overflow-y-auto">
+        {SidebarContent()}
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 p-6 overflow-y-auto">
+        {selectedLecture ? (
+          <div className="max-w-4xl mx-auto">
+            <div className="mb-6">
+              <h2 className="text-3xl font-bold mb-2">{selectedLecture.title}</h2>
+              <div className="flex flex-wrap items-center gap-4 mb-4">
+                <input
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  id="pdf-upload"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const subjectId = subjectData.find(s =>
+                        s.lectures.some(l => l.id === selectedLecture.id)
+                      )?.id;
+                      if (subjectId) {
+                        handleFileUpload(subjectId, selectedLecture.id, file);
+                      }
+                    }
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => document.getElementById('pdf-upload')?.click()}
+                  className="gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  Upload PDF
+                </Button>
+
+                {selectedLecture.pdfFile && (
+                  <Button
+                    onClick={() => {
+                      const subjectId = subjectData.find(s =>
+                        s.lectures.some(l => l.id === selectedLecture.id)
+                      )?.id;
+                      if (subjectId) {
+                        generateAIContent(subjectId, selectedLecture.id);
+                      }
+                    }}
+                    className="gap-2"
+                  >
+                    <Brain className="h-4 w-4" />
+                    Generate AI Content
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setViewMode('list')} className={`p-2 ${viewMode === 'list' ? 'text-primary-400 bg-primary-500/10' : ''}`} title="List view">
-                    <List className="w-4 h-4" />
-                  </Button>
-                </div>
+                )}
               </div>
 
-              {isLoading ? (
-                <div className="flex-1 flex items-center justify-center">
-                  <Loader className="w-8 h-8 animate-spin text-primary-500" />
-                </div>
-              ) : error ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-center">
-                  <p className="text-red-400">{error}</p>
-                  <Button variant="secondary" size="sm" onClick={fetchLibraryData} className="mt-4">
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Retry
-                  </Button>
-                </div>
-              ) : filteredFiles.length > 0 ? (
-                <motion.div
-                  className={`grid ${viewMode === 'grid' ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4' : 'grid-cols-1 gap-2'}`}
-                  layout
-                >
-                  {filteredFiles.map(item => (
-                    <FileItem
-                      key={item.id}
-                      file={item}
-                      onClick={() => {
-                        if (item.type === 'folder') {
-                          handleFolderClick(item);
-                        } else {
-                          handleFileClick(item);
-                        }
-                      }}
-                    />
-                  ))}
-                </motion.div>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-white/50">
-                  <FolderOpen className="w-16 h-16 mb-4" />
-                  <h3 className="text-xl font-semibold">Empty Folder</h3>
-                  <p>Upload a file or create a new folder.</p>
+              {selectedLecture.pdfFile && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                  <FileText className="h-4 w-4" />
+                  <span>Uploaded: {selectedLecture.pdfFile.name}</span>
                 </div>
               )}
-            </>
-          ) : (
-            <Knowledge />
-          )}
-        </motion.div>
-      </AnimatePresence>
-
-      {/* New Folder Modal */}
-      <Modal
-        isOpen={showNewFolderModal}
-        onClose={() => setShowNewFolderModal(false)}
-        title="Create New Folder"
-        size="sm"
-      >
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="folderName" className="block text-white/80 mb-1 text-sm">Folder Name</label>
-            <input
-              id="folderName"
-              type="text"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              className="w-full h-9 rounded-md border border-slate-800 bg-slate-900/50 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-400 shadow-none transition px-3 py-1"
-              placeholder="Enter folder name"
-              autoFocus
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setShowNewFolderModal(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateFolder} disabled={!newFolderName.trim()}>
-              Create Folder
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Upload Modal */}
-      <Modal
-        isOpen={showUploadModal}
-        onClose={() => setShowUploadModal(false)}
-        title="Upload Files"
-        size="md"
-      >
-        <div className="space-y-4">
-          <div className="border-2 border-dashed border-slate-700 rounded-lg p-6 text-center">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileSelect}
-              multiple
-              className="hidden"
-            />
-            <Button
-              variant="ghost"
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full h-24 flex flex-col items-center justify-center"
-            >
-              <UploadCloud className="w-10 h-10 text-primary-400 mb-2" />
-              <p className="text-white">Click to select files or drag and drop</p>
-              <p className="text-white/50 text-sm mt-1">PDF, DOCX, TXT, etc.</p>
-            </Button>
-          </div>
-
-          {uploadedFiles.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-white/80 text-sm">{uploadedFiles.length} file(s) selected</p>
-              <div className="max-h-40 overflow-y-auto space-y-2">
-                {uploadedFiles.map((file, index) => (
-                  <div key={index} className="flex items-center justify-between bg-slate-800/50 rounded p-2">
-                    <div className="flex items-center">
-                      <File className="w-4 h-4 text-white/70 mr-2" />
-                      <p className="text-sm text-white truncate max-w-[180px]">{file.name}</p>
-                    </div>
-                    <p className="text-xs text-white/50">{formatSize(file.size)}</p>
-                  </div>
-                ))}
-              </div>
             </div>
-          )}
 
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setShowUploadModal(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleUploadFiles}
-              disabled={uploadedFiles.length === 0 || isLoading}
-            >
-              {isLoading ? 'Uploading...' : 'Upload'}
-            </Button>
+            {selectedLecture.summary && (
+              <>
+                <div className="flex flex-wrap gap-2 mb-6">
+                  <Button
+                    variant={activeView === 'summary' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setActiveView('summary')}
+                    className="gap-2"
+                  >
+                    <Eye className="h-4 w-4" />
+                    Summary
+                  </Button>
+                  <Button
+                    variant={activeView === 'flashcards' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setActiveView('flashcards')}
+                    className="gap-2"
+                  >
+                    <BookOpen className="h-4 w-4" />
+                    Flashcards
+                  </Button>
+                  <Button
+                    variant={activeView === 'exam' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setActiveView('exam')}
+                    className="gap-2"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                    Exam Questions
+                  </Button>
+                  <Button
+                    variant={activeView === 'revision' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setActiveView('revision')}
+                    className="gap-2"
+                  >
+                    <Brain className="h-4 w-4" />
+                    Quick Revision
+                  </Button>
+                </div>
+
+                <Card className="p-6">
+                  {activeView === 'summary' && (
+                    <div>
+                      <h3 className="text-xl font-semibold mb-4">Summary</h3>
+                      <p className="text-muted-foreground leading-relaxed">{selectedLecture.summary}</p>
+                    </div>
+                  )}
+
+                  {activeView === 'flashcards' && selectedLecture.flashcards && (
+                    <div>
+                      <h3 className="text-xl font-semibold mb-4">Flashcards</h3>
+                      <div className="space-y-4">
+                        {selectedLecture.flashcards.map((card, index) => (
+                          <Card key={index} className="p-4 border-l-4 border-l-blue-500">
+                            <div className="mb-2">
+                              <span className="font-medium text-sm text-blue-600">Question:</span>
+                              <p className="mt-1">{card.question}</p>
+                            </div>
+                            <Separator className="my-3" />
+                            <div>
+                              <span className="font-medium text-sm text-green-600">Answer:</span>
+                              <p className="mt-1">{card.answer}</p>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeView === 'exam' && selectedLecture.examQuestions && (
+                    <div>
+                      <h3 className="text-xl font-semibold mb-4">Potential Exam Questions</h3>
+                      <div className="space-y-3">
+                        {selectedLecture.examQuestions.map((question, index) => (
+                          <Card key={index} className="p-4 border-l-4 border-l-orange-500">
+                            <p className="font-medium">{index + 1}. {question}</p>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeView === 'revision' && (
+                    <div>
+                      <h3 className="text-xl font-semibold mb-4">Quick Revision</h3>
+                      <Card className="p-4 bg-accent border-l-4 border-l-purple-500">
+                        <p className="leading-relaxed">{selectedLecture.revision}</p>
+                      </Card>
+                    </div>
+                  )}
+                </Card>
+              </>
+            )}
+
+            {!selectedLecture.summary && !selectedLecture.pdfFile && (
+              <Card className="p-8 text-center">
+                <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-medium mb-2">Upload lecture notes</h3>
+                <p className="text-muted-foreground mb-4">
+                  Upload a PDF to get started with AI-powered summaries, flashcards, and exam questions.
+                </p>
+                <Button
+                  onClick={() => document.getElementById('pdf-upload')?.click()}
+                  className="gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  Choose PDF File
+                </Button>
+              </Card>
+            )}
           </div>
-        </div>
-      </Modal>
-
-      {/* Error Alert */}
-      {error && (
-        <motion.div
-          className="fixed bottom-4 right-4 bg-red-500/90 text-white p-4 rounded-lg shadow-lg flex items-center gap-2"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
-        >
-          <p>{error}</p>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="p-1"
-            onClick={() => setError(null)}
-          >
-            <X className="w-4 h-4" />
-          </Button>
-        </motion.div>
-      )}
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <BookOpen className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+              <h2 className="text-2xl font-semibold mb-2">Welcome to your Library</h2>
+              <p className="text-muted-foreground">
+                Select a lecture from the sidebar to start studying
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
 
-export default Library; 
+export default LibraryPage; 
