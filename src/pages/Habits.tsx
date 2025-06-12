@@ -11,6 +11,7 @@ import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { Habit, HabitCategory } from '../types';
+import { Description } from '@radix-ui/react-dialog';
 
 type FilterType = 'all' | 'completed' | 'incomplete' | 'high' | 'medium' | 'low';
 
@@ -84,13 +85,19 @@ export const Habits: React.FC = () => {
             return {
               ...habit,
               id: habit.habitId,
-              currentStreak: habit.streak,
-              longestStreak: habit.streak,
-              createdAt: new Date(habit.startDate),
-              lastCompleted: habit.lastCompleted ? new Date(habit.lastCompleted) : null,
-              completions: [],
-              category: categoryObj || { id: 'default', name: habit.category, color: '#A8A29E', icon: 'Zap' },
-              frequency: { type: habit.frequency.toLowerCase() },
+              habitname: habit.name,
+              Description: habit.description,
+              frequency: habit.frequency,
+              category:habit.category,
+              targetcount: habit.targetCount,
+              priority: habit.priority,
+              Streak: habit.streak,
+              currentStreak: habit.streak,  // Map streak to currentStreak
+              progress: habit.progress,
+              completed: habit.completed,
+              lastcompleted: habit.lastCompleted,
+              startdate: habit.startDate,
+              resetdate: habit.resetDate,
             };
           });
           dispatch({ type: 'SET_HABITS', payload: transformedHabits });
@@ -102,6 +109,9 @@ export const Habits: React.FC = () => {
 
     fetchHabits();
   }, [dispatch]);
+  const isHabitCompleted= (habit: Habit) => {
+    return habit.completed;
+  };
 
   // Check if a habit is completed for a specific date
   const isHabitCompletedForDate = (habit: Habit, date: Date) => {
@@ -258,9 +268,10 @@ export const Habits: React.FC = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch(`http://localhost:5001/api/stats/removeHabit/${habitId}`, {
+      const response = await fetch(`http://localhost:5001/api/stats/removeHabit`, {
         method: 'DELETE',
         headers,
+        body: JSON.stringify({ habitId }),
       });
 
       if (!response.ok) {
@@ -282,9 +293,25 @@ export const Habits: React.FC = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch(`http://localhost:5001/api/stats/progressHabit/${habitId}`, {
+      // First get the current habit data
+      const habitResponse = await fetch(`http://localhost:5001/api/stats/getHabits`, {
+        method: 'GET',
+        headers,
+      });
+      
+      if (!habitResponse.ok) {
+        throw new Error('Failed to fetch current habit data');
+      }
+      
+      const habitData = await habitResponse.json();
+      const targetHabit = habitData.habits.find((h: any) => h.habitId === habitId);
+      console.log('Current habit before progress:', targetHabit);
+      
+      // Now progress the habit
+      const response = await fetch(`http://localhost:5001/api/stats/progressHabit`, {
         method: 'PUT',
         headers,
+        body: JSON.stringify({ habitId }),
       });
 
       if (!response.ok) {
@@ -292,8 +319,48 @@ export const Habits: React.FC = () => {
         throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
       }
 
-      const { habit: updatedHabit } = await response.json();
-      dispatch({ type: 'UPDATE_HABIT', payload: updatedHabit });
+      const progressResult = await response.json();
+      console.log('Progress result:', progressResult);
+      
+      // Refresh all habits after progress to get the latest data
+      const refreshResponse = await fetch('http://localhost:5001/api/stats/getHabits', {
+        method: 'GET',
+        headers,
+      });
+
+      if (!refreshResponse.ok) {
+        throw new Error('Failed to refresh habits after progress');
+      }
+
+      const refreshData = await refreshResponse.json();
+      console.log('Refreshed habits:', refreshData.habits);
+      
+      if (refreshData && refreshData.habits) {
+        // Transform all habits as done in useEffect
+        const transformedHabits = refreshData.habits.map((habit: any) => {
+          const categoryObj = categories.find(c => c.name === habit.category);
+          return {
+            ...habit,
+            id: habit.habitId,
+            habitname: habit.name,
+            Description: habit.description,
+            frequency: habit.frequency,
+            category: habit.category,
+            targetcount: habit.targetCount,
+            priority: habit.priority,
+            Streak: habit.streak,
+            currentStreak: habit.streak,
+            progress: habit.progress,
+            completed: habit.completed,
+            lastcompleted: habit.lastCompleted,
+            startdate: habit.startDate,
+            resetdate: habit.resetDate,
+          };
+        });
+        
+        // Update all habits at once to ensure everything is fresh
+        dispatch({ type: 'SET_HABITS', payload: transformedHabits });
+      }
 
     } catch (error) {
       console.error("Failed to progress habit:", error);
@@ -444,15 +511,16 @@ export const Habits: React.FC = () => {
                         variant="ghost"
                         size="sm"
                         className="p-1"
+                        disabled={habit.completed}
                         onClick={() => {
-                          if (!isHabitCompletedForDate(habit, selectedDate)) {
+                          if (!habit.completed) {
                             setCompletingHabit(habit);
                             setShowCompletionModal(true);
                           }
                         }}
                       >
-                        {isHabitCompletedForDate(habit, selectedDate) ? (
-                          <CheckCircle2 className="w-5 h-5 text-success-400" />
+                        {habit.completed ? (
+                          <CheckCircle2 className="w-5 h-5 text-primary-500" />
                         ) : (
                           <Circle className="w-5 h-5 text-white/40" />
                         )}
@@ -479,7 +547,7 @@ export const Habits: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-1">
                       <Zap className="w-4 h-4" />
-                      <span>{habit.currentStreak} day streak</span>
+                      <span><strong>{habit.currentStreak || 0}</strong> day streak</span>
                     </div>
                   </div>
 
@@ -488,16 +556,16 @@ export const Habits: React.FC = () => {
                     <div className="flex justify-between text-xs text-white/60 mb-1">
                       <span>Progress</span>
                       <span>
-                        {isHabitCompletedForDate(habit, selectedDate) ? habit.targetCount : 0} / {habit.targetCount}
+                        {habit.progress} / {habit.targetCount}
                       </span>
                     </div>
                     <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
                       <motion.div
                         className="h-full"
-                        style={{ backgroundColor: habit.category.color }}
+                        style={{ backgroundColor: '#4F46E5' }}
                         initial={{ width: 0 }}
                         animate={{
-                          width: isHabitCompletedForDate(habit, selectedDate) ? '100%' : '0%'
+                          width: `${(habit.progress / habit.targetCount) * 100}%`
                         }}
                         transition={{ duration: 0.5 }}
                       />
@@ -758,7 +826,7 @@ export const Habits: React.FC = () => {
                 className="w-10 h-10 rounded-lg flex items-center justify-center"
                 style={{ backgroundColor: `${completingHabit.category.color}30` }}
               >
-                <HabitIcon name={completingHabit.category.icon} className="w-5 h-5" style={{ color: completingHabit.category.color }} />
+                <HabitIcon name={completingHabit.category.icon} className="w-5 h-5" style={{ color: completingHabit.completed ? '#10B981' : completingHabit.category.color }} />
               </div>
               <div>
                 <h3 className="font-semibold text-white">{completingHabit.name}</h3>
@@ -816,7 +884,14 @@ export const Habits: React.FC = () => {
               </Button>
               <Button
                 variant="primary"
-                onClick={() => handleCompleteHabit(completingHabit.habitId)}
+                disabled={completingHabit && completingHabit.completed}
+                onClick={() => {
+                  if (completingHabit && !completingHabit.completed) {
+                    handleCompleteHabit(completingHabit.habitId);
+                    setShowCompletionModal(false);
+                    setCompletingHabit(null);
+                  }
+                }}
               >
                 Mark as Complete
               </Button>

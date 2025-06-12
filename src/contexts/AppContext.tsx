@@ -56,7 +56,9 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
     case 'UPDATE_HABIT':
       return {
         ...state,
-        habits: state.habits.map(h => h.id === action.payload.id ? action.payload : h)
+        habits: state.habits.map(h => 
+          h.habitId === action.payload.habitId ? action.payload : h
+        )
       };
     case 'DELETE_HABIT':
       return { ...state, habits: state.habits.filter(h => h.id !== action.payload) };
