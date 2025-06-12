@@ -36,10 +36,6 @@ export const Habits: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [showCompletionModal, setShowCompletionModal] = useState(false);
-  const [completingHabit, setCompletingHabit] = useState<Habit | null>(null);
-  const [completionCount, setCompletionCount] = useState(1);
-  const [completionNote, setCompletionNote] = useState('');
 
   const [newHabit, setNewHabit] = useState({
     name: '',
@@ -82,22 +78,25 @@ export const Habits: React.FC = () => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const transformedHabits = data.habits.map((habit: any) => {
             const categoryObj = categories.find(c => c.name === habit.category);
+            const frequencyObj = typeof habit.frequency === 'string'
+              ? { type: habit.frequency, customValue: null }
+              : habit.frequency;
+
             return {
               ...habit,
               id: habit.habitId,
-              habitname: habit.name,
-              Description: habit.description,
-              frequency: habit.frequency,
-              category:habit.category,
-              targetcount: habit.targetCount,
+              name: habit.name,
+              description: habit.description,
+              frequency: frequencyObj,
+              category: categoryObj || { name: habit.category, color: '#6B7280', icon: 'Zap' },
+              targetCount: habit.targetCount,
               priority: habit.priority,
-              Streak: habit.streak,
-              currentStreak: habit.streak,  // Map streak to currentStreak
+              currentStreak: habit.streak,
               progress: habit.progress,
               completed: habit.completed,
-              lastcompleted: habit.lastCompleted,
-              startdate: habit.startDate,
-              resetdate: habit.resetDate,
+              lastCompleted: habit.lastCompleted,
+              startDate: habit.startDate,
+              resetDate: habit.resetDate,
             };
           });
           dispatch({ type: 'SET_HABITS', payload: transformedHabits });
@@ -109,7 +108,7 @@ export const Habits: React.FC = () => {
 
     fetchHabits();
   }, [dispatch]);
-  const isHabitCompleted= (habit: Habit) => {
+  const isHabitCompleted = (habit: Habit) => {
     return habit.completed;
   };
 
@@ -204,7 +203,20 @@ export const Habits: React.FC = () => {
         throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
       }
 
-      const { habit: createdHabit } = await response.json();
+      const { habit: createdHabitFromBackend } = await response.json();
+
+      const categoryObj = categories.find(c => c.name === createdHabitFromBackend.category);
+
+      const createdHabit = {
+        ...createdHabitFromBackend,
+        category: categoryObj || { name: createdHabitFromBackend.category, color: '#6B7280', icon: 'Zap' },
+        id: createdHabitFromBackend.habitId,
+        currentStreak: createdHabitFromBackend.streak,
+        frequency: {
+          type: newHabit.frequency,
+          customValue: null
+        }
+      };
 
       dispatch({ type: 'ADD_HABIT', payload: createdHabit });
 
@@ -298,15 +310,15 @@ export const Habits: React.FC = () => {
         method: 'GET',
         headers,
       });
-      
+
       if (!habitResponse.ok) {
         throw new Error('Failed to fetch current habit data');
       }
-      
+
       const habitData = await habitResponse.json();
       const targetHabit = habitData.habits.find((h: any) => h.habitId === habitId);
       console.log('Current habit before progress:', targetHabit);
-      
+
       // Now progress the habit
       const response = await fetch(`http://localhost:5001/api/stats/progressHabit`, {
         method: 'PUT',
@@ -321,7 +333,7 @@ export const Habits: React.FC = () => {
 
       const progressResult = await response.json();
       console.log('Progress result:', progressResult);
-      
+
       // Refresh all habits after progress to get the latest data
       const refreshResponse = await fetch('http://localhost:5001/api/stats/getHabits', {
         method: 'GET',
@@ -334,30 +346,32 @@ export const Habits: React.FC = () => {
 
       const refreshData = await refreshResponse.json();
       console.log('Refreshed habits:', refreshData.habits);
-      
+
       if (refreshData && refreshData.habits) {
         // Transform all habits as done in useEffect
         const transformedHabits = refreshData.habits.map((habit: any) => {
           const categoryObj = categories.find(c => c.name === habit.category);
+          const frequencyObj = typeof habit.frequency === 'string'
+            ? { type: habit.frequency, customValue: null }
+            : habit.frequency;
           return {
             ...habit,
             id: habit.habitId,
-            habitname: habit.name,
-            Description: habit.description,
-            frequency: habit.frequency,
-            category: habit.category,
-            targetcount: habit.targetCount,
+            name: habit.name,
+            description: habit.description,
+            frequency: frequencyObj,
+            category: categoryObj || { name: habit.category, color: '#6B7280', icon: 'Zap' },
+            targetCount: habit.targetCount,
             priority: habit.priority,
-            Streak: habit.streak,
             currentStreak: habit.streak,
             progress: habit.progress,
             completed: habit.completed,
-            lastcompleted: habit.lastCompleted,
-            startdate: habit.startDate,
-            resetdate: habit.resetDate,
+            lastCompleted: habit.lastCompleted,
+            startDate: habit.startDate,
+            resetDate: habit.resetDate,
           };
         });
-        
+
         // Update all habits at once to ensure everything is fresh
         dispatch({ type: 'SET_HABITS', payload: transformedHabits });
       }
@@ -490,19 +504,19 @@ export const Habits: React.FC = () => {
                 <Card
                   variant="glass"
                   className="p-5 border-l-4"
-                  style={{ borderLeftColor: habit.category.color }}
+                  style={{ borderLeftColor: habit.category?.color || '#6B7280' }}
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-3">
                       <div
                         className="w-10 h-10 rounded-lg flex items-center justify-center"
-                        style={{ backgroundColor: `${habit.category.color}30` }}
+                        style={{ backgroundColor: `${habit.category?.color || '#6B7280'}30` }}
                       >
-                        <HabitIcon name={habit.category.icon} className="w-5 h-5" style={{ color: habit.category.color }} />
+                        <HabitIcon name={habit.category?.icon || 'Zap'} className="w-5 h-5" style={{ color: habit.category?.color || '#6B7280' }} />
                       </div>
                       <div>
                         <h3 className="font-semibold text-white text-lg">{habit.name}</h3>
-                        <p className="text-white/60 text-sm">{habit.category.name}</p>
+                        <p className="text-white/60 text-sm">{habit.category?.name || 'Uncategorized'}</p>
                       </div>
                     </div>
 
@@ -512,12 +526,7 @@ export const Habits: React.FC = () => {
                         size="sm"
                         className="p-1"
                         disabled={habit.completed}
-                        onClick={() => {
-                          if (!habit.completed) {
-                            setCompletingHabit(habit);
-                            setShowCompletionModal(true);
-                          }
-                        }}
+                        onClick={() => handleCompleteHabit(habit.habitId)}
                       >
                         {habit.completed ? (
                           <CheckCircle2 className="w-5 h-5 text-primary-500" />
@@ -543,7 +552,7 @@ export const Habits: React.FC = () => {
                   <div className="flex justify-between items-center text-sm text-white/60">
                     <div className="flex items-center gap-1">
                       <Calendar className="w-4 h-4" />
-                      <span>{habit.frequency.type}</span>
+                      <span>{habit.frequency?.type || 'N/A'}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Zap className="w-4 h-4" />
@@ -654,7 +663,7 @@ export const Habits: React.FC = () => {
               >
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
-                <option value="custom">Custom</option>
+                <option value="monthly">Monthly</option>
               </select>
             </div>
 
@@ -805,96 +814,6 @@ export const Habits: React.FC = () => {
                   Save Changes
                 </Button>
               </div>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* Complete Habit Modal */}
-      <Modal
-        isOpen={showCompletionModal}
-        onClose={() => {
-          setShowCompletionModal(false);
-          setCompletingHabit(null);
-        }}
-        title="Complete Habit"
-      >
-        {completingHabit && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center"
-                style={{ backgroundColor: `${completingHabit.category.color}30` }}
-              >
-                <HabitIcon name={completingHabit.category.icon} className="w-5 h-5" style={{ color: completingHabit.completed ? '#10B981' : completingHabit.category.color }} />
-              </div>
-              <div>
-                <h3 className="font-semibold text-white">{completingHabit.name}</h3>
-                <p className="text-white/60 text-sm">{completingHabit.category.name}</p>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-white mb-2">Count (How many times?)</label>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCompletionCount(Math.max(1, completionCount - 1))}
-                >
-                  -
-                </Button>
-                <input
-                  type="number"
-                  min="1"
-                  value={completionCount}
-                  onChange={(e) => setCompletionCount(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-20 text-center px-2 py-1 bg-white/10 rounded-lg text-white"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCompletionCount(completionCount + 1)}
-                >
-                  +
-                </Button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-white mb-2">Notes (Optional)</label>
-              <textarea
-                value={completionNote}
-                onChange={(e) => setCompletionNote(e.target.value)}
-                className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
-                rows={3}
-                placeholder="How did it go? Any observations?"
-              />
-            </div>
-
-            <div className="pt-4 flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowCompletionModal(false);
-                  setCompletingHabit(null);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                disabled={completingHabit && completingHabit.completed}
-                onClick={() => {
-                  if (completingHabit && !completingHabit.completed) {
-                    handleCompleteHabit(completingHabit.habitId);
-                    setShowCompletionModal(false);
-                    setCompletingHabit(null);
-                  }
-                }}
-              >
-                Mark as Complete
-              </Button>
             </div>
           </div>
         )}

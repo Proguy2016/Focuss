@@ -42,12 +42,16 @@ export const Tasks: React.FC = () => {
     const fetchTasks = async () => {
       try {
         const token = localStorage.getItem('token');
+        if (!token) {
+          // If no token, don't fetch
+          return;
+        }
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (token) {
           headers['Authorization'] = `Bearer ${token}`;
         }
 
-        const response = await fetch('http://localhost:5001/api/tasks/getTasks', {
+        const response = await fetch('http://localhost:5001/api/stats/getTasks', {
           method: 'GET',
           headers,
         });
@@ -178,16 +182,19 @@ export const Tasks: React.FC = () => {
   const handleCreateTask = async () => {
     if (!newTask.title.trim()) return;
 
-    const taskPayload = {
+    const taskPayload: any = {
       taskTitle: newTask.title,
       taskDescription: newTask.description,
       priority: newTask.priority.charAt(0).toUpperCase() + newTask.priority.slice(1),
       category: newTask.category || 'General',
-      estimatedTime: newTask.estimatedTime ? parseInt(newTask.estimatedTime) : undefined,
-      dueDate: newTask.dueDate ? new Date(newTask.dueDate).toISOString() : undefined,
+      estimatedTime: newTask.estimatedTime ? parseInt(newTask.estimatedTime) : 0,
       tags: newTask.tags,
       subTasks: newTask.subtasks.map(st => st.title),
     };
+
+    if (newTask.dueDate) {
+      taskPayload.dueDate = new Date(newTask.dueDate).toISOString();
+    }
 
     try {
       const token = localStorage.getItem('token');
@@ -196,7 +203,7 @@ export const Tasks: React.FC = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch('http://localhost:5001/api/tasks/addTask', {
+      const response = await fetch('http://localhost:5001/api/stats/addTask', {
         method: 'POST',
         headers,
         body: JSON.stringify(taskPayload),
@@ -279,8 +286,8 @@ export const Tasks: React.FC = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch('http://localhost:5001/api/tasks/updateTask', {
-        method: 'POST',
+      const response = await fetch('http://localhost:5001/api/stats/updateTask', {
+        method: 'PUT',
         headers,
         body: JSON.stringify(taskPayload),
       });
@@ -352,14 +359,10 @@ export const Tasks: React.FC = () => {
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
-
-      const response = await fetch('http://localhost:5001/api/tasks/removeTask', {
-        method: 'POST',
+      const response = await fetch(`http://localhost:5001/api/stats/removeTask`, {
+        method: 'DELETE',
         headers,
-        body: JSON.stringify({
-          taskId: taskId,
-          deleteTask: true
-        }),
+        body: JSON.stringify({ taskId }),
       });
 
       if (!response.ok) {

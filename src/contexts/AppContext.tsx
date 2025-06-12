@@ -56,7 +56,7 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
     case 'UPDATE_HABIT':
       return {
         ...state,
-        habits: state.habits.map(h => 
+        habits: state.habits.map(h =>
           h.habitId === action.payload.habitId ? action.payload : h
         )
       };
@@ -126,24 +126,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             overall: {
               productivityScore: data.stats.productivityScore,
               achievements: [],
+              weeklyGoalProgress: 0,
+              monthlyGoalProgress: 0,
+              level: 0,
+              xp: 0,
+              nextLevelXp: 0,
             },
             focusSessions: {
               totalSessions: data.stats.focusSessions,
               totalFocusTime: data.stats.focusTime,
               averageSessionLength: 0,
               completionRate: 0,
+              streakData: [],
               productivityTrends: [],
-              peakProductivity: { time: '', day: '' },
+              flowStateHours: [],
+              distractionPatterns: [],
             },
             tasks: {
               totalTasks: data.stats.tasksCompleted.totalTasks,
               completionRate: 0,
-              overdueTasks: 0,
+              averageCompletionTime: 0,
+              priorityDistribution: [],
+              productivityByHour: [],
             },
             habits: {
               totalHabits: 0,
               completionRate: 0,
-              streaks: [],
+              averageStreak: 0,
+              categoryBreakdown: [],
+              weeklyPatterns: [],
             },
           },
         });
@@ -166,13 +177,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
 
-      const habits = await dataService.getHabits();
-      const tasks = await dataService.getTasks();
       const habitCompletions = await dataService.getHabitCompletions();
       const analytics = await dataService.getAnalytics();
 
-      dispatch({ type: 'SET_HABITS', payload: habits });
-      dispatch({ type: 'SET_TASKS', payload: tasks });
       dispatch({ type: 'SET_HABIT_COMPLETIONS', payload: habitCompletions });
       dispatch({ type: 'SET_ANALYTICS', payload: analytics });
 
