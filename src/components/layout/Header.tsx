@@ -112,7 +112,7 @@ export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
                 </div>
                 <div className="hidden sm:block">
                   <p className="text-sm font-medium text-white">{user?.firstName} {user?.lastName}</p>
-                  <p className="text-xs text-white/60">Level {user?.level}</p>
+                  <p className="text-xs text-white/60">Level {state.analytics?.overall?.level || 1}</p>
                 </div>
                 <ChevronDown size={16} className={`text-white/60 transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
               </motion.div>

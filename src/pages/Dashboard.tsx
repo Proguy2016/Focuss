@@ -166,10 +166,10 @@ export const Dashboard: React.FC = () => {
         className="text-center lg:text-left"
       >
         <h1 className="text-4xl font-bold text-gradient mb-2">
-          {getGreeting()}, {state.user?.name}!
+          {getGreeting()}, {state.user?.firstName}!
         </h1>
         <p className="text-white/60 text-lg">
-          Ready to boost your productivity today? Let's make it count.
+          Level {state.analytics?.overall?.level || 1} - Ready to boost your productivity today? Let's make it count.
         </p>
       </motion.div>
 

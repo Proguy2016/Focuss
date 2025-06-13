@@ -3,10 +3,17 @@ import { motion } from 'framer-motion';
 import { Target, CheckCircle, Zap, TrendingUp, Clock, Award } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { Card } from '../common/Card';
+import { getXpToLevelUp, getTotalXpForLevel } from '../../utils/leveling';
 
 export const StatsGrid: React.FC = () => {
   const { state } = useApp();
   const { analytics, user } = state;
+
+  const totalXp = analytics?.overall?.xp || 0;
+  const level = analytics?.overall?.level || 1;
+  const xpForCurrentLevel = getTotalXpForLevel(level);
+  const xpForNextLevel = getXpToLevelUp(level);
+  const currentXpInLevel = totalXp - xpForCurrentLevel;
 
   const stats = [
     {
@@ -52,8 +59,8 @@ export const StatsGrid: React.FC = () => {
     {
       icon: Award,
       label: 'Level',
-      value: user?.level || 1,
-      subtext: `${user?.xp || 0} XP`,
+      value: level,
+      subtext: `${currentXpInLevel} / ${xpForNextLevel} XP`,
       color: 'from-purple-500 to-purple-600',
       bgColor: 'bg-purple-500/10',
     },

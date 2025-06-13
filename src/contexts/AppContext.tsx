@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { FocusSession, Habit, Task, Analytics, UserPreferences, HabitCompletion } from '../types';
 import { DataService } from '../services/DataService';
-import { getLevelFromXp } from '../utils/leveling';
+import { getLevelFromXp, getXpToLevelUp } from '../utils/leveling';
 import { useAuth } from './AuthContext';
 
 interface AppState {
@@ -118,6 +118,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         credentials: 'include',
         headers,
       });
+
+      // Fetch achievements to calculate total XP from them
+      const achievementsRes = await fetch('http://localhost:5001/api/stats/achievements', { headers });
+      const achievementsData = await achievementsRes.json();
+      const unlockedAchievements = achievementsData.stats.achievements;
+      const xpFromAchievements = unlockedAchievements.reduce((sum: number, ach: any) => sum + ach.achievementId.xp, 0);
+
+      // Fetch tasks to calculate total XP from them (assuming 10 XP per task)
+      const tasksRes = await fetch('http://localhost:5001/api/stats/getTasks', { headers });
+      const tasksData = await tasksRes.json();
+      const completedTasks = tasksData.tasks.filter((task: any) => task.completed);
+      const xpFromTasks = completedTasks.length * 10;
+
+      const totalXp = xpFromAchievements + xpFromTasks;
+
       const data = await res.json();
       if (data && data.stats) {
         dispatch({
@@ -128,9 +143,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               achievements: [],
               weeklyGoalProgress: 0,
               monthlyGoalProgress: 0,
-              level: 0,
-              xp: 0,
-              nextLevelXp: 0,
+              level: getLevelFromXp(totalXp),
+              xp: totalXp,
+              nextLevelXp: getXpToLevelUp(getLevelFromXp(totalXp))
             },
             focusSessions: {
               totalSessions: data.stats.focusSessions,

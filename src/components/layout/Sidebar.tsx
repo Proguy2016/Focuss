@@ -8,7 +8,7 @@ import {
 import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../common/Button';
-import { getTotalXpForLevel, getXpToLevelUp } from '../../utils/leveling';
+import { getTotalXpForLevel, getXpToLevelUp, getLevelFromXp } from '../../utils/leveling';
 
 const navigationItems = [
   { icon: Home, label: 'Dashboard', path: '/' },
@@ -28,8 +28,8 @@ export const Sidebar: React.FC = () => {
   const { state, dispatch } = useApp();
   const { user } = useAuth();
 
-  const totalXp = user?.xp || 0;
-  const level = user?.level || 1;
+  const totalXp = state.analytics?.overall?.xp || 0;
+  const level = getLevelFromXp(totalXp);
 
   const xpForCurrentLevel = getTotalXpForLevel(level);
   const xpForNextLevel = getXpToLevelUp(level);
