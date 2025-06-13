@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { ColoredGlassCard } from '@/components/ui/ColoredGlassCard';
 
 interface LectureData {
   id: string;
@@ -168,7 +169,7 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
           >
             <CollapsibleTrigger asChild>
               <Button
-                variant="ghost"
+                variant="glass"
                 className="w-full justify-start p-3 h-auto hover:bg-accent"
               >
                 <div className="flex items-center gap-3 w-full">
@@ -186,7 +187,7 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
             </CollapsibleTrigger>
             <CollapsibleContent className="ml-6 mt-2 space-y-1">
               {subject.lectures.map((lecture) => (
-                <Card
+                <ColoredGlassCard
                   key={lecture.id}
                   className="p-3 cursor-pointer hover:bg-accent transition-colors"
                   onClick={() => selectLecture(lecture)}
@@ -205,7 +206,7 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
                       )}
                     </div>
                   </div>
-                </Card>
+                </ColoredGlassCard>
               ))}
             </CollapsibleContent>
           </Collapsible>
@@ -215,210 +216,214 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
   );
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col lg:flex-row">
-      {/* Mobile/Tablet Header and Sidebar Trigger */}
-      <div className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-card">
-        <h1 className="text-xl font-bold">Library</h1>
-        <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <Menu className="h-6 w-6" />
-              <span className="sr-only">Toggle sidebar</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-64 sm:w-80">
-            {SidebarContent()}
-          </SheetContent>
-        </Sheet>
-      </div>
+    <div className="dark" style={{ minHeight: '100vh', background: 'linear-gradient(135deg, var(--dark) 0%, var(--dark-light) 100%)', backgroundAttachment: 'fixed' }}>
+      <div className="min-h-screen text-foreground flex flex-col lg:flex-row">
+        {/* Mobile/Tablet Header and Sidebar Trigger */}
+        <div className="lg:hidden flex items-center justify-between p-4 border-b border-border">
+          <h1 className="text-xl font-bold">Library</h1>
+          <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
+            <SheetTrigger asChild>
+              <Button variant="glass" size="icon">
+                <Menu className="h-6 w-6" />
+                <span className="sr-only">Toggle sidebar</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-64 sm:w-80">
+              {SidebarContent()}
+            </SheetContent>
+          </Sheet>
+        </div>
 
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:block w-80 border-r border-border bg-card overflow-y-auto">
-        {SidebarContent()}
-      </div>
+        {/* Desktop Sidebar */}
+        <div className="hidden lg:block w-80 border-r border-border overflow-y-auto">
+          {SidebarContent()}
+        </div>
 
-      {/* Main Content */}
-      <div className="flex-1 p-6 overflow-y-auto">
-        {selectedLecture ? (
-          <div className="max-w-4xl mx-auto">
-            <div className="mb-6">
-              <h2 className="text-3xl font-bold mb-2">{selectedLecture.title}</h2>
-              <div className="flex flex-wrap items-center gap-4 mb-4">
-                <input
-                  type="file"
-                  accept=".pdf"
-                  className="hidden"
-                  id="pdf-upload"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const subjectId = subjectData.find(s =>
-                        s.lectures.some(l => l.id === selectedLecture.id)
-                      )?.id;
-                      if (subjectId) {
-                        handleFileUpload(subjectId, selectedLecture.id, file);
-                      }
-                    }
-                  }}
-                />
-                <Button
-                  variant="outline"
-                  onClick={() => document.getElementById('pdf-upload')?.click()}
-                  className="gap-2"
-                >
-                  <Upload className="h-4 w-4" />
-                  Upload PDF
-                </Button>
-
-                {selectedLecture.pdfFile && (
-                  <Button
-                    onClick={() => {
-                      const subjectId = subjectData.find(s =>
-                        s.lectures.some(l => l.id === selectedLecture.id)
-                      )?.id;
-                      if (subjectId) {
-                        generateAIContent(subjectId, selectedLecture.id);
+        {/* Main Content */}
+        <div className="flex-1 p-6 overflow-y-auto">
+          {selectedLecture ? (
+            <div className="max-w-4xl mx-auto">
+              <div className="mb-6">
+                <h2 className="text-3xl font-bold mb-2">{selectedLecture.title}</h2>
+                <div className="flex flex-wrap items-center gap-4 mb-4">
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    className="hidden"
+                    id="pdf-upload"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const subjectId = subjectData.find(s =>
+                          s.lectures.some(l => l.id === selectedLecture.id)
+                        )?.id;
+                        if (subjectId) {
+                          handleFileUpload(subjectId, selectedLecture.id, file);
+                        }
                       }
                     }}
+                  />
+                  <Button
+                    variant="glass"
+                    onClick={() => document.getElementById('pdf-upload')?.click()}
                     className="gap-2"
                   >
-                    <Brain className="h-4 w-4" />
-                    Generate AI Content
+                    <Upload className="h-4 w-4" />
+                    Upload PDF
                   </Button>
+
+                  {selectedLecture.pdfFile && (
+                    <Button
+                      variant="glass"
+                      onClick={() => {
+                        const subjectId = subjectData.find(s =>
+                          s.lectures.some(l => l.id === selectedLecture.id)
+                        )?.id;
+                        if (subjectId) {
+                          generateAIContent(subjectId, selectedLecture.id);
+                        }
+                      }}
+                      className="gap-2"
+                    >
+                      <Brain className="h-4 w-4" />
+                      Generate AI Content
+                    </Button>
+                  )}
+                </div>
+
+                {selectedLecture.pdfFile && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                    <FileText className="h-4 w-4" />
+                    <span>Uploaded: {selectedLecture.pdfFile.name}</span>
+                  </div>
                 )}
               </div>
 
-              {selectedLecture.pdfFile && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                  <FileText className="h-4 w-4" />
-                  <span>Uploaded: {selectedLecture.pdfFile.name}</span>
-                </div>
+              {selectedLecture.summary && (
+                <>
+                  <div className="flex flex-wrap gap-2 mb-6">
+                    <Button
+                      variant="glass"
+                      size="sm"
+                      onClick={() => setActiveView('summary')}
+                      className="gap-2"
+                    >
+                      <Eye className="h-4 w-4" />
+                      Summary
+                    </Button>
+                    <Button
+                      variant="glass"
+                      size="sm"
+                      onClick={() => setActiveView('flashcards')}
+                      className="gap-2"
+                    >
+                      <BookOpen className="h-4 w-4" />
+                      Flashcards
+                    </Button>
+                    <Button
+                      variant="glass"
+                      size="sm"
+                      onClick={() => setActiveView('exam')}
+                      className="gap-2"
+                    >
+                      <HelpCircle className="h-4 w-4" />
+                      Exam Questions
+                    </Button>
+                    <Button
+                      variant="glass"
+                      size="sm"
+                      onClick={() => setActiveView('revision')}
+                      className="gap-2"
+                    >
+                      <Brain className="h-4 w-4" />
+                      Quick Revision
+                    </Button>
+                  </div>
+
+                  <ColoredGlassCard className="p-6">
+                    {activeView === 'summary' && (
+                      <div>
+                        <h3 className="text-xl font-semibold mb-4">Summary</h3>
+                        <p className="text-muted-foreground leading-relaxed">{selectedLecture.summary}</p>
+                      </div>
+                    )}
+
+                    {activeView === 'flashcards' && selectedLecture.flashcards && (
+                      <div>
+                        <h3 className="text-xl font-semibold mb-4">Flashcards</h3>
+                        <div className="space-y-4">
+                          {selectedLecture.flashcards.map((card, index) => (
+                            <ColoredGlassCard key={index} className="p-4 border-l-4 border-l-blue-500">
+                              <div className="mb-2">
+                                <span className="font-medium text-sm text-blue-600">Question:</span>
+                                <p className="mt-1">{card.question}</p>
+                              </div>
+                              <Separator className="my-3" />
+                              <div>
+                                <span className="font-medium text-sm text-green-600">Answer:</span>
+                                <p className="mt-1">{card.answer}</p>
+                              </div>
+                            </ColoredGlassCard>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {activeView === 'exam' && selectedLecture.examQuestions && (
+                      <div>
+                        <h3 className="text-xl font-semibold mb-4">Potential Exam Questions</h3>
+                        <div className="space-y-3">
+                          {selectedLecture.examQuestions.map((question, index) => (
+                            <ColoredGlassCard key={index} className="p-4 border-l-4 border-l-orange-500">
+                              <p className="font-medium">{index + 1}. {question}</p>
+                            </ColoredGlassCard>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {activeView === 'revision' && (
+                      <div>
+                        <h3 className="text-xl font-semibold mb-4">Quick Revision</h3>
+                        <ColoredGlassCard className="p-4 bg-accent border-l-4 border-l-purple-500">
+                          <p className="leading-relaxed">{selectedLecture.revision}</p>
+                        </ColoredGlassCard>
+                      </div>
+                    )}
+                  </ColoredGlassCard>
+                </>
+              )}
+
+              {!selectedLecture.summary && !selectedLecture.pdfFile && (
+                <ColoredGlassCard className="p-8 text-center">
+                  <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-medium mb-2">Upload lecture notes</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Upload a PDF to get started with AI-powered summaries, flashcards, and exam questions.
+                  </p>
+                  <Button
+                    variant="glass"
+                    onClick={() => document.getElementById('pdf-upload')?.click()}
+                    className="gap-2"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Choose PDF File
+                  </Button>
+                </ColoredGlassCard>
               )}
             </div>
-
-            {selectedLecture.summary && (
-              <>
-                <div className="flex flex-wrap gap-2 mb-6">
-                  <Button
-                    variant={activeView === 'summary' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setActiveView('summary')}
-                    className="gap-2"
-                  >
-                    <Eye className="h-4 w-4" />
-                    Summary
-                  </Button>
-                  <Button
-                    variant={activeView === 'flashcards' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setActiveView('flashcards')}
-                    className="gap-2"
-                  >
-                    <BookOpen className="h-4 w-4" />
-                    Flashcards
-                  </Button>
-                  <Button
-                    variant={activeView === 'exam' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setActiveView('exam')}
-                    className="gap-2"
-                  >
-                    <HelpCircle className="h-4 w-4" />
-                    Exam Questions
-                  </Button>
-                  <Button
-                    variant={activeView === 'revision' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setActiveView('revision')}
-                    className="gap-2"
-                  >
-                    <Brain className="h-4 w-4" />
-                    Quick Revision
-                  </Button>
-                </div>
-
-                <Card className="p-6">
-                  {activeView === 'summary' && (
-                    <div>
-                      <h3 className="text-xl font-semibold mb-4">Summary</h3>
-                      <p className="text-muted-foreground leading-relaxed">{selectedLecture.summary}</p>
-                    </div>
-                  )}
-
-                  {activeView === 'flashcards' && selectedLecture.flashcards && (
-                    <div>
-                      <h3 className="text-xl font-semibold mb-4">Flashcards</h3>
-                      <div className="space-y-4">
-                        {selectedLecture.flashcards.map((card, index) => (
-                          <Card key={index} className="p-4 border-l-4 border-l-blue-500">
-                            <div className="mb-2">
-                              <span className="font-medium text-sm text-blue-600">Question:</span>
-                              <p className="mt-1">{card.question}</p>
-                            </div>
-                            <Separator className="my-3" />
-                            <div>
-                              <span className="font-medium text-sm text-green-600">Answer:</span>
-                              <p className="mt-1">{card.answer}</p>
-                            </div>
-                          </Card>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {activeView === 'exam' && selectedLecture.examQuestions && (
-                    <div>
-                      <h3 className="text-xl font-semibold mb-4">Potential Exam Questions</h3>
-                      <div className="space-y-3">
-                        {selectedLecture.examQuestions.map((question, index) => (
-                          <Card key={index} className="p-4 border-l-4 border-l-orange-500">
-                            <p className="font-medium">{index + 1}. {question}</p>
-                          </Card>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {activeView === 'revision' && (
-                    <div>
-                      <h3 className="text-xl font-semibold mb-4">Quick Revision</h3>
-                      <Card className="p-4 bg-accent border-l-4 border-l-purple-500">
-                        <p className="leading-relaxed">{selectedLecture.revision}</p>
-                      </Card>
-                    </div>
-                  )}
-                </Card>
-              </>
-            )}
-
-            {!selectedLecture.summary && !selectedLecture.pdfFile && (
-              <Card className="p-8 text-center">
-                <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-medium mb-2">Upload lecture notes</h3>
-                <p className="text-muted-foreground mb-4">
-                  Upload a PDF to get started with AI-powered summaries, flashcards, and exam questions.
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <BookOpen className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                <h2 className="text-2xl font-semibold mb-2">Welcome to your Library</h2>
+                <p className="text-muted-foreground">
+                  Select a lecture from the sidebar to start studying
                 </p>
-                <Button
-                  onClick={() => document.getElementById('pdf-upload')?.click()}
-                  className="gap-2"
-                >
-                  <Upload className="h-4 w-4" />
-                  Choose PDF File
-                </Button>
-              </Card>
-            )}
-          </div>
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <BookOpen className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-              <h2 className="text-2xl font-semibold mb-2">Welcome to your Library</h2>
-              <p className="text-muted-foreground">
-                Select a lecture from the sidebar to start studying
-              </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
