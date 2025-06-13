@@ -22,6 +22,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AnimatedBackground } from "@/components/common/AnimatedBackground";
 import ColoredGlassCard from '@/components/ui/ColoredGlassCard';
+import io, { Socket } from "socket.io-client";
 
 // Custom hook for generating a random room code
 function useRoomCode() {
@@ -343,42 +344,55 @@ function ActiveRoom({ roomCode, onLeaveRoom }: ActiveRoomProps) {
         { id: 3, name: "Mike", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=64&h=64&q=80&crop=faces&fit=crop" },
     ]);
 
-    const [messages, setMessages] = useState([
+    const [messages, setMessages] = useState<any[]>([
         {
             id: 1,
-            content: "I've uploaded a new PDF for us to review.",
-            sender: "Jane",
-            avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=64&h=64&q=80&crop=faces&fit=crop",
-        },
-        {
-            id: 2,
-            content: "Great! Let's check it out together.",
-            sender: "You",
-            avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=64&h=64&q=80&crop=faces&fit=crop",
-        },
-        {
-            id: 3,
-            content: "I've created some flashcards for the upcoming exam.",
-            sender: "Mike",
-            avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=64&h=64&q=80&crop=faces&fit=crop",
-        },
+            content: "Welcome to the collaboration room! Send a message to get started.",
+            sender: "System",
+            avatar: "https://cdn-icons-png.flaticon.com/512/61/61457.png",
+        }
     ]);
-
     const [input, setInput] = useState("");
+    const [socket, setSocket] = useState<Socket | null>(null);
+
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        const newSocket = io("http://localhost:5001", {
+            auth: {
+                token
+            }
+        });
+        setSocket(newSocket);
+
+        newSocket.emit("join_room", roomCode);
+
+        newSocket.on("receive_message", (data) => {
+            setMessages((prev) => [...prev, data]);
+        });
+
+        return () => {
+            newSocket.disconnect();
+        };
+    }, [roomCode]);
 
     const handleSendMessage = (e: FormEvent) => {
         e.preventDefault();
-        if (!input.trim()) return;
+        if (!input.trim() || !socket) return;
 
-        setMessages((prev) => [
-            ...prev,
-            {
-                id: prev.length + 1,
-                content: input,
-                sender: "You",
-                avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=64&h=64&q=80&crop=faces&fit=crop",
-            },
-        ]);
+        const messageData = {
+            roomCode,
+            id: Date.now(),
+            content: input,
+        };
+
+        const selfMessage = {
+            ...messageData,
+            sender: "You",
+            avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=64&h=64&q=80&crop=faces&fit=crop",
+        }
+
+        socket.emit("send_message", messageData);
+        setMessages((prev) => [...prev, selfMessage]);
         setInput("");
     };
 
@@ -427,7 +441,7 @@ function ActiveRoom({ roomCode, onLeaveRoom }: ActiveRoomProps) {
                 </TabsList>
 
                 <TabsContent value="chat" className="flex-1 p-4 overflow-y-auto min-h-0">
-                    <div className="space-y-4">
+                    <div className="space-y-4 h-full overflow-y-auto">
                         {messages.map((message) => (
                             <ChatBubble
                                 key={message.id}
