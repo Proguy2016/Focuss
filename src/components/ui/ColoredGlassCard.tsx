@@ -7,7 +7,7 @@ interface ColoredGlassCardProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const ColoredGlassCard = React.forwardRef<HTMLDivElement, ColoredGlassCardProps>(
-    ({ className, borderColor = "border-accent", children, ...props }, ref) => (
+    ({ className, borderColor = "border-[#00a8a8]/40", children, ...props }, ref) => (
         <div
             ref={ref}
             style={{ background: 'linear-gradient(135deg, var(--dark) 0%, var(--dark-light) 100%)' }}
@@ -24,4 +24,5 @@ const ColoredGlassCard = React.forwardRef<HTMLDivElement, ColoredGlassCardProps>
 );
 ColoredGlassCard.displayName = "ColoredGlassCard";
 
-export { ColoredGlassCard }; 
+export { ColoredGlassCard };
+export default ColoredGlassCard; 

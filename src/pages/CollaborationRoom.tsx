@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AnimatedBackground } from "@/components/common/AnimatedBackground";
+import ColoredGlassCard from '@/components/ui/ColoredGlassCard';
 
 // Custom hook for generating a random room code
 function useRoomCode() {
@@ -125,7 +126,7 @@ function ChatBubbleMessage({
         <div
             className={cn(
                 "rounded-lg p-3",
-                variant === "sent" ? "bg-primary text-primary-foreground" : "bg-muted",
+                variant === "sent" ? "bg-primary text-primary-foreground" : "bg-white/10",
                 className
             )}
         >
@@ -185,8 +186,8 @@ function CollaborationRoom({ onJoinRoom, onCreateRoom }: CollaborationRoomProps)
     };
 
     return (
-        <div className="flex flex-col items-center justify-center w-full max-w-3xl mx-auto p-4 space-y-6">
-            <Card className="w-full">
+        <div className="flex flex-col items-center justify-center w-full max-w-3xl mx-auto p-4 space-y-6 min-h-[60vh]">
+            <ColoredGlassCard className="w-full">
                 <CardHeader className="text-center">
                     <CardTitle className="text-2xl font-bold">Collaboration Room</CardTitle>
                     <CardDescription>
@@ -209,7 +210,7 @@ function CollaborationRoom({ onJoinRoom, onCreateRoom }: CollaborationRoomProps)
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="flex flex-col items-center justify-center space-y-4 py-4">
-                                <div className="flex items-center justify-center bg-muted p-4 rounded-lg w-full">
+                                <div className="flex items-center justify-center bg-white/10 p-4 rounded-lg w-full">
                                     <span className="text-3xl font-mono font-bold tracking-widest">{roomCode}</span>
                                     <Button
                                         variant="ghost"
@@ -277,9 +278,9 @@ function CollaborationRoom({ onJoinRoom, onCreateRoom }: CollaborationRoomProps)
                         </DialogContent>
                     </Dialog>
                 </CardContent>
-            </Card>
+            </ColoredGlassCard>
 
-            <Card className="w-full">
+            <ColoredGlassCard className="w-full">
                 <CardHeader>
                     <CardTitle>Collaboration Features</CardTitle>
                     <CardDescription>
@@ -287,7 +288,7 @@ function CollaborationRoom({ onJoinRoom, onCreateRoom }: CollaborationRoomProps)
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                    <div className="flex items-start space-x-3 p-4 border border-[#00a8a8]/40 rounded-lg">
                         <FileText className="h-8 w-8 text-primary" />
                         <div>
                             <h3 className="font-medium">Shared PDF Annotations</h3>
@@ -296,7 +297,7 @@ function CollaborationRoom({ onJoinRoom, onCreateRoom }: CollaborationRoomProps)
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                    <div className="flex items-start space-x-3 p-4 border border-[#00a8a8]/40 rounded-lg">
                         <BookOpen className="h-8 w-8 text-primary" />
                         <div>
                             <h3 className="font-medium">Shared Flashcards</h3>
@@ -305,7 +306,7 @@ function CollaborationRoom({ onJoinRoom, onCreateRoom }: CollaborationRoomProps)
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                    <div className="flex items-start space-x-3 p-4 border border-[#00a8a8]/40 rounded-lg">
                         <Bot className="h-8 w-8 text-primary" />
                         <div>
                             <h3 className="font-medium">Shared AI Assistant</h3>
@@ -314,7 +315,7 @@ function CollaborationRoom({ onJoinRoom, onCreateRoom }: CollaborationRoomProps)
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                    <div className="flex items-start space-x-3 p-4 border border-[#00a8a8]/40 rounded-lg">
                         <Youtube className="h-8 w-8 text-primary" />
                         <div>
                             <h3 className="font-medium">Shared YouTube Player</h3>
@@ -324,7 +325,7 @@ function CollaborationRoom({ onJoinRoom, onCreateRoom }: CollaborationRoomProps)
                         </div>
                     </div>
                 </CardContent>
-            </Card>
+            </ColoredGlassCard>
         </div>
     );
 }
@@ -425,7 +426,7 @@ function ActiveRoom({ roomCode, onLeaveRoom }: ActiveRoomProps) {
                     <TabsTrigger value="youtube">YouTube</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="chat" className="flex-1 p-4 overflow-auto">
+                <TabsContent value="chat" className="flex-1 p-4 overflow-y-auto min-h-0">
                     <div className="space-y-4">
                         {messages.map((message) => (
                             <ChatBubble
