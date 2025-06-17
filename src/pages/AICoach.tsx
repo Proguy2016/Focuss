@@ -3,12 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Brain, Send, Mic, MicOff, Settings, Download,
   Lightbulb, Target, TrendingUp, Calendar, Clock,
-  User, Bot, Zap, Star, BookOpen, MessageCircle
+  User, Bot, Zap, Star, BookOpen, MessageCircle, BrainCircuit, Sparkles, ChevronRight
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
+import { generateGeminiResponse, generateGeminiChatResponse } from '../services/gemini.service';
 
 interface Message {
   id: string;
@@ -40,14 +42,29 @@ interface Goal {
   status: 'active' | 'completed' | 'paused';
 }
 
-export const AICoach: React.FC = () => {
+interface ChatHistory {
+  role: 'user' | 'model';
+  content: string;
+}
+
+const suggestionPrompts = [
+  "Analyze my productivity from last week",
+  "Help me break down my 'Finals Study' project",
+  "What's a good study schedule for tomorrow?",
+  "Suggest a new habit for me to try"
+];
+
+const AICoach: React.FC = () => {
   const { state } = useApp();
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
-  const [inputMessage, setInputMessage] = useState('');
+  const [input, setInput] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const [coachSettings, setCoachSettings] = useState({
     personality: 'encouraging',
@@ -57,98 +74,53 @@ export const AICoach: React.FC = () => {
     dailyCheckins: true,
   });
 
-  // Mock AI insights
-  const insights: Insight[] = [
-    {
-      id: '1',
-      type: 'productivity',
-      title: 'Peak Performance Window',
-      description: 'Your focus is strongest between 9-11 AM. Schedule your most important tasks during this time.',
-      action: 'Block calendar for deep work',
-      priority: 'high',
-      icon: TrendingUp,
-    },
-    {
-      id: '2',
-      type: 'habit',
-      title: 'Consistency Opportunity',
-      description: 'Your meditation habit drops 40% on weekends. Try setting a weekend-specific reminder.',
-      action: 'Set weekend reminder',
-      priority: 'medium',
-      icon: Target,
-    },
-    {
-      id: '3',
-      type: 'focus',
-      title: 'Distraction Pattern',
-      description: 'You check social media most often at 2 PM. Consider using website blockers during focus sessions.',
-      action: 'Enable focus mode',
-      priority: 'medium',
-      icon: Zap,
-    },
-    {
-      id: '4',
-      type: 'goal',
-      title: 'Goal Progress',
-      description: 'You\'re 23% ahead of your monthly focus time goal. Great momentum!',
-      priority: 'low',
-      icon: Star,
-    },
+  // MOCK DATA - This should be moved inside the component
+  const mockGoals = [
+    { id: '1', title: 'Complete 100 Focus Sessions', progress: 87, target: 100 },
+    { id: '2', title: 'Read 12 Books This Year', progress: 3, target: 12 },
   ];
-
-  // Mock goals
-  const goals: Goal[] = [
-    {
-      id: '1',
-      title: 'Complete 100 Focus Sessions',
-      description: 'Build a consistent focus practice',
-      target: 100,
-      current: 87,
-      unit: 'sessions',
-      deadline: new Date('2024-03-31'),
-      priority: 'high',
-      status: 'active',
-    },
-    {
-      id: '2',
-      title: 'Read 12 Books This Year',
-      description: 'Expand knowledge through reading',
-      target: 12,
-      current: 3,
-      unit: 'books',
-      deadline: new Date('2024-12-31'),
-      priority: 'medium',
-      status: 'active',
-    },
-    {
-      id: '3',
-      title: 'Maintain 30-Day Habit Streak',
-      description: 'Build lasting habits through consistency',
-      target: 30,
-      current: 12,
-      unit: 'days',
-      deadline: new Date('2024-03-15'),
-      priority: 'high',
-      status: 'active',
-    },
+  const mockInsights = [
+    { id: '1', title: 'Peak Performance Window', description: 'Focus is strongest between 9-11 AM.', icon: TrendingUp },
+    { id: '2', title: 'Habit Opportunity', description: 'Meditation drops on weekends.', icon: Target },
   ];
 
   useEffect(() => {
     // Initialize with welcome message
     if (messages.length === 0) {
-      const welcomeMessage: Message = {
-        id: '1',
-        type: 'ai',
-        content: `Hello ${state.user?.name}! I'm your AI productivity coach. I've been analyzing your patterns and I'm here to help you optimize your focus and achieve your goals. What would you like to work on today?`,
-        timestamp: new Date(),
-        suggestions: [
-          'Analyze my productivity patterns',
-          'Help me set a new goal',
-          'Review my habit consistency',
-          'Suggest focus techniques',
-        ],
-      };
-      setMessages([welcomeMessage]);
+      const initialPrompt = `You are an AI productivity coach. Introduce yourself to ${state.user?.name || 'the user'} and ask how you can help them with their productivity, focus, and goals today. Be friendly and encouraging. Offer 3-4 helpful suggestions.`;
+      
+      setIsTyping(true);
+      
+      // Get initial AI response from Gemini
+      generateGeminiResponse(initialPrompt)
+        .then(response => {
+          const welcomeMessage: Message = {
+            id: '1',
+            type: 'ai',
+            content: response,
+            timestamp: new Date(),
+            suggestions: [
+              'Analyze my productivity patterns',
+              'Help me set a new goal',
+              'Review my habit consistency',
+              'Suggest focus techniques',
+            ],
+          };
+          setMessages([welcomeMessage]);
+          
+          // Add to chat history with proper typing
+          setChatHistory([
+            { role: 'user' as const, content: initialPrompt },
+            { role: 'model' as const, content: response }
+          ]);
+          
+          setIsTyping(false);
+        })
+        .catch(err => {
+          console.error('Error getting initial AI response:', err);
+          setError('Failed to connect to AI coach. Please try again later.');
+          setIsTyping(false);
+        });
     }
   }, [state.user?.name]);
 
@@ -160,103 +132,139 @@ export const AICoach: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const sendMessage = async () => {
-    if (!inputMessage.trim()) return;
+  const handleSendMessage = async () => {
+    if (!input.trim()) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
-      content: inputMessage,
+      content: input,
       timestamp: new Date(),
     };
 
+    // Add user message to chat
     setMessages(prev => [...prev, userMessage]);
-    setInputMessage('');
+    
+    // Add to chat history with proper typing
+    const updatedHistory = [
+      ...chatHistory,
+      { role: 'user' as const, content: input }
+    ];
+    setChatHistory(updatedHistory);
+    
+    setInput('');
     setIsTyping(true);
+    setError(null);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse = generateAIResponse(inputMessage);
+    try {
+      // Get AI response from Gemini API
+      const aiResponseText = await generateGeminiChatResponse(chatHistory, input);
+      
+      // Create AI message
+      const aiResponse: Message = {
+        id: Date.now().toString(),
+        type: 'ai',
+        content: aiResponseText,
+        timestamp: new Date(),
+        // Extract suggestions based on the content
+        suggestions: extractSuggestions(aiResponseText),
+      };
+      
+      // Add AI message to chat
       setMessages(prev => [...prev, aiResponse]);
+      
+      // Add to chat history with proper typing
+      setChatHistory([
+        ...updatedHistory,
+        { role: 'model' as const, content: aiResponseText }
+      ]);
+      
+    } catch (error: any) {
+      console.error('Error getting AI response:', error);
+      setError('Failed to get a response from the AI coach. Please try again.');
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
-  const generateAIResponse = (userInput: string): Message => {
-    const input = userInput.toLowerCase();
-
-    let response = '';
-    let suggestions: string[] = [];
-
-    if (input.includes('productivity') || input.includes('pattern')) {
-      response = `Based on your data, I've identified some key patterns:
-
-• Your peak focus hours are 9-11 AM with 87% completion rate
-• You're most productive on Tuesdays and Wednesdays
-• Your focus sessions are 15% longer when you use ambient sounds
-• You tend to get distracted around 2 PM - consider scheduling breaks then
-
-Would you like me to create a personalized schedule based on these insights?`;
-      suggestions = ['Create optimal schedule', 'Analyze distractions', 'Set focus reminders'];
-    } else if (input.includes('goal') || input.includes('target')) {
-      response = `Let's work on your goals! I see you're making great progress:
-
-• Focus Sessions: 87/100 (87% complete) - You're ahead of schedule!
-• Reading Goal: 3/12 books - Consider setting aside 30 minutes daily
-• Habit Streak: 12/30 days - You're building momentum
-
-Which goal would you like to focus on improving?`;
-      suggestions = ['Boost reading habit', 'Optimize focus sessions', 'Strengthen habit streak'];
-    } else if (input.includes('habit')) {
-      response = `Your habit consistency is impressive! Here's what I've noticed:
-
-• Morning meditation: 85% consistency (excellent!)
-• Exercise: 68% consistency (room for improvement)
-• Reading: 45% consistency (needs attention)
-
-The key is starting small. For reading, try just 10 minutes before bed. For exercise, consider habit stacking - do 5 push-ups right after your meditation.`;
-      suggestions = ['Create habit stack', 'Set micro-habits', 'Adjust reminders'];
-    } else if (input.includes('focus') || input.includes('technique')) {
-      response = `Here are some personalized focus techniques based on your preferences:
-
-• **Pomodoro Plus**: Your sweet spot is 28-minute sessions (not 25)
-• **Ambient Soundscapes**: Rain + binaural beats work best for you
-• **Progressive Difficulty**: Start with easier tasks to build momentum
-• **Energy Mapping**: Schedule creative work during your 9-11 AM peak
-
-Try the 28-minute sessions with rain sounds for your next deep work block!`;
-      suggestions = ['Start 28-min session', 'Set up soundscape', 'Plan energy-based schedule'];
-    } else {
-      response = `I understand you're looking for guidance. Based on your recent activity, I recommend focusing on:
-
-1. **Consistency**: You've completed 87 focus sessions - just 13 more to hit your goal!
-2. **Optimization**: Your afternoon productivity dips - try the 2 PM power break
-3. **Growth**: Consider adding a learning habit to complement your focus practice
-
-What area interests you most?`;
-      suggestions = ['Improve consistency', 'Optimize schedule', 'Add new habits'];
+  // Helper function to extract suggestions from AI response
+  const extractSuggestions = (response: string): string[] => {
+    // Look for bulleted lists, numbered lists, or suggestions in the AI response
+    const suggestions: string[] = [];
+    
+    // Extract bulleted items (• Item or - Item)
+    const bulletedItems = response.match(/[•\-]\s*([^\n•\-]+)/g);
+    if (bulletedItems) {
+      bulletedItems.forEach(item => {
+        const text = item.replace(/^[•\-]\s*/, '').trim();
+        if (text && text.length > 0 && text.length < 50) {
+          suggestions.push(text);
+        }
+      });
     }
-
-    return {
-      id: Date.now().toString(),
-      type: 'ai',
-      content: response,
-      timestamp: new Date(),
-      suggestions,
-    };
+    
+    // If no bulleted items, try to extract short sentences or phrases
+    if (suggestions.length === 0) {
+      const sentences = response.split(/[.!?]/).filter(s => s.trim().length > 0 && s.trim().length < 50);
+      suggestions.push(...sentences.slice(0, 3).map(s => s.trim()));
+    }
+    
+    return suggestions.slice(0, 4); // Limit to 4 suggestions
   };
 
   const handleSuggestionClick = (suggestion: string) => {
-    setInputMessage(suggestion);
+    setInput(suggestion);
+    // Optional: Auto-send the suggestion
+    // setTimeout(() => handleSendMessage(), 100);
   };
 
+  // Toggle voice input function
   const toggleVoiceInput = () => {
-    setIsListening(!isListening);
-    // In a real app, this would integrate with speech recognition
-    if (!isListening) {
-      console.log('Starting voice input...');
+    if (isListening) {
+      setIsListening(false);
+      // Stop speech recognition here if we had an active instance
     } else {
-      console.log('Stopping voice input...');
+      setIsListening(true);
+      try {
+        // TypeScript workaround for Speech Recognition API
+        const SpeechRecognition = (window as any).SpeechRecognition || 
+                                 (window as any).webkitSpeechRecognition;
+        
+        if (SpeechRecognition) {
+          const recognition = new SpeechRecognition();
+          recognition.continuous = false;
+          recognition.interimResults = true;
+          
+          recognition.onstart = () => {
+            setIsListening(true);
+          };
+          
+          recognition.onresult = (event: any) => {
+            const transcript = Array.from(event.results)
+              .map((result: any) => result[0].transcript)
+              .join('');
+              
+            setInput(transcript);
+          };
+          
+          recognition.onerror = (event: any) => {
+            console.error('Speech recognition error', event.error);
+            setIsListening(false);
+          };
+          
+          recognition.onend = () => {
+            setIsListening(false);
+          };
+          
+          recognition.start();
+        } else {
+          throw new Error('Speech recognition not supported');
+        }
+      } catch (err) {
+        console.error('Speech recognition error:', err);
+        setError('Speech recognition not supported in this browser');
+        setIsListening(false);
+      }
     }
   };
 
@@ -286,347 +294,142 @@ What area interests you most?`;
   };
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-4xl font-bold text-gradient mb-2">AI Coach</h1>
-          <p className="text-white/60">
-            Your personal productivity assistant powered by AI
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Button
-            variant="secondary"
-            icon={Download}
-          >
-            Export Chat
-          </Button>
-          <Button
-            variant="ghost"
-            icon={Settings}
-            onClick={() => setShowSettings(true)}
-          />
-        </div>
-      </motion.div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Chat Interface */}
-        <div className="lg:col-span-2">
-          <Card variant="glass" className="p-6 h-[600px] flex flex-col">
-            <div className="flex items-center gap-3 mb-4 pb-4 border-b border-white/10">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center">
-                <Brain className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-white">AI Productivity Coach</h3>
-                <p className="text-white/60 text-sm">Online • Ready to help</p>
-              </div>
-            </div>
-
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto space-y-4 mb-4">
-              <AnimatePresence>
-                {messages.map((message) => (
-                  <motion.div
-                    key={message.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    {message.type === 'ai' && (
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center flex-shrink-0">
-                        <Bot className="w-4 h-4 text-white" />
-                      </div>
-                    )}
-
-                    <div className={`max-w-xs lg:max-w-md ${message.type === 'user'
-                      ? 'bg-primary-500 text-white'
-                      : 'glass text-white'
-                      } rounded-lg p-3`}>
-                      <p className="text-sm whitespace-pre-line">{message.content}</p>
-                      <p className="text-xs opacity-60 mt-1">
-                        {message.timestamp.toLocaleTimeString()}
-                      </p>
-
-                      {message.suggestions && (
-                        <div className="mt-3 space-y-1">
-                          {message.suggestions.map((suggestion, index) => (
-                            <button
-                              key={index}
-                              onClick={() => handleSuggestionClick(suggestion)}
-                              className="block w-full text-left text-xs p-2 bg-white/10 hover:bg-white/20 rounded transition-colors"
-                            >
-                              {suggestion}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {message.type === 'user' && (
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-r from-accent-500 to-primary-500 flex items-center justify-center flex-shrink-0">
-                        <User className="w-4 h-4 text-white" />
-                      </div>
-                    )}
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-
-              {isTyping && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex gap-3"
-                >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center">
-                    <Bot className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="glass rounded-lg p-3">
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" />
-                      <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                      <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input */}
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <textarea
-                  placeholder="Ask your AI coach anything..."
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      sendMessage();
-                    }
-                  }}
-                  className="w-full pr-24 pl-4 py-3 rounded-xl bg-gray-800/60 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
-                  rows={2}
-                />
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    icon={isListening ? MicOff : Mic}
-                    onClick={toggleVoiceInput}
-                    className={isListening ? 'text-error-400' : ''}
-                  />
-                  <Button
-                    variant="primary"
-                    icon={Send}
-                    onClick={sendMessage}
-                    disabled={!inputMessage.trim()}
-                  />
-                </div>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* AI Insights */}
-          <Card variant="glass" className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Lightbulb className="w-5 h-5 text-warning-400" />
-              <h3 className="text-lg font-semibold text-white">AI Insights</h3>
-            </div>
-
-            <div className="space-y-3">
-              {insights.slice(0, 3).map(insight => {
-                const IconComponent = insight.icon;
-                return (
-                  <div key={insight.id} className="p-3 glass rounded-lg">
-                    <div className="flex items-start gap-3">
-                      <div className={`p-2 rounded-lg ${getPriorityColor(insight.priority)}`}>
-                        <IconComponent className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-medium text-white text-sm">{insight.title}</h4>
-                        <p className="text-white/70 text-xs mt-1">{insight.description}</p>
-                        {insight.action && (
-                          <button className="text-primary-400 text-xs mt-2 hover:text-primary-300">
-                            {insight.action} →
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-
-          {/* Goals Progress */}
-          <Card variant="glass" className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Target className="w-5 h-5 text-success-400" />
-              <h3 className="text-lg font-semibold text-white">Goal Progress</h3>
-            </div>
-
-            <div className="space-y-4">
-              {goals.map(goal => (
-                <div key={goal.id} className="space-y-2">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-medium text-white text-sm">{goal.title}</h4>
-                      <p className="text-white/60 text-xs">{formatDeadline(goal.deadline)}</p>
-                    </div>
-                    <span className={`px-2 py-1 rounded text-xs ${getPriorityColor(goal.priority)}`}>
-                      {goal.priority}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-sm">
-                    <div className="flex-1 bg-white/10 rounded-full h-2">
-                      <div
-                        className="bg-gradient-to-r from-success-500 to-primary-500 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${getGoalProgress(goal)}%` }}
-                      />
-                    </div>
-                    <span className="text-white/60 text-xs">
-                      {goal.current}/{goal.target}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card variant="glass" className="p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
-            <div className="space-y-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                fullWidth
-                onClick={() => handleSuggestionClick('Analyze my productivity patterns')}
-              >
-                Analyze Patterns
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                fullWidth
-                onClick={() => handleSuggestionClick('Help me set a new goal')}
-              >
-                Set New Goal
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                fullWidth
-                onClick={() => handleSuggestionClick('Suggest focus techniques')}
-              >
-                Focus Techniques
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                fullWidth
-                onClick={() => handleSuggestionClick('Review my habit consistency')}
-              >
-                Review Habits
-              </Button>
-            </div>
-          </Card>
-        </div>
+    <div className="flex h-[calc(100vh-theme(space.16))] bg-gray-900 text-white">
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col">
+        <AnimatePresence>
+          {messages.length > 0 ? (
+            <ChatMessages messages={messages} ref={messagesEndRef} />
+          ) : (
+            <EmptyState onPromptClick={handleSuggestionClick} />
+          )}
+        </AnimatePresence>
+        <ChatInput
+          input={input}
+          setInput={setInput}
+          isTyping={isTyping}
+          onSend={handleSendMessage}
+        />
       </div>
 
-      {/* Settings Modal */}
-      <Modal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-        title="AI Coach Settings"
-        size="md"
-      >
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-white font-semibold mb-3">Personality</h3>
-            <select
-              value={coachSettings.personality}
-              onChange={(e) => setCoachSettings(prev => ({ ...prev, personality: e.target.value }))}
-              className="input-field w-full"
-            >
-              <option value="encouraging">Encouraging & Supportive</option>
-              <option value="direct">Direct & Focused</option>
-              <option value="analytical">Analytical & Data-Driven</option>
-              <option value="casual">Casual & Friendly</option>
-            </select>
-          </div>
-
-          <div>
-            <h3 className="text-white font-semibold mb-3">Response Style</h3>
-            <select
-              value={coachSettings.responseStyle}
-              onChange={(e) => setCoachSettings(prev => ({ ...prev, responseStyle: e.target.value }))}
-              className="input-field w-full"
-            >
-              <option value="detailed">Detailed Explanations</option>
-              <option value="concise">Concise & Brief</option>
-              <option value="actionable">Action-Focused</option>
-            </select>
-          </div>
-
-          <div>
-            <h3 className="text-white font-semibold mb-3">Features</h3>
-            <div className="space-y-3">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={coachSettings.voiceEnabled}
-                  onChange={(e) => setCoachSettings(prev => ({ ...prev, voiceEnabled: e.target.checked }))}
-                  className="w-4 h-4"
-                />
-                <span className="text-white/80">Voice responses</span>
-              </label>
-
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={coachSettings.proactiveInsights}
-                  onChange={(e) => setCoachSettings(prev => ({ ...prev, proactiveInsights: e.target.checked }))}
-                  className="w-4 h-4"
-                />
-                <span className="text-white/80">Proactive insights</span>
-              </label>
-
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={coachSettings.dailyCheckins}
-                  onChange={(e) => setCoachSettings(prev => ({ ...prev, dailyCheckins: e.target.checked }))}
-                  className="w-4 h-4"
-                />
-                <span className="text-white/80">Daily check-ins</span>
-              </label>
-            </div>
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            <Button
-              variant="primary"
-              onClick={() => setShowSettings(false)}
-              fullWidth
-            >
-              Save Settings
-            </Button>
-          </div>
-        </div>
-      </Modal>
+      {/* Context Sidebar */}
+      <ContextSidebar goals={mockGoals} insights={mockInsights} />
     </div>
   );
 };
+
+// --- Subcomponents --- //
+
+const EmptyState: React.FC<{onPromptClick: (prompt: string) => void}> = ({onPromptClick}) => (
+  <motion.div 
+    initial={{ opacity: 0, scale: 0.95 }}
+    animate={{ opacity: 1, scale: 1 }}
+    className="flex-1 flex flex-col items-center justify-center text-center p-8"
+  >
+    <div className="p-4 bg-primary-500/20 rounded-full mb-4">
+      <BrainCircuit className="w-12 h-12 text-primary-300" />
+    </div>
+    <h2 className="text-2xl font-bold text-white mb-2">Your Personal AI Coach</h2>
+    <p className="text-white/60 max-w-md mb-8">Ready to help you focus, plan, and achieve your goals. What's on your mind?</p>
+    <div className="grid grid-cols-2 gap-3 max-w-lg">
+      {suggestionPrompts.map(prompt => (
+        <button
+          key={prompt}
+          onClick={() => onPromptClick(prompt)}
+          className="glass p-4 rounded-lg text-left hover:bg-white/10 transition-colors"
+        >
+          <p className="font-semibold text-white/90">{prompt}</p>
+        </button>
+      ))}
+    </div>
+  </motion.div>
+);
+
+const ChatMessages = React.forwardRef<HTMLDivElement, { messages: Message[] }>(({ messages }, ref) => (
+  <div className="flex-1 overflow-y-auto p-6 space-y-6">
+    {messages.map((msg) => (
+      <motion.div key={msg.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+        <div className={`flex items-start gap-4 ${msg.type === 'user' ? 'justify-end' : ''}`}>
+          {msg.type === 'ai' && (
+            <div className="w-8 h-8 rounded-full bg-primary-500/30 flex items-center justify-center">
+              <Brain className="w-5 h-5 text-primary-300" />
+            </div>
+          )}
+          <div className={`max-w-xl p-4 rounded-2xl ${msg.type === 'user' ? 'bg-primary-500 text-white rounded-br-none' : 'glass rounded-bl-none'}`}>
+            {typeof msg.content === 'string' ? <p>{msg.content}</p> : msg.content}
+          </div>
+        </div>
+      </motion.div>
+    ))}
+    <div ref={ref} />
+  </div>
+));
+
+const ChatInput: React.FC<{ input: string, setInput: (val: string) => void, isTyping: boolean, onSend: () => void }> = ({ input, setInput, isTyping, onSend }) => (
+  <div className="p-4 border-t border-white/10">
+    <div className="relative glass rounded-xl">
+      <input
+        type="text"
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyPress={(e) => e.key === 'Enter' && !isTyping && onSend()}
+        placeholder="Ask your AI Coach anything..."
+        className="w-full h-12 bg-transparent pl-4 pr-12 text-white placeholder:text-white/40 focus:outline-none"
+        disabled={isTyping}
+      />
+      <Button
+        size="icon"
+        className="absolute right-2 top-1/2 -translate-y-1/2"
+        onClick={onSend}
+        disabled={isTyping || !input.trim()}
+      >
+        {isTyping ? <Sparkles className="w-5 h-5 animate-pulse" /> : <Send className="w-5 h-5" />}
+      </Button>
+    </div>
+  </div>
+);
+
+const ContextSidebar: React.FC<{ goals: any[], insights: any[] }> = ({ goals, insights }) => (
+  <div className="w-96 border-l border-white/10 p-6 space-y-8 overflow-y-auto">
+    <SidebarSection title="Your Goals" icon={Target}>
+      {goals.map(goal => (
+        <div key={goal.id} className="text-sm">
+          <div className="flex justify-between items-center mb-1">
+            <p className="font-semibold text-white/90">{goal.title}</p>
+            <p className="text-white/60">{goal.progress}/{goal.target}</p>
+          </div>
+          <div className="w-full bg-gray-700 rounded-full h-1.5">
+            <div className="bg-primary-500 h-1.5 rounded-full" style={{width: `${(goal.progress / goal.target) * 100}%`}}/>
+          </div>
+        </div>
+      ))}
+    </SidebarSection>
+    <SidebarSection title="Recent Insights" icon={BookOpen}>
+      {insights.map(insight => (
+        <div key={insight.id} className="flex items-start gap-3 text-sm p-3 rounded-lg hover:bg-white/5">
+          <div className="p-1.5 bg-secondary-500/20 text-secondary-300 rounded-md mt-1">
+            <insight.icon className="w-4 h-4"/>
+          </div>
+          <div>
+            <p className="font-semibold text-white/90">{insight.title}</p>
+            <p className="text-white/60">{insight.description}</p>
+          </div>
+        </div>
+      ))}
+    </SidebarSection>
+  </div>
+);
+
+const SidebarSection: React.FC<{title: string, icon: React.FC<any>, children: React.ReactNode}> = ({title, icon: Icon, children}) => (
+  <div>
+    <h3 className="text-lg font-bold text-white mb-4 flex items-center">
+      <Icon className="w-5 h-5 mr-3 text-primary-400"/>
+      {title}
+    </h3>
+    <div className="space-y-4">
+      {children}
+    </div>
+  </div>
+);
+
+export default AICoach;

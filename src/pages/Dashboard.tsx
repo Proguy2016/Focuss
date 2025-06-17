@@ -5,10 +5,10 @@ import { StatsGrid } from '../components/dashboard/StatsGrid';
 import { QuickActions } from '../components/dashboard/QuickActions';
 import { RecentActivity } from '../components/dashboard/RecentActivity';
 import { UpcomingTasks } from '../components/dashboard/UpcomingTasks';
-import { ProductivityChart } from '../components/dashboard/ProductivityChart';
-import { ProductivityByHourChart } from '../components/dashboard/ProductivityByHourChart';
 import { AiInsights } from '../components/dashboard/AiInsights';
-import { AnalyticsStats } from '../components/dashboard/AnalyticsStats';
+import { TabbedCharts } from '../components/dashboard/TabbedCharts';
+import { XPProgressBar } from '../components/dashboard/XPProgressBar';
+import { MotivationalQuote } from '../components/dashboard/MotivationalQuote';
 import api from '../services/api';
 import { AxiosError } from 'axios';
 
@@ -146,6 +146,8 @@ export const Dashboard: React.FC = () => {
     return 'Good evening';
   };
 
+  const overallAnalytics = state.analytics?.overall;
+
   return (
     <div className="p-6 space-y-8 min-h-screen relative">
       {loading && (
@@ -168,43 +170,37 @@ export const Dashboard: React.FC = () => {
         <h1 className="text-4xl font-bold text-gradient mb-2">
           {getGreeting()}, {state.user?.firstName}!
         </h1>
-        <p className="text-white/60 text-lg">
-          Level {state.analytics?.overall?.level || 1} - Ready to boost your productivity today? Let's make it count.
+        <p className="text-white/60 text-lg mb-4">
+          Ready to boost your productivity today? Let's make it count.
         </p>
+        <XPProgressBar
+            level={overallAnalytics?.level || 1}
+            xp={overallAnalytics?.xp || 0}
+            nextLevelXp={overallAnalytics?.nextLevelXp || 100}
+        />
       </motion.div>
 
-      {/* Stats Grid */}
-      <StatsGrid />
+      {/* Quick Actions */}
+      <QuickActions />
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-8">
-          <ProductivityChart />
-          <AnalyticsStats />
-          <ProductivityByHourChart />
+          <UpcomingTasks />
+          <TabbedCharts />
         </div>
 
         {/* Right Column */}
         <div className="space-y-8">
-          <UpcomingTasks />
-          <RecentActivity />
+          <StatsGrid />
           <AiInsights />
+          <RecentActivity />
         </div>
       </div>
 
       {/* Motivational Quote */}
-      <motion.div
-        className="text-center p-8 glass rounded-2xl"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1 }}
-      >
-        <blockquote className="text-xl text-white/80 italic mb-4">
-          "The way to get started is to quit talking and begin doing."
-        </blockquote>
-        <cite className="text-primary-400 font-semibold">— Walt Disney</cite>
-      </motion.div>
+      <MotivationalQuote />
     </div>
   );
 };

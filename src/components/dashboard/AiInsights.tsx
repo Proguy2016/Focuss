@@ -1,8 +1,11 @@
 import React from 'react';
 import { Card } from '../common/Card';
 import { Brain } from 'lucide-react';
+import { Button } from '../common/Button';
+import { useNavigate } from 'react-router-dom';
 
 export const AiInsights: React.FC = () => {
+    const navigate = useNavigate();
     // Placeholder for AI insights logic
     const insights = [
         "You're most productive in the late afternoon. Consider scheduling your most important tasks then.",
@@ -21,6 +24,16 @@ export const AiInsights: React.FC = () => {
                     <li key={index}>{insight}</li>
                 ))}
             </ul>
+            <div className="mt-6 pt-4 border-t border-white/10">
+                <Button 
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-primary-400 hover:text-primary-300"
+                    onClick={() => navigate('/ai-coach')}
+                >
+                    Get more insights from AI Coach →
+                </Button>
+            </div>
         </Card>
     );
 }; 

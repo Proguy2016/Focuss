@@ -6,8 +6,8 @@ type IconComponent = React.FC<LucideProps>;
 
 interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
   children?: React.ReactNode;
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'glass' | 'outline';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'glass' | 'outline' | 'link';
+  size?: 'sm' | 'md' | 'lg' | 'icon';
   icon?: IconComponent;
   iconPosition?: 'left' | 'right';
   loading?: boolean;
@@ -46,6 +46,8 @@ export const Button: React.FC<ButtonProps> = ({
         return 'bg-white/10 backdrop-blur-md border border-white/10 text-white hover:bg-white/20';
       case 'outline':
         return 'bg-transparent border border-white/20 text-white hover:bg-white/10';
+      case 'link':
+        return 'bg-transparent text-primary-400 hover:underline';
       default:
         return 'glass text-white hover:bg-white/20';
     }
@@ -57,6 +59,8 @@ export const Button: React.FC<ButtonProps> = ({
         return 'px-3 py-2 text-sm';
       case 'lg':
         return 'px-8 py-4 text-lg';
+      case 'icon':
+        return 'p-2';
       default:
         return 'px-6 py-3 text-base';
     }

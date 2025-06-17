@@ -4,9 +4,11 @@ import { Play, Plus, Target, CheckSquare, Music, Brain } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
+import { useNavigate } from 'react-router-dom';
 
 export const QuickActions: React.FC = () => {
   const { dispatch } = useApp();
+  const navigate = useNavigate();
 
   const actions = [
     {
@@ -14,28 +16,45 @@ export const QuickActions: React.FC = () => {
       label: 'Start Focus Session',
       description: 'Begin a 25-minute focus session',
       color: 'from-primary-500 to-primary-600',
-      action: () => console.log('Start focus session'),
+      action: () => {
+        navigate('/focus');
+        // Start a focus session immediately
+        dispatch({ 
+          type: 'SET_CURRENT_SESSION', 
+          payload: { 
+            id: `session-${Date.now()}`,
+            userId: 'current-user',
+            type: 'work',
+            duration: 25,
+            actualDuration: 0,
+            startTime: new Date(),
+            completed: false,
+            distractions: 0,
+            productivity: 0
+          } 
+        });
+      },
     },
     {
       icon: Plus,
       label: 'Add Task',
       description: 'Create a new task or habit',
       color: 'from-secondary-500 to-secondary-600',
-      action: () => console.log('Add task'),
+      action: () => navigate('/tasks?action=new'),
     },
     {
       icon: Target,
       label: 'Set Goal',
       description: 'Define your daily objectives',
       color: 'from-accent-500 to-accent-600',
-      action: () => console.log('Set goal'),
+      action: () => navigate('/habits?action=new-goal'),
     },
     {
       icon: Music,
       label: 'Focus Music',
       description: 'Play ambient soundscapes',
       color: 'from-success-500 to-success-600',
-      action: () => console.log('Play music'),
+      action: () => navigate('/soundscapes'),
     },
   ];
 

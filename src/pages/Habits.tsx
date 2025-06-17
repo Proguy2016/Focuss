@@ -12,6 +12,7 @@ import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { Habit, HabitCategory } from '../types';
 import { Description } from '@radix-ui/react-dialog';
+import { useLocation } from 'react-router-dom';
 
 type FilterType = 'all' | 'completed' | 'incomplete' | 'high' | 'medium' | 'low';
 
@@ -31,6 +32,7 @@ const HabitIcon: React.FC<{ name: string; className?: string; style?: React.CSSP
 
 export const Habits: React.FC = () => {
   const { state, dispatch, dataService } = useApp();
+  const location = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -108,6 +110,23 @@ export const Habits: React.FC = () => {
 
     fetchHabits();
   }, [dispatch]);
+
+  // Check URL parameters for actions
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const action = params.get('action');
+    
+    if (action === 'new-goal') {
+      setShowCreateModal(true);
+      // Optionally set default values for a goal
+      setNewHabit(prev => ({
+        ...prev,
+        category: 'Productivity',
+        priority: 'High'
+      }));
+    }
+  }, [location.search]);
+
   const isHabitCompleted = (habit: Habit) => {
     return habit.completed;
   };
