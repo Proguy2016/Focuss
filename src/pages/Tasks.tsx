@@ -1,31 +1,275 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, Filter, Calendar, Clock, Flag, CheckCircle2,
   Circle, MoreHorizontal, Edit, Trash2, Star, Target,
-  ArrowUp, ArrowDown, Minus, Grid, List, Kanban, X
+  ArrowUp, ArrowDown, Minus, Grid, List, Kanban, X, Play, ChevronDown, Move
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
-import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
-import { Modal } from '../components/common/Modal';
 import { Task, TaskStatus, TaskPriority, SubTask } from '../types';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Card } from '../components/common/Card';
+import { Modal } from '../components/common/Modal';
 
 type ViewMode = 'list' | 'grid' | 'kanban';
 type FilterType = 'all' | 'todo' | 'inProgress' | 'completed' | 'overdue';
 type SortType = 'dueDate' | 'priority' | 'created' | 'alphabetical';
+type SortKey = 'dueDate' | 'priority' | 'createdAt';
+type FilterStatus = 'all' | 'todo' | 'inProgress' | 'completed';
+
+const TasksHeader: React.FC<{
+    onAddTask: (title: string) => void;
+    viewMode: ViewMode;
+    onSetViewMode: (mode: ViewMode) => void;
+}> = ({ onAddTask, viewMode, onSetViewMode }) => {
+    const [taskTitle, setTaskTitle] = useState('');
+
+    const handleAddTask = () => {
+        if (taskTitle.trim()) {
+            onAddTask(taskTitle);
+            setTaskTitle('');
+        }
+    };
+
+    return (
+        <div className="p-4 bg-gray-900/50 rounded-t-lg border-b border-white/10">
+            <div className="flex items-center gap-4">
+                {/* Quick Add */}
+                <div className="flex-1 relative">
+                    <Plus className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                        type="text"
+                        value={taskTitle}
+                        onChange={(e) => setTaskTitle(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleAddTask()}
+                        placeholder="Add a new task..."
+                        className="w-full h-10 bg-white/5 pl-10 pr-4 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                </div>
+                <Button onClick={handleAddTask}>Add Task</Button>
+
+                {/* View Switcher */}
+                <div className="flex items-center gap-1 p-1 bg-white/5 rounded-md">
+                    <Button variant={viewMode === 'list' ? 'primary' : 'ghost'} size="icon" onClick={() => onSetViewMode('list')}><List className="w-5 h-5"/></Button>
+                    <Button variant={viewMode === 'grid' ? 'primary' : 'ghost'} size="icon" onClick={() => onSetViewMode('grid')}><Grid className="w-5 h-5"/></Button>
+                    <Button variant={viewMode === 'kanban' ? 'primary' : 'ghost'} size="icon" onClick={() => onSetViewMode('kanban')}><Kanban className="w-5 h-5"/></Button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const FilterBar: React.FC<{
+    onSearch: (term: string) => void;
+    onSortChange: (key: SortKey) => void;
+    onFilterChange: (status: FilterStatus) => void;
+    currentFilter: FilterStatus;
+}> = ({ onSearch, onSortChange, onFilterChange, currentFilter }) => {
+    const navigate = useNavigate();
+    
+    const handleFilterChange = (status: FilterStatus) => {
+        onFilterChange(status);
+        // Update URL with filter parameter
+        navigate(`/tasks?filter=${status}`);
+    };
+    
+    return (
+        <div className="p-4 flex items-center gap-4">
+            {/* Search */}
+            <div className="flex-1 relative">
+                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                 <input
+                    type="text"
+                    onChange={(e) => onSearch(e.target.value)}
+                    placeholder="Search tasks..."
+                    className="w-full h-10 bg-white/5 pl-10 pr-4 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+            </div>
+            {/* Filter & Sort Dropdown */}
+            <div className="flex gap-2">
+                 <Button 
+                    variant={currentFilter === 'all' ? 'primary' : 'secondary'} 
+                    onClick={() => handleFilterChange('all')}
+                 >
+                    All
+                 </Button>
+                 <Button 
+                    variant={currentFilter === 'todo' ? 'primary' : 'secondary'} 
+                    onClick={() => handleFilterChange('todo')}
+                 >
+                    To Do
+                 </Button>
+                 <Button 
+                    variant={currentFilter === 'inProgress' ? 'primary' : 'secondary'} 
+                    onClick={() => handleFilterChange('inProgress')}
+                 >
+                    In Progress
+                 </Button>
+                 <Button 
+                    variant={currentFilter === 'completed' ? 'primary' : 'secondary'} 
+                    onClick={() => handleFilterChange('completed')}
+                 >
+                    Completed
+                 </Button>
+            </div>
+        </div>
+    );
+};
+
+const TaskCard = ({ task }: { task: Task }) => {
+    const { dispatch } = useApp();
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [showSubtasks, setShowSubtasks] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    const handleStatusChange = (newStatus: TaskStatus['type']) => {
+        dispatch({ type: 'UPDATE_TASK_STATUS', payload: { taskId: task.id, status: newStatus } });
+        setIsMenuOpen(false);
+    };
+
+    // Close menu on outside click
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setIsMenuOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const statusOptions: TaskStatus['type'][] = ['todo', 'inProgress', 'completed'];
+
+    const toggleSubtaskStatus = (subtaskId: string) => {
+        const updatedSubtasks = task.subtasks.map(subtask => 
+            subtask.id === subtaskId ? { ...subtask, completed: !subtask.completed } : subtask
+        );
+        
+        dispatch({ 
+            type: 'UPDATE_TASK', 
+            payload: { ...task, subtasks: updatedSubtasks } 
+        });
+    };
+
+    return (
+        <div
+            className="bg-gray-900/80 p-4 rounded-md shadow-md border-l-4"
+            style={{ borderColor: task.priority.color }}
+        >
+            <div className="flex justify-between items-start">
+                <p className="font-semibold pr-2">{task.title}</p>
+                <div className="relative" ref={menuRef}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+                        <MoreHorizontal className="w-5 h-5" />
+                    </Button>
+                    <AnimatePresence>
+                        {isMenuOpen && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                className="absolute right-0 mt-2 w-40 bg-gray-800 border border-white/10 rounded-md shadow-lg z-10"
+                            >
+                                <p className="text-xs text-white/50 px-3 py-2">Move to...</p>
+                                {statusOptions.filter(s => s !== task.status.type).map(status => (
+                                    <button
+                                        key={status}
+                                        onClick={() => handleStatusChange(status)}
+                                        className="w-full text-left px-3 py-2 text-sm text-white hover:bg-primary-500/50"
+                                    >
+                                        {status === 'todo' ? 'To Do' : status === 'inProgress' ? 'In Progress' : 'Completed'}
+                                    </button>
+                                ))}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            </div>
+            <p className="text-sm text-white/60 mt-1 line-clamp-2">{task.description}</p>
+            
+            {/* Subtasks section */}
+            {task.subtasks && task.subtasks.length > 0 && (
+                <div className="mt-3 border-t border-white/10 pt-2">
+                    <div 
+                        className="flex items-center cursor-pointer text-sm text-white/70 mb-1"
+                        onClick={() => setShowSubtasks(!showSubtasks)}
+                    >
+                        <ChevronDown className={`w-4 h-4 mr-1 transition-transform ${showSubtasks ? 'rotate-180' : ''}`} />
+                        <span>Subtasks ({task.subtasks.filter(st => st.completed).length}/{task.subtasks.length})</span>
+                    </div>
+                    
+                    <AnimatePresence>
+                        {showSubtasks && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="overflow-hidden"
+                            >
+                                <div className="pl-2 space-y-1 mt-1">
+                                    {task.subtasks.map(subtask => (
+                                        <div 
+                                            key={subtask.id} 
+                                            className="flex items-center text-sm"
+                                            onClick={() => toggleSubtaskStatus(subtask.id)}
+                                        >
+                                            <div className="flex-shrink-0 cursor-pointer">
+                                                {subtask.completed ? (
+                                                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                                ) : (
+                                                    <Circle className="w-4 h-4 text-white/40" />
+                                                )}
+                                            </div>
+                                            <span className={`ml-2 ${subtask.completed ? 'line-through text-white/40' : 'text-white/80'}`}>
+                                                {subtask.title}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            )}
+            
+            {task.dueDate && (
+                <div className="flex items-center text-xs text-white/50 mt-3">
+                    <Calendar className="w-3 h-3 mr-1.5" />
+                    {new Date(task.dueDate).toLocaleDateString()}
+                </div>
+            )}
+        </div>
+    );
+};
+
+const KanbanColumn: React.FC<{ title: string, tasks: Task[] }> = ({ title, tasks }) => (
+    <div className="bg-white/5 rounded-lg p-3 flex-1 flex flex-col">
+        <h3 className="font-bold text-lg mb-4 px-2">{title} <span className="text-sm text-white/50">{tasks.length}</span></h3>
+        <div className="overflow-y-auto space-y-3 pr-1">
+            {tasks.map(task => (
+                <TaskCard key={task.id} task={task} />
+            ))}
+        </div>
+    </div>
+);
 
 export const Tasks: React.FC = () => {
   const { state, dispatch, dataService, refreshStats } = useApp();
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [viewMode, setViewMode] = useState<ViewMode>('kanban');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [sortType, setSortType] = useState<SortType>('dueDate');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [subtaskTitle, setSubtaskTitle] = useState('');
   const [tagInput, setTagInput] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('createdAt');
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
 
   const [newTask, setNewTask] = useState({
     title: '',
@@ -51,7 +295,7 @@ export const Tasks: React.FC = () => {
           headers['Authorization'] = `Bearer ${token}`;
         }
 
-        const response = await fetch('http://localhost:5001/api/stats/getTasks', {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/stats/getTasks`, {
           method: 'GET',
           headers,
         });
@@ -119,6 +363,31 @@ export const Tasks: React.FC = () => {
     }
   }, [dispatch, state.user?.id]);
 
+  useEffect(() => {
+    // Read filter from URL parameters
+    const params = new URLSearchParams(location.search);
+    const filterParam = params.get('filter') as FilterStatus;
+    if (filterParam && ['all', 'todo', 'inProgress', 'completed'].includes(filterParam)) {
+      setFilterStatus(filterParam);
+    }
+    
+    // Read task ID from URL parameters for direct task viewing
+    const taskId = params.get('id');
+    if (taskId) {
+      const task = state.tasks.find(t => t.id === taskId);
+      if (task) {
+        setEditingTask(task);
+        setShowDetails(true);
+      }
+    }
+    
+    // Handle action parameter
+    const action = params.get('action');
+    if (action === 'new') {
+      setShowCreateModal(true);
+    }
+  }, [location.search, state.tasks]);
+
   const filteredAndSortedTasks = useMemo(() => {
     let filtered = state.tasks.filter(task => {
       // Search filter
@@ -165,6 +434,26 @@ export const Tasks: React.FC = () => {
     return filtered;
   }, [state.tasks, searchTerm, filterType, sortType]);
 
+  const handleFocusTask = (task: Task) => {
+    navigate('/focus-timer', { state: { taskId: task.id, taskTitle: task.title } });
+  };
+
+  const openCreateModal = () => {
+    setEditingTask(null);
+    setNewTask({
+      title: '',
+      description: '',
+      priority: 'medium',
+      category: '',
+      tags: [],
+      subtasks: [],
+      dueDate: '',
+      estimatedTime: '',
+    });
+    setShowDetails(false);
+    setShowCreateModal(true);
+  };
+
   const getPriorityColor = (level: TaskPriority['level']) => {
     switch (level) {
       case 'urgent':
@@ -203,7 +492,7 @@ export const Tasks: React.FC = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch('http://localhost:5001/api/stats/addTask', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/stats/addTask`, {
         method: 'POST',
         headers,
         body: JSON.stringify(taskPayload),
@@ -260,7 +549,7 @@ export const Tasks: React.FC = () => {
       });
       await refreshStats();
     } catch (error) {
-      console.error('Failed to create task:', error);
+      console.error('Error creating task:', error);
     }
   };
 
@@ -286,7 +575,7 @@ export const Tasks: React.FC = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch('http://localhost:5001/api/stats/updateTask', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/stats/updateTask`, {
         method: 'PUT',
         headers,
         body: JSON.stringify(taskPayload),
@@ -326,7 +615,7 @@ export const Tasks: React.FC = () => {
       dispatch({ type: 'UPDATE_TASK', payload: updatedTask });
       if (newStatusType === 'completed') {
         try {
-          await fetch('http://localhost:5001/api/stats/task', {
+          await fetch(`${import.meta.env.VITE_API_URL}/api/stats/task`, {
             method: 'PUT',
             credentials: 'include',
             headers,
@@ -337,7 +626,7 @@ export const Tasks: React.FC = () => {
         }
       } else {
         try {
-          await fetch('http://localhost:5001/api/stats/dec', {
+          await fetch(`${import.meta.env.VITE_API_URL}/api/stats/dec`, {
             method: 'PUT',
             credentials: 'include',
             headers,
@@ -359,7 +648,7 @@ export const Tasks: React.FC = () => {
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
-      const response = await fetch(`http://localhost:5001/api/stats/removeTask`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/stats/removeTask`, {
         method: 'DELETE',
         headers,
         body: JSON.stringify({ taskId }),
@@ -393,696 +682,257 @@ export const Tasks: React.FC = () => {
   };
 
   const formatDueDate = (date: Date) => {
-    const now = new Date();
-    const diffInDays = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (diffInDays < 0) return 'Overdue';
-    if (diffInDays === 0) return 'Due today';
-    if (diffInDays === 1) return 'Due tomorrow';
-    return `Due in ${diffInDays} days`;
+    return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
   };
 
-  const TaskCard: React.FC<{ task: Task; index: number }> = ({ task, index }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
-      className="group"
-    >
-      <Card
-        variant="glass"
-        hover
-        className={`p-4 cursor-pointer transition-all duration-200 ${task.status.type === 'completed' ? 'opacity-60' : ''
-          }`}
-        style={{ borderLeft: `4px solid ${getPriorityColor(task.priority.level)}` }}
-      >
-        <div className="flex items-start gap-3">
-          <button
-            onClick={() => toggleTaskStatus(task)}
-            className="mt-1 transition-colors"
-          >
-            {task.status.type === 'completed' ? (
-              <CheckCircle2 className="w-5 h-5 text-success-400" />
-            ) : (
-              <Circle className="w-5 h-5 text-white/40 hover:text-white" />
-            )}
-          </button>
+  const isOverdue = (task: Task) => {
+    return task.dueDate && new Date(task.dueDate) < new Date() && task.status.type !== 'completed';
+  };
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <h3 className={`font-semibold text-white ${task.status.type === 'completed' ? 'line-through' : ''
-                }`}>
-                {task.title}
-              </h3>
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={Edit}
-                  onClick={() => setEditingTask(task)}
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={Trash2}
-                  onClick={() => deleteTask(task.id)}
-                />
-              </div>
-            </div>
-
-            {task.description && (
-              <p className="text-white/60 text-sm mt-1 line-clamp-2">
-                {task.description}
-              </p>
-            )}
-
-            <div className="flex items-center gap-4 mt-3 text-sm">
-              <div className="flex items-center gap-1">
-                {getPriorityIcon(task.priority.level)}
-                <span className="text-white/60 capitalize">{task.priority.level}</span>
-              </div>
-
-              {task.dueDate && (
-                <div className="flex items-center gap-1">
-                  <Calendar className="w-4 h-4 text-white/40" />
-                  <span className={`text-sm ${new Date(task.dueDate) < new Date() && task.status.type !== 'completed'
-                    ? 'text-error-400'
-                    : 'text-white/60'
-                    }`}>
-                    {formatDueDate(new Date(task.dueDate))}
-                  </span>
-                </div>
-              )}
-
-              {task.estimatedTime && (
-                <div className="flex items-center gap-1">
-                  <Clock className="w-4 h-4 text-white/40" />
-                  <span className="text-white/60">{task.estimatedTime}m</span>
-                </div>
-              )}
-
-              {task.category && (
-                <span className="px-2 py-1 bg-primary-500/20 text-primary-300 rounded-md text-xs">
-                  {task.category}
-                </span>
-              )}
-            </div>
-
-            {task.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {task.tags.map(tag => (
-                  <span
-                    key={tag}
-                    className="px-2 py-1 bg-white/10 text-white/70 rounded text-xs"
-                  >
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {task.subtasks.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-white/10">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-white/60">Subtasks</span>
-                  <span className="text-white/60">
-                    {task.subtasks.filter(st => st.completed).length}/{task.subtasks.length}
-                  </span>
-                </div>
-                <div className="w-full bg-white/10 rounded-full h-1 mt-1">
-                  <div
-                    className="bg-primary-500 h-1 rounded-full transition-all duration-300"
-                    style={{
-                      width: `${(task.subtasks.filter(st => st.completed).length / task.subtasks.length) * 100}%`
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </Card>
-    </motion.div>
-  );
-
-  const KanbanColumn: React.FC<{ status: string; tasks: Task[] }> = ({ status, tasks }) => (
-    <div className="flex-1 min-w-80">
-      <div className="glass p-4 rounded-xl">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-white capitalize">
-            {status === 'inProgress' ? 'In Progress' : status}
-          </h3>
-          <span className="text-white/60 text-sm">{tasks.length}</span>
-        </div>
-        <div className="space-y-3 max-h-96 overflow-y-auto">
-          {tasks.map((task, index) => (
-            <TaskCard key={task.id} task={task} index={index} />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+  const tasksByStatus = useMemo(() => {
+    return state.tasks.reduce((acc, task) => {
+        const status = task.status.type;
+        if (!acc[status]) acc[status] = [];
+        acc[status].push(task);
+        return acc;
+    }, {} as Record<TaskStatus['type'], Task[]>);
+  }, [state.tasks]);
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-4xl font-bold text-gradient mb-2">Tasks</h1>
-          <p className="text-white/60">
-            Organize and track your tasks efficiently
-          </p>
-        </div>
-        <Button
-          variant="primary"
-          icon={Plus}
-          onClick={() => setShowCreateModal(true)}
-        >
-          New Task
-        </Button>
-      </motion.div>
+    <div className="h-full flex flex-col text-white p-6 bg-gray-900">
+      <TasksHeader onAddTask={openCreateModal} viewMode={viewMode} onSetViewMode={setViewMode} />
+      <FilterBar onSearch={setSearchTerm} onSortChange={setSortKey} onFilterChange={setFilterStatus} currentFilter={filterStatus} />
 
-      {/* Filters and Controls */}
-      <Card variant="glass" className="p-4 glass-pane">
-        <div className="flex flex-col lg:flex-row gap-4">
-          {/* Search */}
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/40" />
-              <input
-                type="text"
-                placeholder="Search tasks..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="input-field w-full pl-10"
-              />
-            </div>
-          </div>
-
-          {/* Filters */}
-          <div className="flex gap-2">
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value as FilterType)}
-              className="bg-white/5 border border-white/10 px-3 py-2 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+      <div className="flex-1 overflow-y-auto">
+        <AnimatePresence>
+          {viewMode === 'kanban' && (
+            <motion.div
+              layout
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex gap-6 h-full"
             >
-              <option value="all">All Tasks</option>
-              <option value="todo">To Do</option>
-              <option value="inProgress">In Progress</option>
-              <option value="completed">Completed</option>
-              <option value="overdue">Overdue</option>
-            </select>
-
-            <select
-              value={sortType}
-              onChange={(e) => setSortType(e.target.value as SortType)}
-              className="bg-white/5 border border-white/10 px-3 py-2 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="dueDate">Due Date</option>
-              <option value="priority">Priority</option>
-              <option value="created">Created</option>
-              <option value="alphabetical">Alphabetical</option>
-            </select>
-
-            {/* View Mode */}
-            <div className="flex glass rounded-lg p-1">
-              <Button
-                variant={viewMode === 'list' ? 'primary' : 'ghost'}
-                size="sm"
-                icon={List}
-                onClick={() => setViewMode('list')}
-              />
-              <Button
-                variant={viewMode === 'grid' ? 'primary' : 'ghost'}
-                size="sm"
-                icon={Grid}
-                onClick={() => setViewMode('grid')}
-              />
-              <Button
-                variant={viewMode === 'kanban' ? 'primary' : 'ghost'}
-                size="sm"
-                icon={Target}
-                onClick={() => setViewMode('kanban')}
-              />
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Task Views */}
-      <div className="mt-8">
-        {viewMode === 'kanban' ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <KanbanColumn
-              status="To Do"
-              tasks={filteredAndSortedTasks.filter(t => t.status.type === 'todo')}
-            />
-            <KanbanColumn
-              status="In Progress"
-              tasks={filteredAndSortedTasks.filter(t => t.status.type === 'inProgress')}
-            />
-            <KanbanColumn
-              status="Completed"
-              tasks={filteredAndSortedTasks.filter(t => t.status.type === 'completed')}
-            />
-          </div>
-        ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredAndSortedTasks.map((task, index) => (
-              <TaskCard key={task.id} task={task} index={index} />
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredAndSortedTasks.map((task, index) => (
-              <TaskCard key={task.id} task={task} index={index} />
-            ))}
-          </div>
-        )}
-
-        {filteredAndSortedTasks.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center py-16"
-          >
-            <Card variant="glass" className="p-10 inline-block">
-              <CheckCircle2 className="w-16 h-16 text-primary-400 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">You're all caught up!</h3>
-              <p className="text-white/60 mb-6">No tasks match the current filter.</p>
-              <Button
-                size="lg"
-                onClick={() => setShowCreateModal(true)}
-                className="bg-primary-500 hover:bg-primary-600"
-              >
-                <Plus className="mr-2 h-5 w-5" />
-                Create a Task
-              </Button>
-            </Card>
-          </motion.div>
-        )}
+              <KanbanColumn title="To Do" tasks={tasksByStatus.todo || []} />
+              <KanbanColumn title="In Progress" tasks={tasksByStatus.inProgress || []} />
+              <KanbanColumn title="Completed" tasks={tasksByStatus.completed || []} />
+            </motion.div>
+          )}
+          {/* List and Grid views would be implemented here */}
+        </AnimatePresence>
       </div>
 
       {/* Create Task Modal */}
-      <Modal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        title="Create New Task"
-        size="lg"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-white/60 text-sm mb-2">Title *</label>
-            <input
-              type="text"
-              value={newTask.title}
-              onChange={(e) => setNewTask(prev => ({ ...prev, title: e.target.value }))}
-              placeholder="Enter task title..."
-              className="input-field w-full"
-              autoFocus
-            />
-          </div>
-
-          <div>
-            <label className="block text-white/60 text-sm mb-2">Description</label>
-            <textarea
-              value={newTask.description}
-              onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Enter task description..."
-              className="input-field w-full h-24 resize-none"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-white/60 text-sm mb-2">Priority</label>
-              <select
-                value={newTask.priority}
-                onChange={(e) => setNewTask(prev => ({ ...prev, priority: e.target.value as any }))}
-                className="input-field w-full"
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="urgent">Urgent</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-white/60 text-sm mb-2">Category</label>
+      <AnimatePresence>
+        {showCreateModal && (
+          <Modal
+            isOpen={showCreateModal}
+            onClose={() => setShowCreateModal(false)}
+            title={editingTask ? 'Edit Task' : 'Create New Task'}
+          >
+            <div className="space-y-4">
               <input
                 type="text"
-                value={newTask.category}
-                onChange={(e) => setNewTask(prev => ({ ...prev, category: e.target.value }))}
-                placeholder="e.g., Work, Personal"
-                className="input-field w-full"
+                placeholder="Task Title (e.g., Read Chapter 5 of Biology)"
+                className="w-full p-3 bg-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                value={newTask.title}
+                onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
               />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-white/60 text-sm mb-2">Due Date</label>
-              <input
-                type="date"
-                value={newTask.dueDate}
-                onChange={(e) => setNewTask(prev => ({ ...prev, dueDate: e.target.value }))}
-                className="input-field w-full"
-              />
-            </div>
-
-            <div>
-              <label className="block text-white/60 text-sm mb-2">Estimated Time (minutes)</label>
-              <input
-                type="number"
-                value={newTask.estimatedTime}
-                onChange={(e) => setNewTask(prev => ({ ...prev, estimatedTime: e.target.value }))}
-                placeholder="30"
-                className="input-field w-full"
-                min="1"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-white/60 text-sm mb-2">Subtasks</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={subtaskTitle}
-                onChange={(e) => setSubtaskTitle(e.target.value)}
-                placeholder="Add a subtask..."
-                className="input-field w-full"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && subtaskTitle.trim()) {
-                    e.preventDefault();
-                    setNewTask(prev => ({ ...prev, subtasks: [...prev.subtasks, { title: subtaskTitle }] }));
-                    setSubtaskTitle('');
-                  }
-                }}
-              />
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  if (subtaskTitle.trim()) {
-                    setNewTask(prev => ({ ...prev, subtasks: [...prev.subtasks, { title: subtaskTitle }] }));
-                    setSubtaskTitle('');
-                  }
-                }}
-              >
-                Add
-              </Button>
-            </div>
-            <div className="mt-2 space-y-2">
-              {newTask.subtasks.map((sub, index) => (
-                <div key={index} className="flex items-center justify-between bg-white/5 p-2 rounded-md">
-                  <span className="text-white/80">{sub.title}</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    icon={X}
-                    onClick={() => setNewTask(prev => ({ ...prev, subtasks: prev.subtasks.filter((_, i) => i !== index) }))}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-white/60 text-sm mb-2">Tags</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                placeholder="Add a tag..."
-                className="input-field w-full"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && tagInput.trim()) {
-                    e.preventDefault();
-                    if (!newTask.tags.includes(tagInput.trim())) {
-                      setNewTask(prev => ({ ...prev, tags: [...prev.tags, tagInput.trim()] }));
-                    }
-                    setTagInput('');
-                  }
-                }}
-              />
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  if (tagInput.trim() && !newTask.tags.includes(tagInput.trim())) {
-                    setNewTask(prev => ({ ...prev, tags: [...prev.tags, tagInput.trim()] }));
-                    setTagInput('');
-                  }
-                }}
-              >
-                Add
-              </Button>
-            </div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {newTask.tags.map((tag, index) => (
-                <div key={index} className="flex items-center gap-1 bg-white/10 px-2 py-1 rounded-md">
-                  <span className="text-white/80 text-sm">#{tag}</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    icon={X}
-                    className="w-4 h-4"
-                    onClick={() => setNewTask(prev => ({ ...prev, tags: prev.tags.filter((_, i) => i !== index) }))}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            <Button
-              variant="primary"
-              onClick={handleCreateTask}
-              fullWidth
-              disabled={!newTask.title.trim()}
-            >
-              Create Task
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => setShowCreateModal(false)}
-              fullWidth
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Edit Task Modal */}
-      {editingTask && (
-        <Modal
-          isOpen={!!editingTask}
-          onClose={() => setEditingTask(null)}
-          title="Edit Task"
-          size="lg"
-        >
-          <div className="space-y-4">
-            <div>
-              <label className="block text-white/60 text-sm mb-2">Title *</label>
-              <input
-                type="text"
-                value={editingTask.title}
-                onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
-                placeholder="Enter task title..."
-                className="input-field w-full"
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="block text-white/60 text-sm mb-2">Description</label>
-              <textarea
-                value={editingTask.description}
-                onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })}
-                placeholder="Enter task description..."
-                className="input-field w-full h-24 resize-none"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-white/60 text-sm mb-2">Priority</label>
-                <select
-                  value={editingTask.priority.level}
-                  onChange={(e) => {
-                    const newLevel = e.target.value as TaskPriority['level'];
-                    setEditingTask({
-                      ...editingTask,
-                      priority: { level: newLevel, color: getPriorityColor(newLevel) }
-                    });
-                  }}
-                  className="input-field w-full"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="urgent">Urgent</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-white/60 text-sm mb-2">Category</label>
-                <input
-                  type="text"
-                  value={editingTask.category}
-                  onChange={(e) => setEditingTask({ ...editingTask, category: e.target.value })}
-                  placeholder="e.g., Work, Personal"
-                  className="input-field w-full"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-white/60 text-sm mb-2">Due Date</label>
-                <input
-                  type="date"
-                  value={editingTask.dueDate ? new Date(editingTask.dueDate).toISOString().split('T')[0] : ''}
-                  onChange={(e) => setEditingTask({ ...editingTask, dueDate: new Date(e.target.value) })}
-                  className="input-field w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-white/60 text-sm mb-2">Estimated Time (minutes)</label>
-                <input
-                  type="number"
-                  value={editingTask.estimatedTime}
-                  onChange={(e) => setEditingTask({ ...editingTask, estimatedTime: parseInt(e.target.value) })}
-                  placeholder="30"
-                  className="input-field w-full"
-                  min="1"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-white/60 text-sm mb-2">Subtasks</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={subtaskTitle}
-                  onChange={(e) => setSubtaskTitle(e.target.value)}
-                  placeholder="Add a subtask..."
-                  className="input-field w-full"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && subtaskTitle.trim()) {
-                      e.preventDefault();
-                      setEditingTask({ ...editingTask, subtasks: [...editingTask.subtasks, { id: Date.now().toString(), title: subtaskTitle, completed: false }] });
-                      setSubtaskTitle('');
-                    }
-                  }}
-                />
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    if (subtaskTitle.trim()) {
-                      setEditingTask({ ...editingTask, subtasks: [...editingTask.subtasks, { id: Date.now().toString(), title: subtaskTitle, completed: false }] });
-                      setSubtaskTitle('');
-                    }
-                  }}
-                >
-                  Add
-                </Button>
-              </div>
-              <div className="mt-2 space-y-2">
-                {editingTask.subtasks.map((sub, index) => (
-                  <div key={index} className="flex items-center justify-between bg-white/5 p-2 rounded-md">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={sub.completed}
-                        onChange={() => {
-                          const newSubtasks = [...editingTask.subtasks];
-                          newSubtasks[index].completed = !newSubtasks[index].completed;
-                          setEditingTask({ ...editingTask, subtasks: newSubtasks });
-                        }}
-                        className="form-checkbox h-4 w-4 bg-transparent"
+              <AnimatePresence>
+                {showDetails && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="space-y-4 pt-4">
+                      <textarea
+                        placeholder="Add a description..."
+                        className="w-full p-3 bg-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        rows={3}
+                        value={newTask.description}
+                        onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
                       />
-                      <span className={`text-white/80 ${sub.completed ? 'line-through' : ''}`}>{sub.title}</span>
+                      
+                      {/* Priority Selection */}
+                      <div>
+                        <label className="block text-sm text-white/70 mb-2">Priority</label>
+                        <div className="flex space-x-2">
+                          {(['low', 'medium', 'high', 'urgent'] as const).map(priority => (
+                            <button
+                              key={priority}
+                              type="button"
+                              onClick={() => setNewTask({ ...newTask, priority })}
+                              className={`px-3 py-2 rounded-md text-sm flex items-center ${
+                                newTask.priority === priority 
+                                  ? 'bg-primary-500 text-white' 
+                                  : 'bg-gray-700 text-white/70 hover:bg-gray-600'
+                              }`}
+                            >
+                              {getPriorityIcon(priority)}
+                              <span className="ml-1 capitalize">{priority}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Due Date */}
+                      <div>
+                        <label className="block text-sm text-white/70 mb-2">Due Date</label>
+                        <input
+                          type="date"
+                          className="w-full p-3 bg-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          value={newTask.dueDate}
+                          onChange={(e) => setNewTask({ ...newTask, dueDate: e.target.value })}
+                        />
+                      </div>
+                      
+                      {/* Subtasks */}
+                      <div>
+                        <label className="block text-sm text-white/70 mb-2">Subtasks</label>
+                        <div className="space-y-2">
+                          {newTask.subtasks.map((subtask, index) => (
+                            <div key={index} className="flex items-center">
+                              <input
+                                type="text"
+                                className="flex-1 p-2 bg-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                value={subtask.title}
+                                onChange={(e) => {
+                                  const updatedSubtasks = [...newTask.subtasks];
+                                  updatedSubtasks[index].title = e.target.value;
+                                  setNewTask({ ...newTask, subtasks: updatedSubtasks });
+                                }}
+                              />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="ml-2"
+                                onClick={() => {
+                                  const updatedSubtasks = newTask.subtasks.filter((_, i) => i !== index);
+                                  setNewTask({ ...newTask, subtasks: updatedSubtasks });
+                                }}
+                              >
+                                <X className="w-4 h-4 text-white/70" />
+                              </Button>
+                            </div>
+                          ))}
+                          
+                          <div className="flex items-center">
+                            <input
+                              type="text"
+                              className="flex-1 p-2 bg-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                              placeholder="Add a subtask..."
+                              value={subtaskTitle}
+                              onChange={(e) => setSubtaskTitle(e.target.value)}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter' && subtaskTitle.trim()) {
+                                  setNewTask({
+                                    ...newTask,
+                                    subtasks: [...newTask.subtasks, { title: subtaskTitle.trim() }]
+                                  });
+                                  setSubtaskTitle('');
+                                }
+                              }}
+                            />
+                            <Button
+                              variant="ghost"
+                              className="ml-2"
+                              onClick={() => {
+                                if (subtaskTitle.trim()) {
+                                  setNewTask({
+                                    ...newTask,
+                                    subtasks: [...newTask.subtasks, { title: subtaskTitle.trim() }]
+                                  });
+                                  setSubtaskTitle('');
+                                }
+                              }}
+                            >
+                              Add
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Tags */}
+                      <div>
+                        <label className="block text-sm text-white/70 mb-2">Tags</label>
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {newTask.tags.map((tag, index) => (
+                            <div key={index} className="bg-primary-500/30 text-white px-2 py-1 rounded-md flex items-center">
+                              <span className="text-sm">{tag}</span>
+                              <button
+                                className="ml-1 text-white/70 hover:text-white"
+                                onClick={() => {
+                                  const updatedTags = newTask.tags.filter((_, i) => i !== index);
+                                  setNewTask({ ...newTask, tags: updatedTags });
+                                }}
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex">
+                          <input
+                            type="text"
+                            className="flex-1 p-2 bg-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            placeholder="Add a tag..."
+                            value={tagInput}
+                            onChange={(e) => setTagInput(e.target.value)}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter' && tagInput.trim()) {
+                                setNewTask({
+                                  ...newTask,
+                                  tags: [...newTask.tags, tagInput.trim()]
+                                });
+                                setTagInput('');
+                              }
+                            }}
+                          />
+                          <Button
+                            variant="ghost"
+                            className="ml-2"
+                            onClick={() => {
+                              if (tagInput.trim()) {
+                                setNewTask({
+                                  ...newTask,
+                                  tags: [...newTask.tags, tagInput.trim()]
+                                });
+                                setTagInput('');
+                              }
+                            }}
+                          >
+                            Add
+                          </Button>
+                        </div>
+                      </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      icon={X}
-                      onClick={() => setEditingTask({ ...editingTask, subtasks: editingTask.subtasks.filter((_, i) => i !== index) })}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-            <div>
-              <label className="block text-white/60 text-sm mb-2">Tags</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  placeholder="Add a tag..."
-                  className="input-field w-full"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && tagInput.trim()) {
-                      e.preventDefault();
-                      if (!editingTask.tags.includes(tagInput.trim())) {
-                        setEditingTask({ ...editingTask, tags: [...editingTask.tags, tagInput.trim()] });
-                      }
-                      setTagInput('');
-                    }
-                  }}
-                />
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    if (tagInput.trim() && !editingTask.tags.includes(tagInput.trim())) {
-                      setEditingTask({ ...editingTask, tags: [...editingTask.tags, tagInput.trim()] });
-                      setTagInput('');
-                    }
-                  }}
-                >
-                  Add
-                </Button>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {editingTask.tags.map((tag, index) => (
-                  <div key={index} className="flex items-center gap-1 bg-white/10 px-2 py-1 rounded-md">
-                    <span className="text-white/80 text-sm">#{tag}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      icon={X}
-                      className="w-4 h-4"
-                      onClick={() => setEditingTask({ ...editingTask, tags: editingTask.tags.filter((_, i) => i !== index) })}
-                    />
-                  </div>
-                ))}
+              <div className="flex justify-between items-center">
+                 <Button
+                    variant="link"
+                    onClick={() => setShowDetails(!showDetails)}
+                  >
+                    {showDetails ? 'Hide' : 'Add'} Details
+                 </Button>
+                <div className="flex space-x-2">
+                  <Button variant="secondary" onClick={() => setShowCreateModal(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleCreateTask} disabled={!newTask.title.trim()}>
+                    {editingTask ? 'Save Changes' : 'Create Task'}
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="flex gap-3 pt-4">
-            <Button
-              variant="primary"
-              onClick={handleUpdateTask}
-              fullWidth
-              disabled={!editingTask.title.trim()}
-            >
-              Save Changes
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => setEditingTask(null)}
-              fullWidth
-            >
-              Cancel
-            </Button>
-          </div>
-        </Modal>
-      )}
+          </Modal>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -51,11 +51,22 @@ export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
           {/* Search */}
           <div className="hidden md:flex items-center gap-2 glass px-4 py-2 rounded-xl min-w-80">
             <Search size={20} className="text-white/60" />
-            <input
-              type="text"
-              placeholder="Search tasks, habits, or notes..."
-              className="flex-1 bg-transparent text-white placeholder-white/60 focus:outline-none"
-            />
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                const searchInput = e.currentTarget.querySelector('input');
+                if (searchInput && searchInput.value.trim()) {
+                  navigate(`/search?q=${encodeURIComponent(searchInput.value.trim())}`);
+                }
+              }}
+              className="flex-1"
+            >
+              <input
+                type="text"
+                placeholder="Search tasks, habits, or notes..."
+                className="w-full bg-transparent text-white placeholder-white/60 focus:outline-none"
+              />
+            </form>
           </div>
         </div>
 
@@ -80,6 +91,7 @@ export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
             size="sm"
             icon={Bell}
             className="relative"
+            onClick={() => navigate('/notifications')}
           >
             <motion.div
               className="absolute -top-1 -right-1 w-2 h-2 bg-accent-500 rounded-full"

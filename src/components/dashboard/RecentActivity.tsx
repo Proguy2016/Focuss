@@ -4,12 +4,22 @@ import { Clock, CheckCircle, Target, Zap, List } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { Card } from '../common/Card';
 import { format as timeagoFormat } from 'timeago.js';
+import { Link, useNavigate } from 'react-router-dom';
+import { Button } from '../common/Button';
+
+interface Activity {
+  id: string;
+  type: string;
+  title: string;
+  time: Date | string;
+  itemId?: string;
+}
 
 const activityConfig = {
-  focus: { icon: Target, color: 'text-primary-400' },
-  task: { icon: CheckCircle, color: 'text-success-400' },
-  habit: { icon: Zap, color: 'text-accent-400' },
-  default: { icon: List, color: 'text-secondary-400' },
+  focus: { icon: Target, color: 'text-primary-400', route: '/focus' },
+  task: { icon: CheckCircle, color: 'text-success-400', route: '/tasks' },
+  habit: { icon: Zap, color: 'text-accent-400', route: '/habits' },
+  default: { icon: List, color: 'text-secondary-400', route: '/dashboard' },
 };
 
 const getActivityIcon = (type: string) => {
@@ -18,9 +28,10 @@ const getActivityIcon = (type: string) => {
 
 export const RecentActivity: React.FC = () => {
   const { state } = useApp();
+  const navigate = useNavigate();
 
   // Assuming state.user.recentActivity exists and has a similar structure
-  const activities = state.user?.recentActivity?.slice(0, 4) || [];
+  const activities: Activity[] = state.user?.recentActivity?.slice(0, 4) || [];
 
   return (
     <Card variant="glass" className="p-6">
@@ -38,7 +49,7 @@ export const RecentActivity: React.FC = () => {
         </motion.div>
       ) : (
         <div className="space-y-4">
-          {activities.map((activity, index) => {
+          {activities.map((activity: Activity, index: number) => {
             const config = getActivityIcon(activity.type);
             const Icon = config.icon;
 
@@ -49,6 +60,8 @@ export const RecentActivity: React.FC = () => {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.1 }}
+                onClick={() => navigate(`${config.route}?id=${activity.itemId || ''}`)}
+                style={{ cursor: 'pointer' }}
               >
                 <div className={`p-2 rounded-lg bg-white/10 ${config.color}`}>
                   <Icon size={16} />
@@ -76,9 +89,14 @@ export const RecentActivity: React.FC = () => {
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5 }}
       >
-        <button className="text-primary-400 text-sm hover:text-primary-300 transition-colors">
+        <Button 
+          variant="ghost"
+          size="sm"
+          className="w-full text-primary-400 hover:text-primary-300"
+          onClick={() => navigate('/activity')}
+        >
           View all activity →
-        </button>
+        </Button>
       </motion.div>
     </Card>
   );

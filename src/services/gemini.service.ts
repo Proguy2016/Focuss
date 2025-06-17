@@ -1,5 +1,9 @@
 import axios from 'axios';
-import { getAuthToken } from '../utils/auth';
+
+// Simple auth token utility to avoid import issues
+const getAuthToken = (): string | null => {
+  return localStorage.getItem('token');
+};
 
 // Define interfaces for API requests and responses
 interface GeminiResponse {
@@ -14,7 +18,7 @@ interface ChatHistory {
 }
 
 // Base API URL from environment variable or default
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
 /**
  * Generate a response from Gemini AI for a single prompt

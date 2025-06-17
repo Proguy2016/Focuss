@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { FocusSession, Habit, Task, Analytics, UserPreferences, HabitCompletion } from '../types';
+import { FocusSession, Habit, Task, Analytics, UserPreferences, HabitCompletion, TaskStatus } from '../types';
 import { DataService } from '../services/DataService';
 import { getLevelFromXp, getXpToLevelUp } from '../utils/leveling';
 import { useAuth } from './AuthContext';
@@ -27,6 +27,7 @@ type AppAction =
   | { type: 'UPDATE_TASK'; payload: Task }
   | { type: 'DELETE_TASK'; payload: string }
   | { type: 'SET_TASKS'; payload: Task[] }
+  | { type: 'UPDATE_TASK_STATUS'; payload: { taskId: string; status: TaskStatus['type'] } }
   | { type: 'ADD_HABIT_COMPLETION'; payload: HabitCompletion }
   | { type: 'SET_HABIT_COMPLETIONS'; payload: HabitCompletion[] }
   | { type: 'SET_ANALYTICS'; payload: Analytics }
@@ -75,6 +76,27 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       return { ...state, tasks: state.tasks.filter(t => t.id !== action.payload) };
     case 'SET_TASKS':
       return { ...state, tasks: action.payload };
+    case 'UPDATE_TASK_STATUS': {
+      const { taskId, status } = action.payload;
+      const getStatusInfo = (statusType: TaskStatus['type']): TaskStatus => {
+        switch (statusType) {
+          case 'inProgress': return { type: 'inProgress', label: 'In Progress', color: '#F59E0B' };
+          case 'completed': return { type: 'completed', label: 'Completed', color: '#10B981' };
+          case 'todo': 
+          default:
+            return { type: 'todo', label: 'To Do', color: '#6B7280' };
+        }
+      };
+
+      return {
+        ...state,
+        tasks: state.tasks.map(task =>
+          task.id === taskId
+            ? { ...task, status: getStatusInfo(status), updatedAt: new Date() }
+            : task
+        ),
+      };
+    }
     case 'ADD_HABIT_COMPLETION':
       return { ...state, habitCompletions: [...state.habitCompletions, action.payload] };
     case 'SET_HABIT_COMPLETIONS':

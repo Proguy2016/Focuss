@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, RotateCcw, Settings, Volume2, VolumeX, Brain, Target, Clock, Zap, SkipForward, RefreshCw } from 'lucide-react';
+import { Play, Pause, RotateCcw, Settings, Volume2, VolumeX, Brain, Target, Clock, Zap, SkipForward, RefreshCw, Book } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import { FocusSession } from '../types';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { CircularProgressBar } from '../components/common/CircularProgressBar';
 
 type SessionType = 'work' | 'shortBreak' | 'longBreak';
 
@@ -25,13 +26,14 @@ interface TimerSettings {
 export const FocusTimer: React.FC = () => {
   const { state, dispatch, dataService, refreshStats } = useApp();
   const navigate = useNavigate();
+  const location = useLocation();
   const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes in seconds
   const [isRunning, setIsRunning] = useState(false);
   const [sessionType, setSessionType] = useState<SessionType>('work');
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [distractions, setDistractions] = useState(0);
-  const [currentTask, setCurrentTask] = useState<string>('');
+  const [currentTask, setCurrentTask] = useState<{ id: string; title: string } | null>(null);
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const [currentSession, setCurrentSession] = useState<FocusSession | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -104,6 +106,15 @@ export const FocusTimer: React.FC = () => {
   }, [user?.id, sessionType, isRunning]);
 
   useEffect(() => {
+    // If a task was passed from the Tasks page, set it as the current task
+    if (location.state?.taskId && location.state?.taskTitle) {
+      setCurrentTask({ id: location.state.taskId, title: location.state.taskTitle });
+      // Clear location state to prevent re-triggering
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.state, navigate]);
+
+  useEffect(() => {
     // Initialize timer based on session type
     resetTimer();
   }, [sessionType]);
@@ -164,13 +175,13 @@ export const FocusTimer: React.FC = () => {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
         // Increment session count
-        await fetch('http://localhost:5001/api/stats/session', {
+        await fetch(`${import.meta.env.VITE_API_URL}/api/stats/session`, {
           method: 'PUT',
           credentials: 'include',
           headers,
         });
         // Increment focus time (in minutes)
-        await fetch('http://localhost:5001/api/stats/hours', {
+        await fetch(`${import.meta.env.VITE_API_URL}/api/stats/hours`, {
           method: 'PUT',
           credentials: 'include',
           headers,
@@ -236,7 +247,7 @@ export const FocusTimer: React.FC = () => {
         completed: false,
         distractions: 0,
         productivity: 0,
-        tags: currentTask ? [currentTask] : []
+        tags: currentTask ? [currentTask.title] : []
       };
 
       const createdSession = await dataService.createFocusSession(newSession);
@@ -300,10 +311,19 @@ export const FocusTimer: React.FC = () => {
   };
 
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
+
+  const totalDuration =
+    sessionType === 'work'
+      ? settings.workDuration * 60
+      : sessionType === 'shortBreak'
+      ? settings.shortBreakDuration * 60
+      : settings.longBreakDuration * 60;
+
+  const progress = totalDuration > 0 ? ((totalDuration - timeLeft) / totalDuration) * 100 : 0;
 
   const getSessionColor = () => {
     switch (sessionType) {
@@ -330,12 +350,6 @@ export const FocusTimer: React.FC = () => {
         return Target;
     }
   };
-
-  const progress = sessionType === 'work'
-    ? ((settings.workDuration * 60 - timeLeft) / (settings.workDuration * 60)) * 100
-    : sessionType === 'shortBreak'
-      ? ((settings.shortBreakDuration * 60 - timeLeft) / (settings.shortBreakDuration * 60)) * 100
-      : ((settings.longBreakDuration * 60 - timeLeft) / (settings.longBreakDuration * 60)) * 100;
 
   const SessionIcon = getSessionIcon();
 
@@ -445,13 +459,24 @@ export const FocusTimer: React.FC = () => {
             <div className="w-full mt-8">
               <div className="glass p-4 rounded-xl">
                 <h3 className="text-white mb-2">Current Task (Optional)</h3>
-                <input
-                  type="text"
-                  placeholder="What are you working on?"
-                  value={currentTask}
-                  onChange={(e) => setCurrentTask(e.target.value)}
+                <select
+                  value={currentTask?.id || ''}
+                  onChange={(e) => {
+                    const selectedTask = state.tasks.find(t => t.id === e.target.value);
+                    if (selectedTask) {
+                      setCurrentTask({ id: selectedTask.id, title: selectedTask.title });
+                    } else {
+                      setCurrentTask(null);
+                    }
+                  }}
                   className="w-full px-4 py-3 bg-white/10 rounded-xl text-white placeholder-white/50 border border-white/20 focus:outline-none"
-                />
+                  disabled={isRunning}
+                >
+                  <option value="">-- Select a task to focus on --</option>
+                  {state.tasks.filter(t => t.status.type !== 'completed').map(task => (
+                    <option key={task.id} value={task.id}>{task.title}</option>
+                  ))}
+                </select>
               </div>
             </div>
           </Card>
@@ -645,6 +670,85 @@ export const FocusTimer: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      <AnimatePresence>
+        {isRunning && (
+          <motion.div initial={{ opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}} className="absolute top-4 right-4">
+            <Button
+              variant="glass"
+              size="sm"
+              onClick={addDistraction}
+              icon={Book}
+            >
+              Capture Thought
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="w-full max-w-md mx-auto flex flex-col items-center">
+        {/* Task Selector */}
+        <div className="mb-8 w-full">
+            <select
+                value={currentTask?.id || ''}
+                onChange={(e) => {
+                    const selectedTask = state.tasks.find(t => t.id === e.target.value);
+                    if (selectedTask) {
+                        setCurrentTask({ id: selectedTask.id, title: selectedTask.title });
+                    } else {
+                        setCurrentTask(null);
+                    }
+                }}
+                className="input-field w-full text-center"
+                disabled={isRunning}
+            >
+                <option value="">-- Select a task to focus on --</option>
+                {state.tasks.filter(t => t.status.type !== 'completed').map(task => (
+                    <option key={task.id} value={task.id}>{task.title}</option>
+                ))}
+            </select>
+        </div>
+
+        {/* Timer Display */}
+        <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="relative mb-8">
+            <CircularProgressBar progress={progress} size={300} strokeWidth={12}>
+                <div className="text-center">
+                    <h2 className="text-6xl font-bold text-white">{formatTime(timeLeft)}</h2>
+                    <p className="text-white/60 capitalize">{sessionType.replace('B', ' B')}</p>
+                </div>
+            </CircularProgressBar>
+        </motion.div>
+
+        {/* Timer Controls */}
+        <div className="flex items-center space-x-4">
+          <Button variant="ghost" size="icon" onClick={resetTimer} title="Reset Timer">
+            <RotateCcw className="w-8 h-8" />
+          </Button>
+          <Button
+            size="lg"
+            onClick={isRunning ? () => setIsRunning(false) : startNewWorkSession}
+            className="w-32 h-32 rounded-full text-2xl"
+          >
+            {isRunning ? <Pause size={40} /> : <Play size={40} />}
+          </Button>
+          <Button variant="ghost" size="icon" onClick={skipSession} title="Skip Session">
+            <SkipForward className="w-8 h-8" />
+          </Button>
+        </div>
+
+         {/* Soundscapes placeholder */}
+        <div className="mt-8 text-center">
+            <p className="text-white/60">Ambiance Controls</p>
+            <div className="flex items-center justify-center space-x-4 mt-2">
+                <Button variant="glass" size="sm">Rain</Button>
+                <Button variant="glass" size="sm">Cafe</Button>
+                <Button variant="glass" size="sm">Forest</Button>
+                 <Button variant="ghost" size="icon">
+                    <Volume2 className="w-6 h-6" />
+                </Button>
+            </div>
+        </div>
+      </div>
     </div>
   );
 };

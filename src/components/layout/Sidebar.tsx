@@ -11,7 +11,7 @@ import { Button } from '../common/Button';
 import { getTotalXpForLevel, getXpToLevelUp, getLevelFromXp } from '../../utils/leveling';
 
 const navigationItems = [
-  { icon: Home, label: 'Dashboard', path: '/' },
+  { icon: Home, label: 'Dashboard', path: '/dashboard' },
   { icon: Target, label: 'Focus Timer', path: '/focus' },
   { icon: CheckSquare, label: 'Tasks', path: '/tasks' },
   { icon: Zap, label: 'Habits', path: '/habits' },

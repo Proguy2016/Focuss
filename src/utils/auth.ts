@@ -27,4 +27,7 @@ export const removeAuthToken = (): void => {
  */
 export const isAuthenticated = (): boolean => {
   return !!getAuthToken();
-}; 
+};
+
+// Add type declarations
+export type AuthToken = string | null; 
