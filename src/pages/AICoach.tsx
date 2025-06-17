@@ -84,13 +84,18 @@ const AICoach: React.FC = () => {
     { id: '2', title: 'Habit Opportunity', description: 'Meditation drops on weekends.', icon: Target },
   ];
 
+  const getGoalProgress = (goal: { progress: number, target: number }) => {
+    if (goal.target === 0) return 0;
+    return (goal.progress / goal.target) * 100;
+  };
+
   useEffect(() => {
     // Initialize with welcome message
     if (messages.length === 0) {
       const initialPrompt = `You are an AI productivity coach. Introduce yourself to ${state.user?.name || 'the user'} and ask how you can help them with their productivity, focus, and goals today. Be friendly and encouraging. Offer 3-4 helpful suggestions.`;
-      
+
       setIsTyping(true);
-      
+
       // Get initial AI response from Gemini
       generateGeminiResponse(initialPrompt)
         .then(response => {
@@ -107,13 +112,13 @@ const AICoach: React.FC = () => {
             ],
           };
           setMessages([welcomeMessage]);
-          
+
           // Add to chat history with proper typing
           setChatHistory([
             { role: 'user' as const, content: initialPrompt },
             { role: 'model' as const, content: response }
           ]);
-          
+
           setIsTyping(false);
         })
         .catch(err => {
@@ -144,14 +149,14 @@ const AICoach: React.FC = () => {
 
     // Add user message to chat
     setMessages(prev => [...prev, userMessage]);
-    
+
     // Add to chat history with proper typing
     const updatedHistory = [
       ...chatHistory,
       { role: 'user' as const, content: input }
     ];
     setChatHistory(updatedHistory);
-    
+
     setInput('');
     setIsTyping(true);
     setError(null);
@@ -159,7 +164,7 @@ const AICoach: React.FC = () => {
     try {
       // Get AI response from Gemini API
       const aiResponseText = await generateGeminiChatResponse(chatHistory, input);
-      
+
       // Create AI message
       const aiResponse: Message = {
         id: Date.now().toString(),
@@ -169,16 +174,16 @@ const AICoach: React.FC = () => {
         // Extract suggestions based on the content
         suggestions: extractSuggestions(aiResponseText),
       };
-      
+
       // Add AI message to chat
       setMessages(prev => [...prev, aiResponse]);
-      
+
       // Add to chat history with proper typing
       setChatHistory([
         ...updatedHistory,
         { role: 'model' as const, content: aiResponseText }
       ]);
-      
+
     } catch (error: any) {
       console.error('Error getting AI response:', error);
       setError('Failed to get a response from the AI coach. Please try again.');
@@ -191,7 +196,7 @@ const AICoach: React.FC = () => {
   const extractSuggestions = (response: string): string[] => {
     // Look for bulleted lists, numbered lists, or suggestions in the AI response
     const suggestions: string[] = [];
-    
+
     // Extract bulleted items (• Item or - Item)
     const bulletedItems = response.match(/[•\-]\s*([^\n•\-]+)/g);
     if (bulletedItems) {
@@ -202,13 +207,13 @@ const AICoach: React.FC = () => {
         }
       });
     }
-    
+
     // If no bulleted items, try to extract short sentences or phrases
     if (suggestions.length === 0) {
       const sentences = response.split(/[.!?]/).filter(s => s.trim().length > 0 && s.trim().length < 50);
       suggestions.push(...sentences.slice(0, 3).map(s => s.trim()));
     }
-    
+
     return suggestions.slice(0, 4); // Limit to 4 suggestions
   };
 
@@ -227,35 +232,35 @@ const AICoach: React.FC = () => {
       setIsListening(true);
       try {
         // TypeScript workaround for Speech Recognition API
-        const SpeechRecognition = (window as any).SpeechRecognition || 
-                                 (window as any).webkitSpeechRecognition;
-        
+        const SpeechRecognition = (window as any).SpeechRecognition ||
+          (window as any).webkitSpeechRecognition;
+
         if (SpeechRecognition) {
           const recognition = new SpeechRecognition();
           recognition.continuous = false;
           recognition.interimResults = true;
-          
+
           recognition.onstart = () => {
             setIsListening(true);
           };
-          
+
           recognition.onresult = (event: any) => {
             const transcript = Array.from(event.results)
               .map((result: any) => result[0].transcript)
               .join('');
-              
+
             setInput(transcript);
           };
-          
+
           recognition.onerror = (event: any) => {
             console.error('Speech recognition error', event.error);
             setIsListening(false);
           };
-          
+
           recognition.onend = () => {
             setIsListening(false);
           };
-          
+
           recognition.start();
         } else {
           throw new Error('Speech recognition not supported');
@@ -277,26 +282,17 @@ const AICoach: React.FC = () => {
     }
   };
 
-  const getGoalProgress = (goal: Goal) => {
-    return Math.min((goal.current / goal.target) * 100, 100);
-  };
-
   const formatDeadline = (date: Date) => {
-    const now = new Date();
-    const diffInDays = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (diffInDays < 0) return 'Overdue';
-    if (diffInDays === 0) return 'Due today';
-    if (diffInDays === 1) return 'Due tomorrow';
-    if (diffInDays < 7) return `${diffInDays} days left`;
-    if (diffInDays < 30) return `${Math.ceil(diffInDays / 7)} weeks left`;
-    return `${Math.ceil(diffInDays / 30)} months left`;
+    return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
   };
 
   return (
-    <div className="flex h-[calc(100vh-theme(space.16))] bg-gray-900 text-white">
+    <div className="flex h-[calc(100vh-theme(space.16))]">
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col bg-black/10 backdrop-blur-md">
+        <header className="p-4 border-b border-white/10 flex justify-between items-center">
+          {/* Header content */}
+        </header>
         <AnimatePresence>
           {messages.length > 0 ? (
             <ChatMessages messages={messages} ref={messagesEndRef} />
@@ -320,29 +316,31 @@ const AICoach: React.FC = () => {
 
 // --- Subcomponents --- //
 
-const EmptyState: React.FC<{onPromptClick: (prompt: string) => void}> = ({onPromptClick}) => (
-  <motion.div 
-    initial={{ opacity: 0, scale: 0.95 }}
-    animate={{ opacity: 1, scale: 1 }}
-    className="flex-1 flex flex-col items-center justify-center text-center p-8"
-  >
-    <div className="p-4 bg-primary-500/20 rounded-full mb-4">
-      <BrainCircuit className="w-12 h-12 text-primary-300" />
-    </div>
-    <h2 className="text-2xl font-bold text-white mb-2">Your Personal AI Coach</h2>
-    <p className="text-white/60 max-w-md mb-8">Ready to help you focus, plan, and achieve your goals. What's on your mind?</p>
-    <div className="grid grid-cols-2 gap-3 max-w-lg">
+const EmptyState: React.FC<{ onPromptClick: (prompt: string) => void }> = ({ onPromptClick }) => (
+  <div className="flex flex-col items-center justify-center h-full text-center p-8">
+    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: 0.2 }}>
+      <div className="p-5 rounded-full bg-primary-500/20">
+        <BrainCircuit className="w-16 h-16 text-primary-300" />
+      </div>
+    </motion.div>
+    <h2 className="mt-6 text-2xl font-bold text-white">Welcome, {useAuth().user?.firstName}!</h2>
+    <p className="mt-2 text-white/60 max-w-md">
+      I'm your personal AI Coach. I can help you analyze productivity, plan your day, and stay focused on your goals.
+    </p>
+    <div className="mt-8 grid grid-cols-2 gap-4 max-w-lg w-full">
       {suggestionPrompts.map(prompt => (
-        <button
+        <motion.button
           key={prompt}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
           onClick={() => onPromptClick(prompt)}
-          className="glass p-4 rounded-lg text-left hover:bg-white/10 transition-colors"
+          className="p-4 bg-white/5 rounded-lg text-left hover:bg-white/10 transition-colors"
         >
-          <p className="font-semibold text-white/90">{prompt}</p>
-        </button>
+          {prompt}
+        </motion.button>
       ))}
     </div>
-  </motion.div>
+  </div>
 );
 
 const ChatMessages = React.forwardRef<HTMLDivElement, { messages: Message[] }>(({ messages }, ref) => (
@@ -355,8 +353,9 @@ const ChatMessages = React.forwardRef<HTMLDivElement, { messages: Message[] }>((
               <Brain className="w-5 h-5 text-primary-300" />
             </div>
           )}
-          <div className={`max-w-xl p-4 rounded-2xl ${msg.type === 'user' ? 'bg-primary-500 text-white rounded-br-none' : 'glass rounded-bl-none'}`}>
-            {typeof msg.content === 'string' ? <p>{msg.content}</p> : msg.content}
+          <div className={`max-w-xl md:max-w-2xl px-5 py-3 rounded-2xl ${msg.type === 'user' ? 'bg-primary-600/50' : 'bg-white/10'}`}>
+            <p className="text-white whitespace-pre-wrap">{msg.content}</p>
+            <div className="text-xs text-white/50 mt-2 text-right">{msg.timestamp.toLocaleTimeString()}</div>
           </div>
         </div>
       </motion.div>
@@ -365,70 +364,87 @@ const ChatMessages = React.forwardRef<HTMLDivElement, { messages: Message[] }>((
   </div>
 ));
 
-const ChatInput: React.FC<{ input: string, setInput: (val: string) => void, isTyping: boolean, onSend: () => void }> = ({ input, setInput, isTyping, onSend }) => (
+const ChatInput: React.FC<{
+  input: string,
+  setInput: (val: string) => void,
+  isTyping: boolean,
+  onSend: () => void
+}> = ({ input, setInput, isTyping, onSend }) => (
   <div className="p-4 border-t border-white/10">
-    <div className="relative glass rounded-xl">
-      <input
-        type="text"
+    <div className="relative">
+      <textarea
         value={input}
         onChange={(e) => setInput(e.target.value)}
-        onKeyPress={(e) => e.key === 'Enter' && !isTyping && onSend()}
+        onKeyPress={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            onSend();
+          }
+        }}
         placeholder="Ask your AI Coach anything..."
-        className="w-full h-12 bg-transparent pl-4 pr-12 text-white placeholder:text-white/40 focus:outline-none"
-        disabled={isTyping}
+        className="w-full bg-white/5 border-2 border-transparent focus:border-primary-500 rounded-lg p-3 pr-24 resize-none transition-all"
+        rows={1}
       />
-      <Button
-        size="icon"
-        className="absolute right-2 top-1/2 -translate-y-1/2"
-        onClick={onSend}
-        disabled={isTyping || !input.trim()}
-      >
-        {isTyping ? <Sparkles className="w-5 h-5 animate-pulse" /> : <Send className="w-5 h-5" />}
-      </Button>
+      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+        <Button onClick={onSend} disabled={isTyping || !input.trim()} size="sm">
+          {isTyping ? 'Thinking...' : <Send className="w-4 h-4" />}
+        </Button>
+      </div>
     </div>
   </div>
 );
 
-const ContextSidebar: React.FC<{ goals: any[], insights: any[] }> = ({ goals, insights }) => (
-  <div className="w-96 border-l border-white/10 p-6 space-y-8 overflow-y-auto">
-    <SidebarSection title="Your Goals" icon={Target}>
-      {goals.map(goal => (
-        <div key={goal.id} className="text-sm">
-          <div className="flex justify-between items-center mb-1">
-            <p className="font-semibold text-white/90">{goal.title}</p>
-            <p className="text-white/60">{goal.progress}/{goal.target}</p>
-          </div>
-          <div className="w-full bg-gray-700 rounded-full h-1.5">
-            <div className="bg-primary-500 h-1.5 rounded-full" style={{width: `${(goal.progress / goal.target) * 100}%`}}/>
-          </div>
-        </div>
-      ))}
-    </SidebarSection>
-    <SidebarSection title="Recent Insights" icon={BookOpen}>
-      {insights.map(insight => (
-        <div key={insight.id} className="flex items-start gap-3 text-sm p-3 rounded-lg hover:bg-white/5">
-          <div className="p-1.5 bg-secondary-500/20 text-secondary-300 rounded-md mt-1">
-            <insight.icon className="w-4 h-4"/>
-          </div>
-          <div>
-            <p className="font-semibold text-white/90">{insight.title}</p>
-            <p className="text-white/60">{insight.description}</p>
-          </div>
-        </div>
-      ))}
-    </SidebarSection>
-  </div>
-);
+const ContextSidebar: React.FC<{ goals: any[], insights: any[] }> = ({ goals, insights }) => {
+  const getGoalProgress = (goal: { progress: number, target: number }) => {
+    if (goal.target === 0) return 0;
+    return (goal.progress / goal.target) * 100;
+  };
 
-const SidebarSection: React.FC<{title: string, icon: React.FC<any>, children: React.ReactNode}> = ({title, icon: Icon, children}) => (
+  return (
+    <aside className="w-96 p-6 border-l border-white/10 flex-col gap-8 hidden lg:flex bg-black/10 backdrop-blur-md">
+      <SidebarSection title="Your Goals" icon={Target}>
+        {goals.map(goal => (
+          <div key={goal.id} className="text-sm">
+            <div className="flex justify-between items-center mb-1">
+              <p className="font-semibold text-white/90">{goal.title}</p>
+              <p className="text-white/60">{goal.progress}/{goal.target}</p>
+            </div>
+            <div className="w-full bg-white/10 rounded-full h-2 mt-1">
+              <motion.div
+                className="bg-primary-500 h-2 rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${getGoalProgress(goal)}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </SidebarSection>
+      <SidebarSection title="AI Insights" icon={Sparkles}>
+        <div className="space-y-3">
+          {insights.map(insight => (
+            <div key={insight.id} className="p-3 rounded-lg bg-white/5 flex items-start gap-3">
+              <div className="p-2 bg-primary-500/20 rounded-full mt-1">
+                <insight.icon className="w-5 h-5 text-primary-300" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">{insight.title}</p>
+                <p className="text-xs text-white/70">{insight.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </SidebarSection>
+    </aside>
+  );
+};
+
+const SidebarSection: React.FC<{ title: string, icon: React.FC<any>, children: React.ReactNode }> = ({ title, icon: Icon, children }) => (
   <div>
-    <h3 className="text-lg font-bold text-white mb-4 flex items-center">
-      <Icon className="w-5 h-5 mr-3 text-primary-400"/>
+    <h3 className="text-lg font-bold flex items-center gap-2 mb-4">
+      <Icon className="w-5 h-5 text-primary-300" />
       {title}
     </h3>
-    <div className="space-y-4">
-      {children}
-    </div>
+    {children}
   </div>
 );
 

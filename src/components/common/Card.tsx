@@ -1,54 +1,95 @@
-import React from 'react';
-import { motion, HTMLMotionProps } from 'framer-motion';
+import React, { useRef } from 'react';
+import { motion, HTMLMotionProps, useMotionValue, useSpring, useTransform } from 'framer-motion';
 
-interface CardProps extends Omit<HTMLMotionProps<'div'>, 'children'> {
+interface CardProps extends Omit<HTMLMotionProps<'div'>, 'children' | 'style'> {
   children: React.ReactNode;
-  variant?: 'default' | 'glass' | 'solid' | 'gradient';
-  hover?: boolean;
-  glow?: boolean;
+  variant?: 'default' | 'glass' | 'solid';
   className?: string;
+  interactive?: boolean;
 }
 
 export const Card: React.FC<CardProps> = ({
   children,
   variant = 'default',
-  hover = true,
-  glow = false,
   className = '',
+  interactive = false,
   ...props
 }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const { left, top } = cardRef.current.getBoundingClientRect();
+    mouseX.set(e.clientX - left);
+    mouseY.set(e.clientY - top);
+  };
+
+  const springConfig = { damping: 15, stiffness: 200 };
+  const smoothMouseX = useSpring(mouseX, springConfig);
+  const smoothMouseY = useSpring(mouseY, springConfig);
+
+  const rotateX = useTransform(smoothMouseY, [0, 300], [10, -10]);
+  const rotateY = useTransform(smoothMouseX, [0, 400], [-10, 10]);
+
   const getVariantClasses = () => {
     switch (variant) {
       case 'glass':
-        return 'bg-white/10 backdrop-blur-md border border-white/20';
+        return 'bg-white/5 backdrop-blur-lg border border-white/10 shadow-lg';
       case 'solid':
-        return 'bg-slate-800 border border-slate-700';
-      case 'gradient':
-        return 'bg-gradient-to-br from-primary-500/20 to-secondary-500/20 border border-white/20';
+        return 'bg-gray-800/80 border border-gray-700/80';
       default:
-        return 'glass';
+        return 'bg-white/5 backdrop-blur-lg border border-white/10 shadow-lg';
     }
   };
 
-  const hoverClasses = hover ? 'hover:scale-105 hover:shadow-2xl' : '';
-  const glowClasses = glow ? 'hover:shadow-primary-500/25' : '';
+  const interactiveStyle = interactive ? {
+    rotateX,
+    rotateY,
+    transformStyle: 'preserve-3d' as 'preserve-3d',
+  } : {};
 
   return (
     <motion.div
+      ref={cardRef}
       className={`
-        rounded-xl p-6 transition-all duration-300
+        rounded-2xl p-6 transition-all duration-300 relative overflow-hidden
         ${getVariantClasses()}
-        ${hoverClasses}
-        ${glowClasses}
         ${className}
       `}
+      style={interactiveStyle}
+      onMouseMove={interactive ? handleMouseMove : undefined}
+      onMouseLeave={() => {
+        mouseX.set(200);
+        mouseY.set(150);
+      }}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={hover ? { scale: 1.02 } : {}}
-      whileTap={{ scale: 0.98 }}
+      transition={{ duration: 0.5, ease: 'easeOut' }}
       {...props}
     >
-      {children}
+      <div style={{ transform: 'translateZ(20px)' }}>{children}</div>
+      {interactive && (
+        <motion.div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: useTransform(
+              smoothMouseY,
+              [0, 300],
+              [
+                `radial-gradient(circle at ${smoothMouseX}px ${smoothMouseY}px, rgba(255, 255, 255, 0.1), transparent 60%)`,
+                `radial-gradient(circle at ${smoothMouseX}px ${smoothMouseY}px, rgba(255, 255, 255, 0), transparent 80%)`
+              ]
+            ),
+          }}
+        />
+      )}
     </motion.div>
   );
 };

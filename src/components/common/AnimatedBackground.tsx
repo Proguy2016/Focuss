@@ -2,12 +2,12 @@ import React from 'react';
 import { motion } from 'framer-motion';
 
 interface AnimatedBackgroundProps {
-  variant?: 'default' | 'particles' | 'waves' | 'gradient';
+  variant?: 'default' | 'particles' | 'waves' | 'gradient' | 'fireflies';
   className?: string;
 }
 
 export const AnimatedBackground: React.FC<AnimatedBackgroundProps> = ({
-  variant = 'default',
+  variant = 'fireflies',
   className = ''
 }) => {
   const renderVariant = () => {
@@ -18,6 +18,8 @@ export const AnimatedBackground: React.FC<AnimatedBackgroundProps> = ({
         return <WaveBackground />;
       case 'gradient':
         return <GradientBackground />;
+      case 'fireflies':
+        return <FireflyBackground />;
       default:
         return <DefaultBackground />;
     }
@@ -33,6 +35,40 @@ export const AnimatedBackground: React.FC<AnimatedBackgroundProps> = ({
 const DefaultBackground: React.FC = () => (
   <div className="absolute inset-0 bg-transparent">
     <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width=%2260%22%20height=%2260%22%20viewBox=%220%200%2060%2060%22%20xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cg%20fill=%22none%22%20fill-rule=%22evenodd%22%3E%3Cg%20fill=%22%2304d9d9%22%20fill-opacity=%220.05%22%3E%3Ccircle%20cx=%2230%22%20cy=%2230%22%20r=%222%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-20" />
+  </div>
+);
+
+const FireflyBackground: React.FC = () => (
+  <div className="absolute inset-0">
+    {Array.from({ length: 25 }).map((_, i) => (
+      <motion.div
+        key={i}
+        className="absolute rounded-full bg-primary-500/50"
+        style={{
+          willChange: 'transform, opacity',
+          width: Math.random() * 5 + 2,
+          height: Math.random() * 5 + 2,
+          boxShadow: `0 0 ${Math.random() * 10 + 5}px rgba(52, 211, 153, 0.7)`,
+        }}
+        initial={{
+          x: Math.random() * window.innerWidth,
+          y: Math.random() * window.innerHeight,
+          opacity: Math.random() * 0.5,
+        }}
+        animate={{
+          x: Math.random() * window.innerWidth,
+          y: Math.random() * window.innerHeight,
+          opacity: [0, Math.random() * 0.6, 0],
+        }}
+        transition={{
+          duration: Math.random() * 20 + 15,
+          repeat: Infinity,
+          repeatType: 'loop',
+          ease: 'easeInOut',
+          delay: Math.random() * 5,
+        }}
+      />
+    ))}
   </div>
 );
 

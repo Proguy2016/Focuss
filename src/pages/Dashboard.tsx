@@ -149,51 +149,57 @@ export const Dashboard: React.FC = () => {
   const overallAnalytics = state.analytics?.overall;
 
   return (
-    <div className="p-6 space-y-8 min-h-screen relative">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-8 min-h-screen relative text-white">
+      {/* Background Gradient removed to allow global background to show */}
+
       {loading && (
         <motion.div
           initial={{ opacity: 1 }}
           animate={{ opacity: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="absolute inset-0 bg-gray-900/90 flex items-center justify-center z-50 rounded-2xl"
+          className="fixed inset-0 bg-gray-900/90 flex items-center justify-center z-50 rounded-2xl"
         >
-          <span className="text-white text-xl">Loading dashboard...</span>
+          <span className="text-white text-xl font-light">Loading dashboard...</span>
         </motion.div>
       )}
 
-      {/* Welcome Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
+      {/* Header */}
+      <motion.header
+        initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-center lg:text-left"
+        className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0"
       >
-        <h1 className="text-4xl font-bold text-gradient mb-2">
-          {getGreeting()}, {state.user?.firstName}!
-        </h1>
-        <p className="text-white/60 text-lg mb-4">
-          Ready to boost your productivity today? Let's make it count.
-        </p>
-        <XPProgressBar
+        <div>
+          <h1 className="text-3xl sm:text-4xl font-bold text-gradient mb-1">
+            {getGreeting()}, {state.user?.firstName}!
+          </h1>
+          <p className="text-white/60 text-base sm:text-lg font-light">
+            Ready to make today count?
+          </p>
+        </div>
+        <div className="w-full md:w-1/3">
+          <XPProgressBar
             level={overallAnalytics?.level || 1}
             xp={overallAnalytics?.xp || 0}
             nextLevelXp={overallAnalytics?.nextLevelXp || 100}
-        />
-      </motion.div>
+          />
+        </div>
+      </motion.header>
 
       {/* Quick Actions */}
       <QuickActions />
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column */}
-        <div className="lg:col-span-2 space-y-8">
-          <UpcomingTasks />
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+        {/* Left Column (Main Content) */}
+        <div className="lg:col-span-3 space-y-8">
+          <StatsGrid />
           <TabbedCharts />
         </div>
 
-        {/* Right Column */}
-        <div className="space-y-8">
-          <StatsGrid />
+        {/* Right Column (Sidebar) */}
+        <div className="lg:col-span-2 space-y-8">
+          <UpcomingTasks />
           <AiInsights />
           <RecentActivity />
         </div>

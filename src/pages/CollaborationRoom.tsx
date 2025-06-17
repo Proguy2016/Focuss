@@ -106,17 +106,17 @@ const SharedFilesPanel: React.FC = () => (
 const MainContent: React.FC = () => (
     <Tabs defaultValue="chat" className="h-full flex flex-col">
         <TabsList className="grid w-full grid-cols-3 bg-gray-900/60"><TabsTrigger value="chat">Chat</TabsTrigger><TabsTrigger value="tasks">Tasks</TabsTrigger><TabsTrigger value="whiteboard">Whiteboard</TabsTrigger></TabsList>
-        <TabsContent value="chat" className="flex-1 flex flex-col glass rounded-b-lg"><div className="flex-1 p-6 overflow-y-auto"><ChatBubble><ChatBubbleAvatar fallback="A"/><ChatBubbleMessage>Hey everyone, let's get started on the brainstorming.</ChatBubbleMessage></ChatBubble><ChatBubble variant="sent"><ChatBubbleAvatar fallback="Y"/><ChatBubbleMessage variant="sent">Sounds good! I've added the project brief to the shared files.</ChatBubbleMessage></ChatBubble></div><div className="p-4 border-t border-white/10"><div className="relative"><Input placeholder="Type your message..." className="pr-12"/><Button size="icon" variant="ghost" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"><Send className="h-4 w-4" /></Button></div></div></TabsContent>
+        <TabsContent value="chat" className="flex-1 flex flex-col glass rounded-b-lg"><div className="flex-1 p-6 overflow-y-auto"><ChatBubble><ChatBubbleAvatar fallback="A" /><ChatBubbleMessage>Hey everyone, let's get started on the brainstorming.</ChatBubbleMessage></ChatBubble><ChatBubble variant="sent"><ChatBubbleAvatar fallback="Y" /><ChatBubbleMessage variant="sent">Sounds good! I've added the project brief to the shared files.</ChatBubbleMessage></ChatBubble></div><div className="p-4 border-t border-white/10"><div className="relative"><Input placeholder="Type your message..." className="pr-12" /><Button size="icon" variant="ghost" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"><Send className="h-4 w-4" /></Button></div></div></TabsContent>
         <TabsContent value="tasks" className="flex-1 p-6 glass rounded-b-lg"><h3 className="text-xl font-bold text-white">Shared Task Board</h3></TabsContent>
         <TabsContent value="whiteboard" className="flex-1 p-6 glass rounded-b-lg"><h3 className="text-xl font-bold text-white">Collaborative Whiteboard</h3></TabsContent>
     </Tabs>
 );
 
 const AiAssistantPanel: React.FC = () => (
-     <Card variant="glass" className="p-4 h-full flex flex-col">
-        <h3 className="text-lg font-bold mb-4 text-white flex items-center gap-2"><Bot className="text-primary-300"/> AI Assistant</h3>
+    <Card variant="glass" className="p-4 h-full flex flex-col">
+        <h3 className="text-lg font-bold mb-4 text-white flex items-center gap-2"><Bot className="text-primary-300" /> AI Assistant</h3>
         <p className="text-sm text-white/70 mb-4">Your smart companion for this session. Use it to summarize discussions or generate ideas.</p>
-        <Button variant="primary"><BookOpen className="mr-2 h-4 w-4"/> Summarize Chat</Button>
+        <Button variant="primary"><BookOpen className="mr-2 h-4 w-4" /> Summarize Chat</Button>
         <div className="mt-6 border-t border-white/10 pt-4"><h4 className="font-semibold text-white/90 mb-2">Summary</h4><p className="text-sm text-white/60 italic">No summary generated yet.</p></div>
     </Card>
 );
@@ -126,7 +126,7 @@ function ActiveRoom({ roomCode, onLeaveRoom }: { roomCode: string, onLeaveRoom: 
     const [showInviteModal, setShowInviteModal] = useState(false);
     return (
         <>
-            <div className="h-screen w-full bg-gray-900 text-white p-4 grid grid-cols-12 grid-rows-6 gap-4">
+            <div className="h-screen w-full text-white p-4 grid grid-cols-12 grid-rows-6 gap-4">
                 <div className="col-span-12 row-span-1 flex justify-between items-center glass p-4 rounded-lg">
                     <div><h1 className="text-2xl font-bold">Collaboration Space</h1><p className="text-white/60">Room Code: <span className="font-mono text-primary-300">{roomCode}</span></p></div>
                     <Button variant="danger" onClick={onLeaveRoom}><X className="mr-2 h-4 w-4" /> Leave Room</Button>
@@ -186,7 +186,7 @@ function CollaborationRoom({ onJoinRoom, onCreateRoom }: { onJoinRoom: (code: st
             <Modal isOpen={showJoinDialog} onClose={() => setShowJoinDialog(false)} title="Join an Existing Room">
                 <form onSubmit={handleJoinSubmit} className="space-y-4">
                     <p className="text-white/70">Enter the 6-digit code to join.</p>
-                    <Input type="text" value={joinCode} onChange={(e) => setJoinCode(e.target.value)} placeholder="123456" maxLength={6} className="w-full text-center text-2xl font-mono tracking-widest"/>
+                    <Input type="text" value={joinCode} onChange={(e) => setJoinCode(e.target.value)} placeholder="123456" maxLength={6} className="w-full text-center text-2xl font-mono tracking-widest" />
                     <div className="flex justify-end gap-2 pt-2">
                         <Button variant="secondary" type="button" onClick={() => setShowJoinDialog(false)}>Cancel</Button>
                         <Button type="submit" disabled={joinCode.length !== 6}>Join Room</Button>
@@ -206,7 +206,7 @@ export default function CollaborationRoomApp() {
     const handleLeaveRoom = () => setActiveRoom(null);
 
     return (
-        <div className="w-full h-full bg-gray-900">
+        <div className="w-full h-full">
             {activeRoom ? (
                 <ActiveRoom roomCode={activeRoom} onLeaveRoom={handleLeaveRoom} />
             ) : (

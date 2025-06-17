@@ -19,9 +19,9 @@ export const QuickActions: React.FC = () => {
       action: () => {
         navigate('/focus');
         // Start a focus session immediately
-        dispatch({ 
-          type: 'SET_CURRENT_SESSION', 
-          payload: { 
+        dispatch({
+          type: 'SET_CURRENT_SESSION',
+          payload: {
             id: `session-${Date.now()}`,
             userId: 'current-user',
             type: 'work',
@@ -31,7 +31,7 @@ export const QuickActions: React.FC = () => {
             completed: false,
             distractions: 0,
             productivity: 0
-          } 
+          }
         });
       },
     },
@@ -69,8 +69,8 @@ export const QuickActions: React.FC = () => {
           <Brain className="w-5 h-5 text-primary-400" />
         </motion.div>
       </div>
-      
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {actions.map((action, index) => (
           <motion.div
             key={action.label}
