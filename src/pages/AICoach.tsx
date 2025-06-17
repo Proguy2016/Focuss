@@ -9,6 +9,7 @@ import { useApp } from '../contexts/AppContext';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
+import { generateGeminiResponse, generateGeminiChatResponse } from '../services/gemini.service';
 
 interface Message {
   id: string;
@@ -40,6 +41,11 @@ interface Goal {
   status: 'active' | 'completed' | 'paused';
 }
 
+interface ChatHistory {
+  role: 'user' | 'model';
+  content: string;
+}
+
 export const AICoach: React.FC = () => {
   const { state } = useApp();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -48,6 +54,8 @@ export const AICoach: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [chatHistory, setChatHistory] = useState<ChatHistory[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const [coachSettings, setCoachSettings] = useState({
     personality: 'encouraging',
@@ -136,19 +144,40 @@ export const AICoach: React.FC = () => {
   useEffect(() => {
     // Initialize with welcome message
     if (messages.length === 0) {
-      const welcomeMessage: Message = {
-        id: '1',
-        type: 'ai',
-        content: `Hello ${state.user?.name}! I'm your AI productivity coach. I've been analyzing your patterns and I'm here to help you optimize your focus and achieve your goals. What would you like to work on today?`,
-        timestamp: new Date(),
-        suggestions: [
-          'Analyze my productivity patterns',
-          'Help me set a new goal',
-          'Review my habit consistency',
-          'Suggest focus techniques',
-        ],
-      };
-      setMessages([welcomeMessage]);
+      const initialPrompt = `You are an AI productivity coach. Introduce yourself to ${state.user?.name || 'the user'} and ask how you can help them with their productivity, focus, and goals today. Be friendly and encouraging. Offer 3-4 helpful suggestions.`;
+      
+      setIsTyping(true);
+      
+      // Get initial AI response from Gemini
+      generateGeminiResponse(initialPrompt)
+        .then(response => {
+          const welcomeMessage: Message = {
+            id: '1',
+            type: 'ai',
+            content: response,
+            timestamp: new Date(),
+            suggestions: [
+              'Analyze my productivity patterns',
+              'Help me set a new goal',
+              'Review my habit consistency',
+              'Suggest focus techniques',
+            ],
+          };
+          setMessages([welcomeMessage]);
+          
+          // Add to chat history with proper typing
+          setChatHistory([
+            { role: 'user' as const, content: initialPrompt },
+            { role: 'model' as const, content: response }
+          ]);
+          
+          setIsTyping(false);
+        })
+        .catch(err => {
+          console.error('Error getting initial AI response:', err);
+          setError('Failed to connect to AI coach. Please try again later.');
+          setIsTyping(false);
+        });
     }
   }, [state.user?.name]);
 
@@ -170,93 +199,129 @@ export const AICoach: React.FC = () => {
       timestamp: new Date(),
     };
 
+    // Add user message to chat
     setMessages(prev => [...prev, userMessage]);
+    
+    // Add to chat history with proper typing
+    const updatedHistory = [
+      ...chatHistory,
+      { role: 'user' as const, content: inputMessage }
+    ];
+    setChatHistory(updatedHistory);
+    
     setInputMessage('');
     setIsTyping(true);
+    setError(null);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse = generateAIResponse(inputMessage);
+    try {
+      // Get AI response from Gemini API
+      const aiResponseText = await generateGeminiChatResponse(chatHistory, inputMessage);
+      
+      // Create AI message
+      const aiResponse: Message = {
+        id: Date.now().toString(),
+        type: 'ai',
+        content: aiResponseText,
+        timestamp: new Date(),
+        // Extract suggestions based on the content
+        suggestions: extractSuggestions(aiResponseText),
+      };
+      
+      // Add AI message to chat
       setMessages(prev => [...prev, aiResponse]);
+      
+      // Add to chat history with proper typing
+      setChatHistory([
+        ...updatedHistory,
+        { role: 'model' as const, content: aiResponseText }
+      ]);
+      
+    } catch (error: any) {
+      console.error('Error getting AI response:', error);
+      setError('Failed to get a response from the AI coach. Please try again.');
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
-  const generateAIResponse = (userInput: string): Message => {
-    const input = userInput.toLowerCase();
-
-    let response = '';
-    let suggestions: string[] = [];
-
-    if (input.includes('productivity') || input.includes('pattern')) {
-      response = `Based on your data, I've identified some key patterns:
-
-• Your peak focus hours are 9-11 AM with 87% completion rate
-• You're most productive on Tuesdays and Wednesdays
-• Your focus sessions are 15% longer when you use ambient sounds
-• You tend to get distracted around 2 PM - consider scheduling breaks then
-
-Would you like me to create a personalized schedule based on these insights?`;
-      suggestions = ['Create optimal schedule', 'Analyze distractions', 'Set focus reminders'];
-    } else if (input.includes('goal') || input.includes('target')) {
-      response = `Let's work on your goals! I see you're making great progress:
-
-• Focus Sessions: 87/100 (87% complete) - You're ahead of schedule!
-• Reading Goal: 3/12 books - Consider setting aside 30 minutes daily
-• Habit Streak: 12/30 days - You're building momentum
-
-Which goal would you like to focus on improving?`;
-      suggestions = ['Boost reading habit', 'Optimize focus sessions', 'Strengthen habit streak'];
-    } else if (input.includes('habit')) {
-      response = `Your habit consistency is impressive! Here's what I've noticed:
-
-• Morning meditation: 85% consistency (excellent!)
-• Exercise: 68% consistency (room for improvement)
-• Reading: 45% consistency (needs attention)
-
-The key is starting small. For reading, try just 10 minutes before bed. For exercise, consider habit stacking - do 5 push-ups right after your meditation.`;
-      suggestions = ['Create habit stack', 'Set micro-habits', 'Adjust reminders'];
-    } else if (input.includes('focus') || input.includes('technique')) {
-      response = `Here are some personalized focus techniques based on your preferences:
-
-• **Pomodoro Plus**: Your sweet spot is 28-minute sessions (not 25)
-• **Ambient Soundscapes**: Rain + binaural beats work best for you
-• **Progressive Difficulty**: Start with easier tasks to build momentum
-• **Energy Mapping**: Schedule creative work during your 9-11 AM peak
-
-Try the 28-minute sessions with rain sounds for your next deep work block!`;
-      suggestions = ['Start 28-min session', 'Set up soundscape', 'Plan energy-based schedule'];
-    } else {
-      response = `I understand you're looking for guidance. Based on your recent activity, I recommend focusing on:
-
-1. **Consistency**: You've completed 87 focus sessions - just 13 more to hit your goal!
-2. **Optimization**: Your afternoon productivity dips - try the 2 PM power break
-3. **Growth**: Consider adding a learning habit to complement your focus practice
-
-What area interests you most?`;
-      suggestions = ['Improve consistency', 'Optimize schedule', 'Add new habits'];
+  // Helper function to extract suggestions from AI response
+  const extractSuggestions = (response: string): string[] => {
+    // Look for bulleted lists, numbered lists, or suggestions in the AI response
+    const suggestions: string[] = [];
+    
+    // Extract bulleted items (• Item or - Item)
+    const bulletedItems = response.match(/[•\-]\s*([^\n•\-]+)/g);
+    if (bulletedItems) {
+      bulletedItems.forEach(item => {
+        const text = item.replace(/^[•\-]\s*/, '').trim();
+        if (text && text.length > 0 && text.length < 50) {
+          suggestions.push(text);
+        }
+      });
     }
-
-    return {
-      id: Date.now().toString(),
-      type: 'ai',
-      content: response,
-      timestamp: new Date(),
-      suggestions,
-    };
+    
+    // If no bulleted items, try to extract short sentences or phrases
+    if (suggestions.length === 0) {
+      const sentences = response.split(/[.!?]/).filter(s => s.trim().length > 0 && s.trim().length < 50);
+      suggestions.push(...sentences.slice(0, 3).map(s => s.trim()));
+    }
+    
+    return suggestions.slice(0, 4); // Limit to 4 suggestions
   };
 
   const handleSuggestionClick = (suggestion: string) => {
     setInputMessage(suggestion);
+    // Optional: Auto-send the suggestion
+    // setTimeout(() => sendMessage(), 100);
   };
 
+  // Toggle voice input function
   const toggleVoiceInput = () => {
-    setIsListening(!isListening);
-    // In a real app, this would integrate with speech recognition
-    if (!isListening) {
-      console.log('Starting voice input...');
+    if (isListening) {
+      setIsListening(false);
+      // Stop speech recognition here if we had an active instance
     } else {
-      console.log('Stopping voice input...');
+      setIsListening(true);
+      try {
+        // TypeScript workaround for Speech Recognition API
+        const SpeechRecognition = (window as any).SpeechRecognition || 
+                                 (window as any).webkitSpeechRecognition;
+        
+        if (SpeechRecognition) {
+          const recognition = new SpeechRecognition();
+          recognition.continuous = false;
+          recognition.interimResults = true;
+          
+          recognition.onstart = () => {
+            setIsListening(true);
+          };
+          
+          recognition.onresult = (event: any) => {
+            const transcript = Array.from(event.results)
+              .map((result: any) => result[0].transcript)
+              .join('');
+              
+            setInputMessage(transcript);
+          };
+          
+          recognition.onerror = (event: any) => {
+            console.error('Speech recognition error', event.error);
+            setIsListening(false);
+          };
+          
+          recognition.onend = () => {
+            setIsListening(false);
+          };
+          
+          recognition.start();
+        } else {
+          throw new Error('Speech recognition not supported');
+        }
+      } catch (err) {
+        console.error('Speech recognition error:', err);
+        setError('Speech recognition not supported in this browser');
+        setIsListening(false);
+      }
     }
   };
 
@@ -378,20 +443,38 @@ What area interests you most?`;
                 ))}
               </AnimatePresence>
 
+              {/* Error message */}
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mx-auto p-3 bg-red-500/20 border border-red-400 rounded-lg text-red-200 text-sm max-w-md"
+                >
+                  <p>{error}</p>
+                  <button 
+                    className="text-xs mt-2 text-red-200 hover:text-white underline"
+                    onClick={() => setError(null)}
+                  >
+                    Dismiss
+                  </button>
+                </motion.div>
+              )}
+
+              {/* Typing indicator */}
               {isTyping && (
                 <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
                   className="flex gap-3"
                 >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center flex-shrink-0">
                     <Bot className="w-4 h-4 text-white" />
                   </div>
-                  <div className="glass rounded-lg p-3">
+                  <div className="glass text-white rounded-lg p-3">
                     <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" />
-                      <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                      <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                      <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '300ms' }}></div>
+                      <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '600ms' }}></div>
                     </div>
                   </div>
                 </motion.div>
@@ -401,36 +484,28 @@ What area interests you most?`;
             </div>
 
             {/* Input */}
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <textarea
-                  placeholder="Ask your AI coach anything..."
+            <div className="mt-auto">
+              <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="flex gap-2">
+                <input
+                  type="text"
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      sendMessage();
-                    }
-                  }}
-                  className="w-full pr-24 pl-4 py-3 rounded-xl bg-gray-800/60 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
-                  rows={2}
+                  placeholder="Ask your AI coach something..."
+                  className="input-field flex-1"
                 />
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    icon={isListening ? MicOff : Mic}
-                    onClick={toggleVoiceInput}
-                    className={isListening ? 'text-error-400' : ''}
-                  />
-                  <Button
-                    variant="primary"
-                    icon={Send}
-                    onClick={sendMessage}
-                    disabled={!inputMessage.trim()}
-                  />
-                </div>
-              </div>
+                <Button
+                  variant="primary"
+                  type="submit"
+                  icon={Send}
+                  disabled={isTyping}
+                />
+                <Button
+                  variant="secondary"
+                  type="button"
+                  icon={isListening ? MicOff : Mic}
+                  onClick={toggleVoiceInput}
+                />
+              </form>
             </div>
           </Card>
         </div>
