@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Upload, FileText, Brain, BookOpen, HelpCircle, Eye, Menu, X, Trash2, Sparkles, ChevronLeft, Clock, LineChart, Target } from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Separator } from '@/components/ui/separator';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { ColoredGlassCard } from '@/components/ui/ColoredGlassCard';
-import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../components/ui/collapsible';
+import { Separator } from '../components/ui/separator';
+import { Sheet, SheetContent, SheetTrigger } from '../components/ui/sheet';
+import { ColoredGlassCard } from '../components/ui/ColoredGlassCard';
+import { Input } from '../components/ui/input';
+import { Progress } from '../components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -18,12 +18,12 @@ import {
   DialogTrigger,
   DialogFooter,
   DialogClose,
-} from "@/components/ui/dialog";
-import { useAuth } from '@/contexts/AuthContext';
-import api from '@/services/api';
-import aiService from '@/services/aiService';
-import StudyTools, { SpacedRepetitionFlashcards, QuizMode } from '@/components/library/StudyTools';
-import PremiumStudySession from '@/components/library/PremiumStudySession';
+} from "../components/ui/dialog";
+import { useAuth } from '../contexts/AuthContext';
+import api from '../services/api';
+import aiService from '../services/aiService';
+import StudyTools, { SpacedRepetitionFlashcards, QuizMode } from '../components/library/StudyTools';
+import PremiumStudySession from '../components/library/PremiumStudySession';
 
 interface LectureData {
   id: string;
@@ -55,60 +55,9 @@ interface ProcessingStatus {
 }
 
 const LibraryPage: React.FC<LibraryPageProps> = ({
-  subjects = [
-    {
-      id: '1',
-      name: 'APT',
-      color: 'bg-blue-500',
-      lectures: [
-        {
-          id: '1-1',
-          title: 'Lecture 1',
-          summary: 'Introduction to Advanced Programming Techniques covering basic concepts and methodologies.',
-          flashcards: [
-            { question: 'What is APT?', answer: 'Advanced Programming Techniques' },
-            { question: 'Key programming paradigms?', answer: 'OOP, Functional, Procedural' }
-          ],
-          examQuestions: ['Explain the concept of polymorphism', 'Compare different programming paradigms'],
-          revision: 'APT focuses on advanced programming concepts including design patterns, algorithms, and software architecture principles.'
-        },
-        { id: '1-2', title: 'Lecture 2' },
-        { id: '1-3', title: 'Lecture 3' }
-      ]
-    },
-    {
-      id: '2',
-      name: 'OS',
-      color: 'bg-green-500',
-      lectures: [
-        {
-          id: '2-1',
-          title: 'Lecture 1',
-          summary: 'Operating Systems fundamentals including process management and memory allocation.',
-          flashcards: [
-            { question: 'What is an OS?', answer: 'Operating System - manages computer hardware and software resources' },
-            { question: 'Types of OS?', answer: 'Batch, Time-sharing, Real-time, Distributed' }
-          ],
-          examQuestions: ['Describe process scheduling algorithms', 'Explain memory management techniques'],
-          revision: 'OS manages system resources, provides interface between user and hardware, handles process scheduling and memory management.'
-        },
-        { id: '2-2', title: 'Lecture 2' }
-      ]
-    },
-    {
-      id: '3',
-      name: 'Database Systems',
-      color: 'bg-purple-500',
-      lectures: [
-        { id: '3-1', title: 'Lecture 1' },
-        { id: '3-2', title: 'Lecture 2' },
-        { id: '3-3', title: 'Lecture 3' },
-        { id: '3-4', title: 'Lecture 4' }
-      ]
-    }
-  ]
+  subjects,
 }) => {
-  const [subjectData, setSubjectData] = useState<Subject[]>(subjects);
+  const [subjectData, setSubjectData] = useState<Subject[]>(subjects || []);
   const [selectedLecture, setSelectedLecture] = useState<LectureData | null>(null);
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
   const [editingSubject, setEditingSubject] = useState<string | null>(null);
@@ -122,44 +71,24 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>({});
   const [jobId, setJobId] = useState<string | null>(null);
   const [isPremiumEnabled, setIsPremiumEnabled] = useState<boolean>(false);
-  const { token } = useAuth();
+  const { user } = useAuth();
 
   // Fetch subjects and lectures on page load
   useEffect(() => {
-    const fetchSubjectsAndLectures = async () => {
-      try {
-        const response = await api.get('/api/library/subjects-lectures');
-        if (response.data.success && response.data.subjects.length > 0) {
-          setSubjectData(prevSubjects => {
-            // Merge with existing subjects
-            const existingSubjectsMap = new Map(prevSubjects.map(subject => [subject.id, subject]));
-
-            // Update existing subjects with data from backend
-            response.data.subjects.forEach(subject => {
-              if (existingSubjectsMap.has(subject.id)) {
-                const existingSubject = existingSubjectsMap.get(subject.id);
-                // Preserve color and name from frontend if available
-                subject.color = existingSubject.color || subject.color;
-                subject.name = existingSubject.name || subject.name;
-                existingSubjectsMap.set(subject.id, {
-                  ...existingSubject,
-                  ...subject
-                });
-              } else {
-                existingSubjectsMap.set(subject.id, subject);
-              }
-            });
-
-            return Array.from(existingSubjectsMap.values());
-          });
+    const fetchSubjects = async () => {
+      if (user) {
+        try {
+          const response = await api.get('/api/subjects');
+          setSubjectData(response.data);
+        } catch (error) {
+          console.error("Error fetching subjects:", error);
+          // Optionally, set an error state to show a message to the user
         }
-      } catch (error) {
-        console.error("Error fetching subjects and lectures:", error);
       }
     };
 
-    fetchSubjectsAndLectures();
-  }, []);
+    fetchSubjects();
+  }, [user]);
 
   const toggleSubject = (subjectId: string) => {
     const newExpanded = new Set(expandedSubjects);
@@ -369,14 +298,14 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
     }
   };
 
-  const handleAddSubject = (name: string) => {
-    const newSubject: Subject = {
-      id: `${Date.now()}-${Math.random()}`,
-      name,
-      color: `bg-slate-500`, // default color
-      lectures: [],
-    };
-    setSubjectData([...subjectData, newSubject]);
+  const handleAddSubject = async (name: string) => {
+    try {
+      const response = await api.post('/api/subjects', { name });
+      const newSubject = response.data;
+      setSubjectData([...subjectData, newSubject]);
+    } catch (error) {
+      console.error("Error adding subject:", error);
+    }
   };
 
   const handleEditSubject = (id: string, newName: string) => {
@@ -386,59 +315,69 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
     setEditingSubject(null);
   };
 
-  const handleAddLecture = (subjectId: string, title: string) => {
-    setSubjectData(
-      subjectData.map((s) =>
-        s.id === subjectId
-          ? {
-            ...s,
-            lectures: [
-              ...s.lectures,
-              { id: `${Date.now()}-${Math.random()}`, title, summary: "", flashcards: [], examQuestions: [], revision: "" },
-            ],
-          }
-          : s
-      )
-    );
+  const handleAddLecture = async (subjectId: string, title: string) => {
+    try {
+      const response = await api.post(`/api/subjects/${subjectId}/lectures`, { title });
+      const newLecture = response.data;
+      setSubjectData(
+        subjectData.map((s) =>
+          s.id === subjectId
+            ? { ...s, lectures: [...s.lectures, newLecture] }
+            : s
+        )
+      );
+    } catch (error) {
+      console.error("Error adding lecture:", error);
+    }
   };
 
-  const handleEditLecture = (
+  const handleEditLecture = async (
     subjectId: string,
     lectureId: string,
     newTitle: string
   ) => {
-    setSubjectData(
-      subjectData.map((s) =>
-        s.id === subjectId
-          ? {
-            ...s,
-            lectures: s.lectures.map((l) =>
-              l.id === lectureId ? { ...l, title: newTitle } : l
-            ),
-          }
-          : s
-      )
-    );
-    setEditingLecture(null);
+    try {
+      const response = await api.put(`/api/lectures/${lectureId}`, { title: newTitle });
+      const updatedLecture = response.data;
+      setSubjectData(
+        subjectData.map((s) =>
+          s.id === subjectId
+            ? {
+              ...s,
+              lectures: s.lectures.map((l) =>
+                l.id === lectureId ? updatedLecture : l
+              ),
+            }
+            : s
+        )
+      );
+      setEditingLecture(null);
+    } catch (error) {
+      console.error("Error editing lecture:", error);
+    }
   };
 
-  const handleDeleteSubject = (id: string) => {
-    setSubjectData(subjectData.filter((s) => s.id !== id));
+  const handleDeleteSubject = async (id: string) => {
+    try {
+      await api.delete(`/api/subjects/${id}`);
+      setSubjectData(subjectData.filter((s) => s.id !== id));
+    } catch (error) {
+      console.error("Error deleting subject:", error);
+    }
   };
 
-  const handleDeleteLecture = (subjectId: string, lectureId: string) => {
-    setSubjectData(
-      subjectData.map((s) =>
-        s.id === subjectId
-          ? {
-            ...s,
-            lectures: s.lectures.filter((l) => l.id !== lectureId),
-          }
-          : s
-      )
-    );
-    if (selectedLecture?.id === lectureId) {
-      setSelectedLecture(null);
+  const handleDeleteLecture = async (subjectId: string, lectureId: string) => {
+    try {
+      await api.delete(`/api/lectures/${lectureId}`);
+      setSubjectData(
+        subjectData.map((s) =>
+          s.id === subjectId
+            ? { ...s, lectures: s.lectures.filter((l) => l.id !== lectureId) }
+            : s
+        )
+      );
+    } catch (error) {
+      console.error("Error deleting lecture:", error);
     }
   };
 
