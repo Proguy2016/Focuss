@@ -13,6 +13,8 @@ import { Modal } from '../components/common/Modal';
 import { Habit, HabitCategory } from '../types';
 import { Description } from '@radix-ui/react-dialog';
 import { useLocation } from 'react-router-dom';
+import api from '../services/api';
+import { AxiosError } from 'axios';
 
 type FilterType = 'all' | 'completed' | 'incomplete' | 'high' | 'medium' | 'low';
 
@@ -31,14 +33,13 @@ const HabitIcon: React.FC<{ name: string; className?: string; style?: React.CSSP
 };
 
 export const Habits: React.FC = () => {
-  const { state, dispatch, dataService } = useApp();
+  const { state, dispatch, refreshStats } = useApp();
   const location = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-
   const [newHabit, setNewHabit] = useState({
     name: '',
     description: '',
@@ -60,25 +61,16 @@ export const Habits: React.FC = () => {
   useEffect(() => {
     const fetchHabits = async () => {
       try {
+        // Check if we have a token
         const token = localStorage.getItem('token');
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
+        if (!token) {
+          console.log('No authentication token found');
+          return;
         }
 
-        const response = await fetch('http://localhost:5001/api/stats/getHabits', {
-          method: 'GET',
-          headers,
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch habits');
-        }
-
-        const data = await response.json();
-        if (data && data.habits) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const transformedHabits = data.habits.map((habit: any) => {
+        const response = await api.get('/api/stats/getHabits');
+        if (response.data && response.data.habits) {
+          const transformedHabits = response.data.habits.map((habit: any) => {
             const categoryObj = categories.find(c => c.name === habit.category);
             const frequencyObj = typeof habit.frequency === 'string'
               ? { type: habit.frequency, customValue: null }
@@ -104,7 +96,10 @@ export const Habits: React.FC = () => {
           dispatch({ type: 'SET_HABITS', payload: transformedHabits });
         }
       } catch (error) {
-        console.error("Failed to fetch habits:", error);
+        // Only log error if it's not a 404
+        if ((error as AxiosError).response?.status !== 404) {
+          console.error("Failed to fetch habits:", error);
+        }
       }
     };
 
@@ -115,7 +110,7 @@ export const Habits: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const action = params.get('action');
-    
+
     if (action === 'new-goal') {
       setShowCreateModal(true);
       // Optionally set default values for a goal
@@ -126,6 +121,41 @@ export const Habits: React.FC = () => {
       }));
     }
   }, [location.search]);
+
+  useEffect(() => {
+    const checkAndResetHabits = async () => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const habitsToReset = state.habits.filter(habit => {
+        if (habit.frequency.type !== 'daily' || !habit.resetDate) {
+          return false;
+        }
+        const resetDate = new Date(habit.resetDate);
+        resetDate.setHours(0, 0, 0, 0);
+        return resetDate < today;
+      });
+
+      if (habitsToReset.length > 0) {
+        console.log('Resetting daily habits:', habitsToReset.map(h => h.name));
+        // Here you might want to dispatch an action to reset these habits in the backend
+        // For now, we'll just update the local state to reflect the reset
+        const updatedHabits = state.habits.map(habit => {
+          if (habitsToReset.some(h => h.habitId === habit.habitId)) {
+            return { ...habit, progress: 0, completed: false };
+          }
+          return habit;
+        });
+        dispatch({ type: 'SET_HABITS', payload: updatedHabits });
+      }
+    };
+
+    // Run once on mount and then set an interval to check daily
+    checkAndResetHabits();
+    const interval = setInterval(checkAndResetHabits, 1000 * 60 * 60 * 24); // Check once a day
+
+    return () => clearInterval(interval);
+  }, [state.habits, dispatch]);
 
   const isHabitCompleted = (habit: Habit) => {
     return habit.completed;
@@ -265,25 +295,8 @@ export const Habits: React.FC = () => {
     };
 
     try {
-      const token = localStorage.getItem('token');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      const response = await fetch('http://localhost:5001/api/stats/updateHabit', {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify(habitPayload),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
-      }
-
-      const { habit: updatedHabit } = await response.json();
-
+      const response = await api.put('/api/stats/updateHabit', habitPayload);
+      const { habit: updatedHabit } = response.data;
       dispatch({ type: 'UPDATE_HABIT', payload: updatedHabit });
       setEditingHabit(null);
     } catch (error) {
@@ -293,23 +306,7 @@ export const Habits: React.FC = () => {
 
   const handleDeleteHabit = async (habitId: string) => {
     try {
-      const token = localStorage.getItem('token');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      const response = await fetch(`http://localhost:5001/api/stats/removeHabit`, {
-        method: 'DELETE',
-        headers,
-        body: JSON.stringify({ habitId }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
-      }
-
+      await api.delete('/api/stats/removeHabit', { data: { habitId } });
       dispatch({ type: 'DELETE_HABIT', payload: habitId });
     } catch (error) {
       console.error("Failed to delete habit:", error);
@@ -318,56 +315,22 @@ export const Habits: React.FC = () => {
 
   const handleCompleteHabit = async (habitId: string) => {
     try {
+      // Check if we have a token
       const token = localStorage.getItem('token');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+      if (!token) {
+        console.log('No authentication token found');
+        return;
       }
 
-      // First get the current habit data
-      const habitResponse = await fetch(`http://localhost:5001/api/stats/getHabits`, {
-        method: 'GET',
-        headers,
-      });
-
-      if (!habitResponse.ok) {
-        throw new Error('Failed to fetch current habit data');
-      }
-
-      const habitData = await habitResponse.json();
-      const targetHabit = habitData.habits.find((h: any) => h.habitId === habitId);
-      console.log('Current habit before progress:', targetHabit);
-
-      // Now progress the habit
-      const response = await fetch(`http://localhost:5001/api/stats/progressHabit`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify({ habitId }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
-      }
-
-      const progressResult = await response.json();
+      const response = await api.put('/api/stats/progressHabit', { habitId });
+      const progressResult = response.data;
       console.log('Progress result:', progressResult);
 
-      // Refresh all habits after progress to get the latest data
-      const refreshResponse = await fetch('http://localhost:5001/api/stats/getHabits', {
-        method: 'GET',
-        headers,
-      });
-
-      if (!refreshResponse.ok) {
-        throw new Error('Failed to refresh habits after progress');
-      }
-
-      const refreshData = await refreshResponse.json();
-      console.log('Refreshed habits:', refreshData.habits);
+      // Refresh habits after progress
+      const refreshResponse = await api.get('/api/stats/getHabits');
+      const refreshData = refreshResponse.data;
 
       if (refreshData && refreshData.habits) {
-        // Transform all habits as done in useEffect
         const transformedHabits = refreshData.habits.map((habit: any) => {
           const categoryObj = categories.find(c => c.name === habit.category);
           const frequencyObj = typeof habit.frequency === 'string'
@@ -390,13 +353,17 @@ export const Habits: React.FC = () => {
             resetDate: habit.resetDate,
           };
         });
-
-        // Update all habits at once to ensure everything is fresh
         dispatch({ type: 'SET_HABITS', payload: transformedHabits });
       }
 
+      // Refresh stats to update the dashboard
+      await refreshStats();
+
     } catch (error) {
-      console.error("Failed to progress habit:", error);
+      // Only log error if it's not a 404
+      if ((error as AxiosError).response?.status !== 404) {
+        console.error("Failed to progress habit:", error);
+      }
     }
   };
 

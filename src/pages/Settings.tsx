@@ -9,6 +9,7 @@ import { NotificationSettings } from '../components/settings/NotificationSetting
 import { AppearanceSettings } from '../components/settings/AppearanceSettings';
 import { DataSettings } from '../components/settings/DataSettings';
 import { useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 type SettingsTab = 'profile' | 'preferences' | 'notifications' | 'appearance' | 'data';
 
@@ -21,8 +22,10 @@ const SETTINGS_TABS = [
 ];
 
 export const Settings: React.FC = () => {
+    const { user } = useAuth();
+    const LOCAL_STORAGE_PREFS_KEY = `focus-ritual-preferences-${user?.id || 'default'}`;
     const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
-    
+
     // Mock state for demonstration. In a real app, this would come from context or a server.
     const [preferences, setPreferences] = useState({
         workDuration: 25, shortBreakDuration: 5, longBreakDuration: 15, sessionsUntilLongBreak: 4,
@@ -35,14 +38,21 @@ export const Settings: React.FC = () => {
         marketingEmails: false, reminderSound: 'default', quietHours: { enabled: false, start: '22:00', end: '07:00' }
     });
     const [appearance, setAppearance] = useState({
-        theme: 'dark' as 'light' | 'dark' | 'auto', 
-        accentColor: '#34D399', 
+        theme: 'dark' as 'light' | 'dark' | 'auto',
+        accentColor: '#34D399',
         backgroundAnimation: 'default',
-        reducedMotion: false, 
-        compactMode: false, 
-        fontSize: 'medium', 
+        reducedMotion: false,
+        compactMode: false,
+        fontSize: 'medium',
         highContrast: false,
     });
+
+    useEffect(() => {
+        const savedPrefs = localStorage.getItem(LOCAL_STORAGE_PREFS_KEY);
+        if (savedPrefs) {
+            setPreferences(JSON.parse(savedPrefs));
+        }
+    }, [user?.id]);
 
     const location = useLocation();
     useEffect(() => {
@@ -53,7 +63,11 @@ export const Settings: React.FC = () => {
         }
     }, [location]);
 
-    const handlePreferenceChange = (key: any, value: any) => setPreferences(prev => ({ ...prev, [key]: value }));
+    const handlePreferenceChange = (key: any, value: any) => {
+        const newPrefs = { ...preferences, [key]: value };
+        setPreferences(newPrefs);
+        localStorage.setItem(LOCAL_STORAGE_PREFS_KEY, JSON.stringify(newPrefs));
+    };
     const handleNotificationChange = (key: any, value: any) => setNotifications(prev => ({ ...prev, [key]: value }));
     const handleAppearanceChange = (key: any, value: any) => setAppearance(prev => ({ ...prev, [key]: value }));
 
@@ -97,11 +111,10 @@ export const Settings: React.FC = () => {
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id as SettingsTab)}
-                                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors duration-200 ${
-                                        activeTab === tab.id
-                                            ? 'bg-primary-500/20 text-primary-300'
-                                            : 'text-white/70 hover:bg-white/10'
-                                    }`}
+                                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors duration-200 ${activeTab === tab.id
+                                        ? 'bg-primary-500/20 text-primary-300'
+                                        : 'text-white/70 hover:bg-white/10'
+                                        }`}
                                 >
                                     <tab.icon className="w-5 h-5" />
                                     <span className="font-semibold">{tab.label}</span>

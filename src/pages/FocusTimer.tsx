@@ -9,6 +9,7 @@ import { FocusSession } from '../types';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { CircularProgressBar } from '../components/common/CircularProgressBar';
+import api from '../services/api';
 
 type SessionType = 'work' | 'shortBreak' | 'longBreak';
 
@@ -171,22 +172,15 @@ export const FocusTimer: React.FC = () => {
 
       // --- API CALLS TO UPDATE SESSION AND FOCUS TIME ---
       try {
-        const token = localStorage.getItem('token');
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
         // Increment session count
-        await fetch(`${import.meta.env.VITE_API_URL}/api/stats/session`, {
-          method: 'PUT',
-          credentials: 'include',
-          headers,
-        });
+        await api.put('/api/stats/session');
+
         // Increment focus time (in minutes)
-        await fetch(`${import.meta.env.VITE_API_URL}/api/stats/hours`, {
-          method: 'PUT',
-          credentials: 'include',
-          headers,
-          body: JSON.stringify({ time: settings.workDuration, distractions: distractions })
+        await api.put('/api/stats/hours', {
+          time: settings.workDuration,
+          distractions: distractions
         });
+
         // Refresh stats in real time
         await refreshStats();
       } catch (apiError) {
@@ -401,7 +395,7 @@ export const FocusTimer: React.FC = () => {
                 progress={progress}
                 size={300}
                 strokeWidth={15}
-                color={getSessionColor()}
+                gradient={getSessionColor()}
               >
                 <div className="text-center">
                   <motion.div
@@ -569,70 +563,6 @@ export const FocusTimer: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
-      <div className="w-full max-w-md mx-auto flex flex-col items-center">
-        {/* Task Selector */}
-        <div className="mb-8 w-full">
-          <select
-            value={currentTask?.id || ''}
-            onChange={(e) => {
-              const selectedTask = state.tasks.find(t => t.id === e.target.value);
-              if (selectedTask) {
-                setCurrentTask({ id: selectedTask.id, title: selectedTask.title });
-              } else {
-                setCurrentTask(null);
-              }
-            }}
-            className="input-field w-full text-center"
-            disabled={isRunning}
-          >
-            <option value="">-- Select a task to focus on --</option>
-            {state.tasks.filter(t => t.status.type !== 'completed').map(task => (
-              <option key={task.id} value={task.id}>{task.title}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Timer Display */}
-        <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="relative mb-8">
-          <CircularProgressBar progress={progress} size={300} strokeWidth={12}>
-            <div className="text-center">
-              <h2 className="text-6xl font-bold text-white">{formatTime(timeLeft)}</h2>
-              <p className="text-white/60 capitalize">{sessionType.replace('B', ' B')}</p>
-            </div>
-          </CircularProgressBar>
-        </motion.div>
-
-        {/* Timer Controls */}
-        <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="icon" onClick={resetTimer} title="Reset Timer">
-            <RotateCcw className="w-8 h-8" />
-          </Button>
-          <Button
-            size="lg"
-            onClick={isRunning ? () => setIsRunning(false) : startNewWorkSession}
-            className="w-32 h-32 rounded-full text-2xl"
-          >
-            {isRunning ? <Pause size={40} /> : <Play size={40} />}
-          </Button>
-          <Button variant="ghost" size="icon" onClick={skipSession} title="Skip Session">
-            <SkipForward className="w-8 h-8" />
-          </Button>
-        </div>
-
-        {/* Soundscapes placeholder */}
-        <div className="mt-8 text-center">
-          <p className="text-white/60">Ambiance Controls</p>
-          <div className="flex items-center justify-center space-x-4 mt-2">
-            <Button variant="glass" size="sm">Rain</Button>
-            <Button variant="glass" size="sm">Cafe</Button>
-            <Button variant="glass" size="sm">Forest</Button>
-            <Button variant="ghost" size="icon">
-              <Volume2 className="w-6 h-6" />
-            </Button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

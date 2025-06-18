@@ -11,6 +11,8 @@ import { XPProgressBar } from '../components/dashboard/XPProgressBar';
 import { MotivationalQuote } from '../components/dashboard/MotivationalQuote';
 import api from '../services/api';
 import { AxiosError } from 'axios';
+import { TodaysHabits } from '../components/dashboard/TodaysHabits';
+import { useLocation } from 'react-router-dom';
 
 interface ErrorResponse {
   message: string;
@@ -20,14 +22,19 @@ export const Dashboard: React.FC = () => {
   const { state, dispatch } = useApp();
   const [loading, setLoading] = useState(true);
   const hasFetched = useRef(false);
+  const location = useLocation();
 
   useEffect(() => {
     const fetchStats = async () => {
-      if (!state.user) return; // Don't fetch if no user
-
-      setLoading(true);
-      hasFetched.current = true; // Mark as fetched once we start
       try {
+        // Check if we have a token
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.log('No authentication token found');
+          return;
+        }
+
+        setLoading(true);
         const response = await api.get('/api/stats/get');
         const data = response.data;
         console.log('API Response Data:', data);
@@ -41,28 +48,22 @@ export const Dashboard: React.FC = () => {
                 achievements: [],
                 weeklyGoalProgress: 0,
                 monthlyGoalProgress: 0,
-                level: data.stats.level || 0,
+                level: data.stats.level || 1,
                 xp: data.stats.xp || 0,
-                nextLevelXp: data.stats.nextLevelXp || 0,
+                nextLevelXp: getXpToLevelUp(data.stats.level || 1),
               },
               focusSessions: {
                 totalSessions: data.stats.focusSessions,
                 totalFocusTime: data.stats.focusTime,
                 averageSessionLength: 0,
                 completionRate: 0,
-                productivityTrends: [
-                  { date: new Date('2023-10-20'), score: 70, sessions: 2, focusTime: 60 },
-                  { date: new Date('2023-10-21'), score: 75, sessions: 3, focusTime: 90 },
-                  { date: new Date('2023-10-22'), score: 80, sessions: 4, focusTime: 120 },
-                  { date: new Date('2023-10-23'), score: 85, sessions: 3, focusTime: 100 },
-                  { date: new Date('2023-10-24'), score: 90, sessions: 5, focusTime: 150 },
-                ], // Static data for now
                 streakData: [],
+                productivityTrends: [],
                 flowStateHours: [],
                 distractionPatterns: [],
               },
               tasks: {
-                totalTasks: data.stats.tasksCompleted?.totalCompleted || 0,
+                totalTasks: data.stats.tasksCompleted?.totalTasks || 0,
                 completionRate: 0,
                 averageCompletionTime: 0,
                 priorityDistribution: [],
@@ -80,55 +81,10 @@ export const Dashboard: React.FC = () => {
         }
       } catch (err: unknown) {
         console.log('Stats fetch error:', err);
-
-        // Check if it's a 404 with the specific "Stats not found" message
+        // Only show error if it's not a 404 "Stats not found" error
         const axiosError = err as AxiosError<ErrorResponse>;
-        if (axiosError.response && axiosError.response.status === 404 &&
-          axiosError.response.data && axiosError.response.data.message === "Stats not found for this user.") {
-
-          console.log("No stats found for this user. Using defaults.");
-
-          // Create default empty stats
-          dispatch({
-            type: 'SET_ANALYTICS',
-            payload: {
-              overall: {
-                productivityScore: 0,
-                achievements: [],
-                weeklyGoalProgress: 0,
-                monthlyGoalProgress: 0,
-                level: 1,
-                xp: 0,
-                nextLevelXp: 100,
-              },
-              focusSessions: {
-                totalSessions: 0,
-                totalFocusTime: 0,
-                averageSessionLength: 0,
-                completionRate: 0,
-                productivityTrends: [],
-                streakData: [],
-                flowStateHours: [],
-                distractionPatterns: [],
-              },
-              tasks: {
-                totalTasks: 0,
-                completionRate: 0,
-                averageCompletionTime: 0,
-                priorityDistribution: [],
-                productivityByHour: [],
-              },
-              habits: {
-                totalHabits: 0,
-                completionRate: 0,
-                averageStreak: 0,
-                categoryBreakdown: [],
-                weeklyPatterns: [],
-              },
-            },
-          });
-        } else {
-          // Handle other errors
+        if (axiosError.response?.status !== 404 ||
+          axiosError.response?.data?.message !== "Stats not found for this user.") {
           console.error('Failed to fetch stats:', err);
         }
       } finally {
@@ -137,7 +93,29 @@ export const Dashboard: React.FC = () => {
     };
 
     fetchStats();
-  }, [state.user, dispatch]);
+
+    const fetchHabits = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.log('No authentication token found');
+          return;
+        }
+
+        const response = await api.get('/api/stats/getHabits');
+        if (response.data && response.data.habits) {
+          dispatch({ type: 'SET_HABITS', payload: response.data.habits });
+        }
+      } catch (error) {
+        // Only log error if it's not a 404
+        if ((error as AxiosError).response?.status !== 404) {
+          console.error("Failed to fetch habits for dashboard:", error);
+        }
+      }
+    };
+
+    fetchHabits();
+  }, [state.user, dispatch, location.key]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -200,6 +178,7 @@ export const Dashboard: React.FC = () => {
         {/* Right Column (Sidebar) */}
         <div className="lg:col-span-2 space-y-8">
           <UpcomingTasks />
+          <TodaysHabits />
           <AiInsights />
           <RecentActivity />
         </div>

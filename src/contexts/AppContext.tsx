@@ -3,6 +3,7 @@ import { FocusSession, Habit, Task, Analytics, UserPreferences, HabitCompletion,
 import { DataService } from '../services/DataService';
 import { getLevelFromXp, getXpToLevelUp } from '../utils/leveling';
 import { useAuth } from './AuthContext';
+import StateManager from '../services/StateManager';
 
 interface AppState {
   currentSession: FocusSession | null;
@@ -34,7 +35,8 @@ type AppAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_THEME'; payload: 'light' | 'dark' | 'auto' }
   | { type: 'TOGGLE_SIDEBAR' }
-  | { type: 'SET_ACTIVE_VIEW'; payload: string };
+  | { type: 'SET_ACTIVE_VIEW'; payload: string }
+  | { type: 'RESET_STATE' };
 
 const initialState: AppState = {
   currentSession: null,
@@ -82,7 +84,7 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         switch (statusType) {
           case 'inProgress': return { type: 'inProgress', label: 'In Progress', color: '#F59E0B' };
           case 'completed': return { type: 'completed', label: 'Completed', color: '#10B981' };
-          case 'todo': 
+          case 'todo':
           default:
             return { type: 'todo', label: 'To Do', color: '#6B7280' };
         }
@@ -111,6 +113,8 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       return { ...state, sidebarOpen: !state.sidebarOpen };
     case 'SET_ACTIVE_VIEW':
       return { ...state, activeView: action.payload };
+    case 'RESET_STATE':
+      return { ...initialState, theme: state.theme }; // Preserve theme setting
     default:
       return state;
   }
@@ -127,6 +131,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [state, dispatch] = useReducer(appReducer, initialState);
   const { user } = useAuth();
   const dataService = new DataService();
+
+  // Set up the StateManager with our dispatch function
+  useEffect(() => {
+    StateManager.setDispatch(dispatch);
+  }, []);
 
   // Function to fetch stats from backend and update analytics
   const refreshStats = async () => {
