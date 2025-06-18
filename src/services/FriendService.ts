@@ -99,7 +99,9 @@ const FriendService = {
     // Get friend info
     getFriendInfo: async (friendId: string): Promise<Friend | null> => {
         try {
+            console.log(`Fetching friend info for ID: ${friendId}`);
             const response = await api.get(`/api/friends/info/${friendId}`);
+            console.log('Raw API response:', response.data);
 
             // Map API response to Friend interface
             if (response.data) {
@@ -110,8 +112,13 @@ const FriendService = {
                     email: response.data.email || '',
                     bio: response.data.friendBio || '',
                     profilePicture: response.data.friendPfp || '',
-                    // Other fields will be undefined if not provided
+                    level: response.data.level || 1,
+                    xp: response.data.xp || 0,
+                    streak: response.data.streak || 0,
+                    focusHours: response.data.focusHours || 0,
+                    achievements: response.data.achievements || []
                 };
+                console.log("Mapped friend data:", friendData);
                 return friendData;
             }
 

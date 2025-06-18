@@ -121,18 +121,32 @@ export const Friends: React.FC = () => {
     };
 
     const handleViewProfile = async (friend: Friend) => {
+        // First set the basic info we already have
         setSelectedFriend(friend);
         setShowProfileModal(true);
+        setProfileLoading(true);
 
-        // Optionally fetch more detailed friend info if needed
+        // Then fetch more detailed friend info
         try {
-            setProfileLoading(true);
+            console.log("Fetching detailed info for friend:", friend._id);
             const friendInfo = await FriendService.getFriendInfo(friend._id);
+            console.log("Detailed friend info received:", friendInfo);
+
             if (friendInfo) {
-                setSelectedFriend(prevFriend => ({
-                    ...prevFriend,
-                    ...friendInfo
-                }));
+                // Create a new object with all properties to avoid state update issues
+                const updatedFriend = {
+                    ...friend,
+                    ...friendInfo,
+                    // Ensure these fields are present with fallback values
+                    level: friendInfo.level || 1,
+                    xp: friendInfo.xp || 0,
+                    streak: friendInfo.streak || 0,
+                    focusHours: friendInfo.focusHours || 0,
+                    bio: friendInfo.bio || ''
+                };
+
+                console.log("Updated friend profile:", updatedFriend);
+                setSelectedFriend(updatedFriend);
             }
         } catch (error) {
             console.error('Error fetching friend details:', error);
@@ -410,7 +424,7 @@ export const Friends: React.FC = () => {
                 title="Friend Profile"
                 size="md"
             >
-                {selectedFriend && (
+                {selectedFriend && !profileLoading && (
                     <div className="space-y-6">
                         {/* Profile Header */}
                         <div className="flex items-center gap-4">
@@ -431,18 +445,16 @@ export const Friends: React.FC = () => {
                                     <Mail className="w-4 h-4" />
                                     <span>{selectedFriend.email}</span>
                                 </div>
-                                {selectedFriend.level && (
-                                    <div className="mt-2 flex items-center gap-2">
-                                        <span className="bg-primary-500/20 text-primary-400 px-2 py-0.5 rounded text-xs">
-                                            Level {selectedFriend.level}
+                                <div className="mt-2 flex items-center gap-2">
+                                    <span className="bg-primary-500/20 text-primary-400 px-2 py-0.5 rounded text-xs">
+                                        Level {selectedFriend.level || 1}
+                                    </span>
+                                    {(selectedFriend.streak && selectedFriend.streak > 0) && (
+                                        <span className="bg-warning-500/20 text-warning-400 px-2 py-0.5 rounded text-xs">
+                                            {selectedFriend.streak} day streak
                                         </span>
-                                        {selectedFriend.streak && (
-                                            <span className="bg-warning-500/20 text-warning-400 px-2 py-0.5 rounded text-xs">
-                                                {selectedFriend.streak} day streak
-                                            </span>
-                                        )}
-                                    </div>
-                                )}
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -457,6 +469,12 @@ export const Friends: React.FC = () => {
                         {/* Stats */}
                         <div className="glass p-4 rounded-lg">
                             <h4 className="text-white/80 text-sm mb-3">Stats</h4>
+                            <pre className="text-xs text-white/40 mb-2">Debug: {JSON.stringify({
+                                level: selectedFriend.level,
+                                xp: selectedFriend.xp,
+                                streak: selectedFriend.streak,
+                                focusHours: selectedFriend.focusHours
+                            })}</pre>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="flex items-center gap-3">
                                     <div className="w-8 h-8 rounded-full bg-primary-500/20 flex items-center justify-center">
@@ -464,7 +482,7 @@ export const Friends: React.FC = () => {
                                     </div>
                                     <div>
                                         <div className="text-xs text-white/60">XP</div>
-                                        <div className="text-white font-medium">{selectedFriend.xp || 0}</div>
+                                        <div className="text-white font-medium">{selectedFriend.xp !== undefined ? selectedFriend.xp : 0}</div>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
@@ -473,7 +491,7 @@ export const Friends: React.FC = () => {
                                     </div>
                                     <div>
                                         <div className="text-xs text-white/60">Streak</div>
-                                        <div className="text-white font-medium">{selectedFriend.streak || 0} days</div>
+                                        <div className="text-white font-medium">{selectedFriend.streak !== undefined ? selectedFriend.streak : 0} days</div>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
@@ -482,7 +500,7 @@ export const Friends: React.FC = () => {
                                     </div>
                                     <div>
                                         <div className="text-xs text-white/60">Level</div>
-                                        <div className="text-white font-medium">{selectedFriend.level || 1}</div>
+                                        <div className="text-white font-medium">{selectedFriend.level !== undefined ? selectedFriend.level : 1}</div>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
@@ -491,7 +509,7 @@ export const Friends: React.FC = () => {
                                     </div>
                                     <div>
                                         <div className="text-xs text-white/60">Focus Hours</div>
-                                        <div className="text-white font-medium">{selectedFriend.focusHours || 0}</div>
+                                        <div className="text-white font-medium">{selectedFriend.focusHours !== undefined ? selectedFriend.focusHours : 0}</div>
                                     </div>
                                 </div>
                             </div>
