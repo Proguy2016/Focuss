@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AuthService, { AuthResponse, LoginData, RegisterData, UserProfile } from '../services/AuthService';
 import api from '../services/api';
-import StateManager from '../services/StateManager';
-import { useApp } from './AppContext';
+import { AppContext } from './AppContext';
 
 // Define the AuthContext type
 interface AuthContextType {
@@ -29,7 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { dispatch } = useApp();
+  const appContext = useContext(AppContext);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -44,7 +43,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (err) {
         console.error('Authentication check failed:', err);
         localStorage.removeItem('token');
-        StateManager.resetState();
       } finally {
         setLoading(false);
       }
@@ -58,7 +56,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       setError(null);
-      StateManager.resetState();
 
       const response = await AuthService.login(loginData);
       localStorage.setItem('token', response.token);
@@ -78,7 +75,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       setError(null);
-      StateManager.resetState();
 
       const response = await AuthService.register(registerData);
       localStorage.setItem('token', response.token);
@@ -98,7 +94,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('token');
     delete api.defaults.headers.common['Authorization'];
     setUser(null);
-    StateManager.resetState();
+    if (appContext && appContext.resetAppState) {
+      appContext.resetAppState();
+    }
   };
 
   const safeUpdateUser = (updatedData: Partial<UserProfile>) => {

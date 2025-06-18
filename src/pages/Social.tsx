@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Users, Plus, Search, Crown, Trophy, Target, Zap, 
+import {
+  Users, Plus, Search, Crown, Trophy, Target, Zap,
   MessageCircle, Heart, Share2, MoreHorizontal, Settings,
-  Calendar, Clock, TrendingUp, Award, Star, UserPlus
+  Calendar, Clock, TrendingUp, Award, Star, UserPlus, UserCheck
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
+import { Friends } from '../components/social/Friends';
 
 interface FocusGroup {
   id: string;
@@ -48,7 +49,7 @@ interface SocialPost {
 
 export const Social: React.FC = () => {
   const { state } = useApp();
-  const [activeTab, setActiveTab] = useState<'feed' | 'groups' | 'leaderboard'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'groups' | 'leaderboard' | 'friends'>('feed');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showJoinGroup, setShowJoinGroup] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -157,7 +158,7 @@ export const Social: React.FC = () => {
   const formatTimestamp = (date: Date) => {
     const now = new Date();
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
+
     if (diffInHours < 1) return 'Just now';
     if (diffInHours < 24) return `${Math.floor(diffInHours)}h ago`;
     return date.toLocaleDateString();
@@ -175,7 +176,7 @@ export const Social: React.FC = () => {
 
   const PostCard: React.FC<{ post: SocialPost; index: number }> = ({ post, index }) => {
     const PostIcon = getPostIcon(post.type);
-    
+
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -187,7 +188,7 @@ export const Social: React.FC = () => {
             <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-xl">
               {post.user.avatar}
             </div>
-            
+
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 <span className="font-semibold text-white">{post.user.name}</span>
@@ -195,31 +196,30 @@ export const Social: React.FC = () => {
                 <PostIcon className="w-4 h-4 text-primary-400" />
                 <span className="text-xs text-white/40">{formatTimestamp(post.timestamp)}</span>
               </div>
-              
+
               <p className="text-white/80 mb-4">{post.content}</p>
-              
+
               <div className="flex items-center gap-6">
                 <button
-                  className={`flex items-center gap-2 text-sm transition-colors ${
-                    post.isLiked ? 'text-error-400' : 'text-white/60 hover:text-error-400'
-                  }`}
+                  className={`flex items-center gap-2 text-sm transition-colors ${post.isLiked ? 'text-error-400' : 'text-white/60 hover:text-error-400'
+                    }`}
                 >
                   <Heart className={`w-4 h-4 ${post.isLiked ? 'fill-current' : ''}`} />
                   {post.likes}
                 </button>
-                
+
                 <button className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors">
                   <MessageCircle className="w-4 h-4" />
                   {post.comments}
                 </button>
-                
+
                 <button className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors">
                   <Share2 className="w-4 h-4" />
                   Share
                 </button>
               </div>
             </div>
-            
+
             <Button variant="ghost" size="sm" icon={MoreHorizontal} />
           </div>
         </Card>
@@ -240,26 +240,24 @@ export const Social: React.FC = () => {
             <p className="text-white/60 text-sm mb-2">{group.description}</p>
             <div className="flex items-center gap-4 text-sm text-white/60">
               <span>{group.members}/{group.maxMembers} members</span>
-              <span className={`px-2 py-1 rounded text-xs ${
-                group.isPublic ? 'bg-success-500/20 text-success-400' : 'bg-warning-500/20 text-warning-400'
-              }`}>
+              <span className={`px-2 py-1 rounded text-xs ${group.isPublic ? 'bg-success-500/20 text-success-400' : 'bg-warning-500/20 text-warning-400'
+                }`}>
                 {group.isPublic ? 'Public' : 'Private'}
               </span>
             </div>
           </div>
-          
+
           <Button variant="primary" size="sm" icon={UserPlus}>
             Join
           </Button>
         </div>
-        
+
         {group.currentSession && (
           <div className="glass p-3 rounded-lg mb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${
-                  group.currentSession.type === 'focus' ? 'bg-primary-400' : 'bg-success-400'
-                } animate-pulse`} />
+                <div className={`w-2 h-2 rounded-full ${group.currentSession.type === 'focus' ? 'bg-primary-400' : 'bg-success-400'
+                  } animate-pulse`} />
                 <span className="text-white text-sm">
                   {group.currentSession.type === 'focus' ? 'Focus Session' : 'Break Time'}
                 </span>
@@ -273,7 +271,7 @@ export const Social: React.FC = () => {
             </div>
           </div>
         )}
-        
+
         <div>
           <h4 className="text-white/80 text-sm mb-2">Top Members</h4>
           <div className="space-y-2">
@@ -310,8 +308,15 @@ export const Social: React.FC = () => {
             Connect with others and stay motivated together
           </p>
         </div>
-        
+
         <div className="flex gap-3">
+          <Button
+            variant="secondary"
+            icon={UserCheck}
+            onClick={() => setActiveTab('friends')}
+          >
+            Friends
+          </Button>
           <Button
             variant="secondary"
             icon={Plus}
@@ -337,6 +342,14 @@ export const Social: React.FC = () => {
           onClick={() => setActiveTab('feed')}
         >
           Feed
+        </Button>
+        <Button
+          variant={activeTab === 'friends' ? 'primary' : 'ghost'}
+          size="sm"
+          icon={UserCheck}
+          onClick={() => setActiveTab('friends')}
+        >
+          Friends
         </Button>
         <Button
           variant={activeTab === 'groups' ? 'primary' : 'ghost'}
@@ -445,9 +458,8 @@ export const Social: React.FC = () => {
                 <div className="space-y-3">
                   {globalLeaderboard.slice(0, 5).map(user => (
                     <div key={user.rank} className="flex items-center gap-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                        user.rank <= 3 ? 'bg-warning-500 text-white' : 'bg-white/10 text-white/60'
-                      }`}>
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${user.rank <= 3 ? 'bg-warning-500 text-white' : 'bg-white/10 text-white/60'
+                        }`}>
                         {user.rank}
                       </div>
                       <span className="text-lg">{user.avatar}</span>
@@ -500,6 +512,10 @@ export const Social: React.FC = () => {
               ))}
             </div>
           </motion.div>
+        )}
+
+        {activeTab === 'friends' && (
+          <Friends />
         )}
 
         {activeTab === 'leaderboard' && (
@@ -567,20 +583,18 @@ export const Social: React.FC = () => {
                 {globalLeaderboard.map(user => (
                   <div
                     key={user.rank}
-                    className={`flex items-center gap-4 p-3 rounded-lg transition-colors ${
-                      user.name === 'You' ? 'bg-primary-500/20 border border-primary-500/30' : 'hover:bg-white/5'
-                    }`}
+                    className={`flex items-center gap-4 p-3 rounded-lg transition-colors ${user.name === 'You' ? 'bg-primary-500/20 border border-primary-500/30' : 'hover:bg-white/5'
+                      }`}
                   >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                      user.rank <= 3 ? 'bg-warning-500 text-white' : 'bg-white/10 text-white/60'
-                    }`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${user.rank <= 3 ? 'bg-warning-500 text-white' : 'bg-white/10 text-white/60'
+                      }`}>
                       {user.rank}
                     </div>
-                    
+
                     <div className="w-10 h-10 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-lg">
                       {user.avatar}
                     </div>
-                    
+
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <span className="text-white font-semibold">{user.name}</span>
@@ -588,7 +602,7 @@ export const Social: React.FC = () => {
                       </div>
                       <div className="text-white/60 text-sm">{user.streak} day streak</div>
                     </div>
-                    
+
                     <div className="text-right">
                       <div className="text-white font-semibold">{user.score}</div>
                       <div className="text-white/60 text-sm">points</div>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, Bell, Search, Sun, Moon, LogOut, ChevronDown } from 'lucide-react';
+import { Menu, Bell, Search, Sun, Moon, LogOut, ChevronDown, Copy, User, Settings } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../common/Button';
@@ -10,6 +10,7 @@ export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const { state, dispatch } = useApp();
   const { user } = useAuth();
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [idCopied, setIdCopied] = useState(false);
   const navigate = useNavigate();
 
   const toggleTheme = () => {
@@ -28,6 +29,14 @@ export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
 
     // Navigate to the auth page
     navigate('/auth');
+  };
+
+  const copyUserId = () => {
+    if (user?.id) {
+      navigator.clipboard.writeText(user.id);
+      setIdCopied(true);
+      setTimeout(() => setIdCopied(false), 2000);
+    }
   };
 
   return (
@@ -51,7 +60,7 @@ export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
           {/* Search */}
           <div className="hidden md:flex items-center gap-2 glass px-4 py-2 rounded-xl min-w-80">
             <Search size={20} className="text-white/60" />
-            <form 
+            <form
               onSubmit={(e) => {
                 e.preventDefault();
                 const searchInput = e.currentTarget.querySelector('input');
@@ -118,9 +127,17 @@ export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
                 onClick={() => setProfileMenuOpen(!isProfileMenuOpen)}
               >
                 <div className="w-8 h-8 rounded-full bg-gradient-to-r from-accent-500 to-primary-500 flex items-center justify-center">
-                  <span className="text-white font-semibold text-sm">
-                    {user?.firstName?.charAt(0)}
-                  </span>
+                  {user.profilePicture ? (
+                    <img
+                      src={user.profilePicture}
+                      alt={`${user.firstName} ${user.lastName}`}
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-white font-semibold text-sm">
+                      {user?.firstName?.charAt(0)}
+                    </span>
+                  )}
                 </div>
                 <div className="hidden sm:block">
                   <p className="text-sm font-medium text-white">{user?.firstName} {user?.lastName}</p>
@@ -134,15 +151,60 @@ export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
-                    className="absolute right-0 mt-2 w-48 bg-black/50 backdrop-blur-lg rounded-lg shadow-xl border border-white/10 z-50"
+                    className="absolute right-0 mt-2 w-64 bg-black/50 backdrop-blur-lg rounded-lg shadow-xl border border-white/10 z-50"
                   >
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center w-full px-4 py-2 text-white/80 hover:bg-white/10 text-left rounded-lg transition-colors"
-                    >
-                      <LogOut size={16} className="mr-2" />
-                      Logout
-                    </button>
+                    <div className="p-4 border-b border-white/10">
+                      <p className="text-sm font-medium text-white">{user?.firstName} {user?.lastName}</p>
+                      <p className="text-xs text-white/60 mt-1">{user?.email}</p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <div className="text-xs text-white/60 bg-white/10 rounded p-1 px-2 flex-1 truncate" title={user?.id}>
+                          ID: {user?.id}
+                        </div>
+                        <button
+                          onClick={copyUserId}
+                          className="text-white/60 hover:text-white p-1 rounded transition-colors"
+                          title="Copy ID"
+                        >
+                          {idCopied ? (
+                            <span className="text-success-400 text-xs">Copied!</span>
+                          ) : (
+                            <Copy size={14} />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="py-1">
+                      <button
+                        onClick={() => {
+                          setProfileMenuOpen(false);
+                          navigate('/profile');
+                        }}
+                        className="flex items-center w-full px-4 py-2 text-white/80 hover:bg-white/10 text-left transition-colors"
+                      >
+                        <User size={16} className="mr-2" />
+                        Profile
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setProfileMenuOpen(false);
+                          navigate('/settings');
+                        }}
+                        className="flex items-center w-full px-4 py-2 text-white/80 hover:bg-white/10 text-left transition-colors"
+                      >
+                        <Settings size={16} className="mr-2" />
+                        Settings
+                      </button>
+
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center w-full px-4 py-2 text-white/80 hover:bg-white/10 text-left transition-colors"
+                      >
+                        <LogOut size={16} className="mr-2" />
+                        Logout
+                      </button>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>

@@ -13,6 +13,7 @@ import api from '../services/api';
 import { AxiosError } from 'axios';
 import { TodaysHabits } from '../components/dashboard/TodaysHabits';
 import { useLocation } from 'react-router-dom';
+import { getXpToLevelUp } from '../utils/leveling';
 
 interface ErrorResponse {
   message: string;
