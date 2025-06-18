@@ -6,6 +6,8 @@ interface CardProps extends Omit<HTMLMotionProps<'div'>, 'children' | 'style'> {
   variant?: 'default' | 'glass' | 'solid';
   className?: string;
   interactive?: boolean;
+  hover?: boolean;
+  glow?: boolean;
 }
 
 export const Card: React.FC<CardProps> = ({
@@ -13,6 +15,8 @@ export const Card: React.FC<CardProps> = ({
   variant = 'default',
   className = '',
   interactive = false,
+  hover,
+  glow,
   ...props
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);

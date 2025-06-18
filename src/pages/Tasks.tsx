@@ -12,7 +12,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Card } from '../components/common/Card';
 import { Modal } from '../components/common/Modal';
 
-type ViewMode = 'list' | 'grid' | 'kanban';
+type ViewMode = 'list' | 'kanban';
 type FilterType = 'all' | 'todo' | 'inProgress' | 'completed' | 'overdue';
 type SortType = 'dueDate' | 'priority' | 'created' | 'alphabetical';
 type SortKey = 'dueDate' | 'priority' | 'createdAt';
@@ -36,7 +36,6 @@ const TasksHeader: React.FC<{
           {/* View Switcher */}
           <div className="flex items-center gap-1 p-1 bg-white/5 rounded-md">
             <Button variant={viewMode === 'list' ? 'primary' : 'ghost'} size="icon" onClick={() => onSetViewMode('list')}><List className="w-5 h-5" /></Button>
-            <Button variant={viewMode === 'grid' ? 'primary' : 'ghost'} size="icon" onClick={() => onSetViewMode('grid')}><Grid className="w-5 h-5" /></Button>
             <Button variant={viewMode === 'kanban' ? 'primary' : 'ghost'} size="icon" onClick={() => onSetViewMode('kanban')}><Kanban className="w-5 h-5" /></Button>
           </div>
         </div>
@@ -308,7 +307,7 @@ export const Tasks: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('dueDate');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
@@ -447,21 +446,38 @@ export const Tasks: React.FC = () => {
     }
 
     if (editingTask) {
-      // TODO: Implement API call for updating a task
-      console.warn("Update functionality is not yet implemented with the backend.");
-      // For now, optimistic update on client-side and close modal
-      const updatedTask = {
-        ...editingTask,
-        ...taskData,
-        priority: {
-          level: taskData.priority,
-          color: (['high', 'medium', 'low'].includes(taskData.priority)) ? { high: '#EF4444', medium: '#FBBF24', low: '#3B82F6' }[taskData.priority] : '#FBBF24'
-        },
-        dueDate: taskData.dueDate ? new Date(taskData.dueDate) : undefined,
-        subtasks: taskData.subtasks.map((st: any, i: number) => ({ ...st, id: st.id || `${editingTask.id}-sub-${i}` }))
+      const payload = {
+        taskId: editingTask.id,
+        taskTitle: taskData.title,
+        taskDescription: taskData.description,
+        priority: taskData.priority.charAt(0).toUpperCase() + taskData.priority.slice(1),
+        category: "Work", // default
+        estimatedTime: 120, // default
+        dueDate: taskData.dueDate ? new Date(taskData.dueDate).toISOString() : new Date().toISOString(),
+        tags: [], // default
+        subTasks: taskData.subtasks?.map((st: SubTask) => st.title) || [],
       };
-      setTasks(tasks.map(t => t.id === editingTask.id ? updatedTask : t));
-      closeModal();
+
+      try {
+        const response = await fetch('http://localhost:5001/api/stats/updateTask', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const errorBody = await response.text();
+          throw new Error(`HTTP error! status: ${response.status}, body: ${errorBody}`);
+        }
+        await fetchTasks();
+        closeModal();
+      } catch (e: any) {
+        setError(e.message || 'Failed to update task.');
+        console.error(e);
+      }
     } else {
       const payload = {
         taskTitle: taskData.title,
@@ -510,7 +526,7 @@ export const Tasks: React.FC = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ taskId: id }),
+        body: JSON.stringify({ taskId: id, deleteTask: true }),
       });
       if (!response.ok) {
         const errorBody = await response.text();
@@ -532,10 +548,42 @@ export const Tasks: React.FC = () => {
       t.id === task.id ? { ...t, status: newStatus } : t
     ));
 
-    // TODO: Here you would ideally call an API to update the task status on the backend
-    // Since there's no endpoint for this, the change remains on the client-side until the next full fetch.
-    // The fetch logic will preserve this status change.
-    console.log(`Task ${task.id} status changed to ${newStatusType} on client-side.`);
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError("Authentication token not found.");
+      // Revert optimistic update
+      setTasks(currentTasks => currentTasks.map(t =>
+        t.id === task.id ? { ...t, status: task.status } : t
+      ));
+      return;
+    }
+
+    try {
+      const baseUrl = newStatusType === 'completed' ? 'http://localhost:5001/api/stats/task' : 'http://localhost:5001/api/stats/dec';
+      const endpoint = `${baseUrl}?taskId=${task.id}`;
+      const response = await fetch(endpoint, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Failed to update task status count. Server responded with ${response.status}: ${errorBody}`);
+      }
+
+      console.log(`Successfully called ${endpoint} for task ${task.id}`);
+
+    } catch (e: any) {
+      setError(e.message || 'An error occurred.');
+      console.error(e);
+      // Revert optimistic update on failure
+      setTasks(currentTasks => currentTasks.map(t =>
+        t.id === task.id ? { ...t, status: task.status } : t
+      ));
+    }
   };
 
   const handleQuickAddTask = (title: string) => {
@@ -576,13 +624,7 @@ export const Tasks: React.FC = () => {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.2 }}
             >
-              {viewMode === 'grid' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-6">
-                  {sortedAndFilteredTasks.map((task) => (
-                    <TaskCard key={task.id} task={task} onEdit={() => openEditModal(task)} onDelete={() => handleDeleteTask(task.id)} />
-                  ))}
-                </div>
-              ) : viewMode === 'list' ? (
+              {viewMode === 'list' ? (
                 <div className="p-2 sm:p-4">
                   <table className="w-full text-left">
                     <thead>

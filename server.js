@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
+import mongoose from 'mongoose';
 
 const __filename = fileURLToPath(
     import.meta.url);
@@ -15,6 +16,14 @@ const PORT = 5001;
 
 // Better startup logging
 console.log('Initializing server...');
+
+// Connect to MongoDB (replace with your actual MongoDB URI)
+mongoose.connect('mongodb://localhost:27017/focuss', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+})
+    .then(() => console.log('Connected to MongoDB'))
+    .catch(err => console.error('MongoDB connection error:', err));
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -73,6 +82,14 @@ app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/library', express.static(path.join(__dirname, 'library')));
 
+// Import routes
+import aiRoutes from './src/server/routes/aiRoutes.js';
+import libraryRoutes from './src/server/routes/libraryRoutes.js';
+
+// Use routes
+app.use('/api/ai', aiRoutes);
+app.use('/api/library', libraryRoutes);
+
 // Mock user data
 let mockUser = {
     id: '123',
@@ -89,23 +106,23 @@ let mockUser = {
 
 // Mock library data
 let libraryItems = [{
-        id: 'folder-1',
-        type: 'folder',
-        name: 'Documents',
-        parentId: null,
-        path: '/',
-        createdAt: new Date(),
-        modifiedAt: new Date()
-    },
-    {
-        id: 'folder-2',
-        type: 'folder',
-        name: 'Images',
-        parentId: null,
-        path: '/',
-        createdAt: new Date(),
-        modifiedAt: new Date()
-    }
+    id: 'folder-1',
+    type: 'folder',
+    name: 'Documents',
+    parentId: null,
+    path: '/',
+    createdAt: new Date(),
+    modifiedAt: new Date()
+},
+{
+    id: 'folder-2',
+    type: 'folder',
+    name: 'Images',
+    parentId: null,
+    path: '/',
+    createdAt: new Date(),
+    modifiedAt: new Date()
+}
 ];
 
 // In-memory file tracking

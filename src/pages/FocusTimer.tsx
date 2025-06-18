@@ -320,8 +320,8 @@ export const FocusTimer: React.FC = () => {
     sessionType === 'work'
       ? settings.workDuration * 60
       : sessionType === 'shortBreak'
-      ? settings.shortBreakDuration * 60
-      : settings.longBreakDuration * 60;
+        ? settings.shortBreakDuration * 60
+        : settings.longBreakDuration * 60;
 
   const progress = totalDuration > 0 ? ((totalDuration - timeLeft) / totalDuration) * 100 : 0;
 
@@ -387,97 +387,64 @@ export const FocusTimer: React.FC = () => {
               </h2>
             </div>
 
-            {/* Circular Progress */}
-            <div className="relative w-72 h-72 mx-auto mb-8">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="45"
-                  stroke="rgba(255,255,255,0.1)"
-                  strokeWidth="2"
-                  fill="none"
-                />
-                <motion.circle
-                  cx="50"
-                  cy="50"
-                  r="45"
-                  stroke="url(#timerGradient)"
-                  strokeWidth="3"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeDasharray="282.6"
-                  strokeDashoffset={282.6 - (progress / 100) * 282.6}
-                />
-                <defs>
-                  <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#8B5CF6" />
-                    <stop offset="100%" stopColor="#EC4899" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <h3 className="text-6xl font-bold text-white font-mono">
-                  {formatTime(timeLeft)}
-                </h3>
-                <p className="text-white/60 mt-2">
-                  Session {sessionsCompleted + 1}
-                </p>
-              </div>
+            {/* Focus Task */}
+            {currentTask && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-8 text-center">
+                <p className="text-white/60">Focusing on:</p>
+                <p className="font-semibold text-lg">{currentTask.title}</p>
+              </motion.div>
+            )}
+
+            {/* Timer Display */}
+            <div className="my-8 flex justify-center">
+              <CircularProgressBar
+                progress={progress}
+                size={300}
+                strokeWidth={15}
+                color={getSessionColor()}
+              >
+                <div className="text-center">
+                  <motion.div
+                    key={sessionType}
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-2xl font-semibold uppercase tracking-widest text-white/70 mb-2"
+                  >
+                    {sessionType.replace('Break', ' Break')}
+                  </motion.div>
+                  <div className="text-7xl font-bold text-white tabular-nums">
+                    {formatTime(timeLeft)}
+                  </div>
+                </div>
+              </CircularProgressBar>
             </div>
 
-            {/* Timer Controls */}
-            <div className="flex items-center justify-center gap-4">
-              <Button
-                variant="primary"
-                size="lg"
-                className="rounded-full px-10"
-                onClick={toggleTimer}
-                icon={isRunning ? Pause : Play}
-              >
-                {isRunning ? 'Pause' : 'Start'}
+            {/* Controls */}
+            <div className="flex justify-center items-center gap-4">
+              <Button variant="secondary" size="icon" onClick={resetTimer} title="Reset Timer">
+                <RotateCcw className="w-8 h-8" />
               </Button>
               <Button
-                variant="secondary"
                 size="lg"
-                icon={RefreshCw}
-                onClick={resetTimer}
+                onClick={isRunning ? () => setIsRunning(false) : startNewWorkSession}
+                className="w-32 h-32 rounded-full text-2xl"
               >
-                Reset
+                {isRunning ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8" />}
               </Button>
-              <Button
-                variant="secondary"
-                size="lg"
-                icon={SkipForward}
-                onClick={skipSession}
-              >
-                Skip
+              <Button variant="secondary" size="icon" onClick={skipSession} title="Skip Session">
+                <SkipForward className="w-6 h-6" />
               </Button>
             </div>
 
-            {/* Current Task */}
-            <div className="w-full mt-8">
-              <div className="glass p-4 rounded-xl">
-                <h3 className="text-white mb-2">Current Task (Optional)</h3>
-                <select
-                  value={currentTask?.id || ''}
-                  onChange={(e) => {
-                    const selectedTask = state.tasks.find(t => t.id === e.target.value);
-                    if (selectedTask) {
-                      setCurrentTask({ id: selectedTask.id, title: selectedTask.title });
-                    } else {
-                      setCurrentTask(null);
-                    }
-                  }}
-                  className="w-full px-4 py-3 bg-white/10 rounded-xl text-white placeholder-white/50 border border-white/20 focus:outline-none"
-                  disabled={isRunning}
-                >
-                  <option value="">-- Select a task to focus on --</option>
-                  {state.tasks.filter(t => t.status.type !== 'completed').map(task => (
-                    <option key={task.id} value={task.id}>{task.title}</option>
-                  ))}
-                </select>
-              </div>
+            <div className="mt-8 text-center text-white/50">
+              <p>Sessions completed: {sessionsCompleted}</p>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+              <StatCard icon={Target} label="Current Task" value={currentTask?.title || 'None'} />
+              <StatCard icon={RefreshCw} label="Sessions" value={`${sessionsCompleted} / ${settings.sessionsUntilLongBreak}`} />
+              <StatCard icon={Zap} label="Distractions" value={distractions} />
             </div>
           </Card>
         </div>
@@ -581,99 +548,16 @@ export const FocusTimer: React.FC = () => {
         onClose={() => setShowSettings(false)}
         title="Timer Settings"
       >
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-white mb-2">Work Duration (minutes)</label>
-              <input
-                type="number"
-                min="1"
-                max="120"
-                value={settings.workDuration}
-                onChange={(e) => setSettings({ ...settings, workDuration: parseInt(e.target.value) || 25 })}
-                className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-white mb-2">Short Break (minutes)</label>
-              <input
-                type="number"
-                min="1"
-                max="30"
-                value={settings.shortBreakDuration}
-                onChange={(e) => setSettings({ ...settings, shortBreakDuration: parseInt(e.target.value) || 5 })}
-                className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-white mb-2">Long Break (minutes)</label>
-              <input
-                type="number"
-                min="1"
-                max="60"
-                value={settings.longBreakDuration}
-                onChange={(e) => setSettings({ ...settings, longBreakDuration: parseInt(e.target.value) || 15 })}
-                className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-white mb-2">Sessions Until Long Break</label>
-              <input
-                type="number"
-                min="1"
-                max="10"
-                value={settings.sessionsUntilLongBreak}
-                onChange={(e) => setSettings({ ...settings, sessionsUntilLongBreak: parseInt(e.target.value) || 4 })}
-                className="w-full px-4 py-2 bg-white/10 rounded-lg text-white"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-white">Auto-start breaks</span>
-              <input
-                type="checkbox"
-                id="autoStartBreaks"
-                checked={settings.autoStartBreaks}
-                onChange={(e) => setSettings({ ...settings, autoStartBreaks: e.target.checked })}
-                className="w-4 h-4"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-white">Auto-start work sessions</span>
-              <input
-                type="checkbox"
-                id="autoStartWork"
-                checked={settings.autoStartWork}
-                onChange={(e) => setSettings({ ...settings, autoStartWork: e.target.checked })}
-                className="w-4 h-4"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            <Button
-              variant="primary"
-              onClick={() => updateSettings(settings)}
-              fullWidth
-            >
-              Apply Settings
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => setShowSettings(false)}
-              fullWidth
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
+        <SettingsPanel
+          settings={settings}
+          onSave={updateSettings}
+          onCancel={() => setShowSettings(false)}
+        />
       </Modal>
 
       <AnimatePresence>
         {isRunning && (
-          <motion.div initial={{ opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}} className="absolute top-4 right-4">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute top-4 right-4">
             <Button
               variant="glass"
               size="sm"
@@ -689,34 +573,34 @@ export const FocusTimer: React.FC = () => {
       <div className="w-full max-w-md mx-auto flex flex-col items-center">
         {/* Task Selector */}
         <div className="mb-8 w-full">
-            <select
-                value={currentTask?.id || ''}
-                onChange={(e) => {
-                    const selectedTask = state.tasks.find(t => t.id === e.target.value);
-                    if (selectedTask) {
-                        setCurrentTask({ id: selectedTask.id, title: selectedTask.title });
-                    } else {
-                        setCurrentTask(null);
-                    }
-                }}
-                className="input-field w-full text-center"
-                disabled={isRunning}
-            >
-                <option value="">-- Select a task to focus on --</option>
-                {state.tasks.filter(t => t.status.type !== 'completed').map(task => (
-                    <option key={task.id} value={task.id}>{task.title}</option>
-                ))}
-            </select>
+          <select
+            value={currentTask?.id || ''}
+            onChange={(e) => {
+              const selectedTask = state.tasks.find(t => t.id === e.target.value);
+              if (selectedTask) {
+                setCurrentTask({ id: selectedTask.id, title: selectedTask.title });
+              } else {
+                setCurrentTask(null);
+              }
+            }}
+            className="input-field w-full text-center"
+            disabled={isRunning}
+          >
+            <option value="">-- Select a task to focus on --</option>
+            {state.tasks.filter(t => t.status.type !== 'completed').map(task => (
+              <option key={task.id} value={task.id}>{task.title}</option>
+            ))}
+          </select>
         </div>
 
         {/* Timer Display */}
         <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="relative mb-8">
-            <CircularProgressBar progress={progress} size={300} strokeWidth={12}>
-                <div className="text-center">
-                    <h2 className="text-6xl font-bold text-white">{formatTime(timeLeft)}</h2>
-                    <p className="text-white/60 capitalize">{sessionType.replace('B', ' B')}</p>
-                </div>
-            </CircularProgressBar>
+          <CircularProgressBar progress={progress} size={300} strokeWidth={12}>
+            <div className="text-center">
+              <h2 className="text-6xl font-bold text-white">{formatTime(timeLeft)}</h2>
+              <p className="text-white/60 capitalize">{sessionType.replace('B', ' B')}</p>
+            </div>
+          </CircularProgressBar>
         </motion.div>
 
         {/* Timer Controls */}
@@ -736,19 +620,95 @@ export const FocusTimer: React.FC = () => {
           </Button>
         </div>
 
-         {/* Soundscapes placeholder */}
+        {/* Soundscapes placeholder */}
         <div className="mt-8 text-center">
-            <p className="text-white/60">Ambiance Controls</p>
-            <div className="flex items-center justify-center space-x-4 mt-2">
-                <Button variant="glass" size="sm">Rain</Button>
-                <Button variant="glass" size="sm">Cafe</Button>
-                <Button variant="glass" size="sm">Forest</Button>
-                 <Button variant="ghost" size="icon">
-                    <Volume2 className="w-6 h-6" />
-                </Button>
-            </div>
+          <p className="text-white/60">Ambiance Controls</p>
+          <div className="flex items-center justify-center space-x-4 mt-2">
+            <Button variant="glass" size="sm">Rain</Button>
+            <Button variant="glass" size="sm">Cafe</Button>
+            <Button variant="glass" size="sm">Forest</Button>
+            <Button variant="ghost" size="icon">
+              <Volume2 className="w-6 h-6" />
+            </Button>
+          </div>
         </div>
       </div>
     </div>
   );
 };
+
+const StatCard = ({ icon: Icon, label, value }: { icon: React.ElementType, label: string, value: string | number }) => (
+  <div className="bg-white/5 p-4 rounded-lg">
+    <Icon className="w-6 h-6 text-white/70 mx-auto mb-2" />
+    <p className="text-sm text-white/60">{label}</p>
+    <p className="text-lg font-semibold">{value}</p>
+  </div>
+);
+
+const SettingsPanel = ({ settings, onSave, onCancel }: { settings: TimerSettings, onSave: (s: TimerSettings) => void, onCancel: () => void }) => {
+  const [localSettings, setLocalSettings] = useState(settings);
+
+  return (
+    <div className="p-6">
+      <h3 className="text-xl font-bold mb-6">Timer Settings</h3>
+      <div className="space-y-4">
+        <SettingInput
+          label="Work Duration (minutes)"
+          type="number"
+          value={localSettings.workDuration}
+          onChange={(e) => setLocalSettings(s => ({ ...s, workDuration: parseInt(e.target.value) }))}
+        />
+        <SettingInput
+          label="Short Break (minutes)"
+          type="number"
+          value={localSettings.shortBreakDuration}
+          onChange={(e) => setLocalSettings(s => ({ ...s, shortBreakDuration: parseInt(e.target.value) }))}
+        />
+        <SettingInput
+          label="Long Break (minutes)"
+          type="number"
+          value={localSettings.longBreakDuration}
+          onChange={(e) => setLocalSettings(s => ({ ...s, longBreakDuration: parseInt(e.target.value) }))}
+        />
+        <SettingInput
+          label="Sessions until Long Break"
+          type="number"
+          value={localSettings.sessionsUntilLongBreak}
+          onChange={(e) => setLocalSettings(s => ({ ...s, sessionsUntilLongBreak: parseInt(e.target.value) }))}
+        />
+        <div className="flex justify-between items-center pt-2">
+          <label className="text-white/80">Auto-start Breaks</label>
+          <input
+            type="checkbox"
+            checked={localSettings.autoStartBreaks}
+            onChange={(e) => setLocalSettings(s => ({ ...s, autoStartBreaks: e.target.checked }))}
+            className="toggle-switch"
+          />
+        </div>
+        <div className="flex justify-between items-center">
+          <label className="text-white/80">Auto-start Work</label>
+          <input
+            type="checkbox"
+            checked={localSettings.autoStartWork}
+            onChange={(e) => setLocalSettings(s => ({ ...s, autoStartWork: e.target.checked }))}
+            className="toggle-switch"
+          />
+        </div>
+      </div>
+      <div className="mt-8 flex justify-end gap-4">
+        <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+        <Button onClick={() => onSave(localSettings)}>Save</Button>
+      </div>
+    </div>
+  );
+};
+
+const SettingInput = (props: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) => (
+  <div>
+    <label className="block text-sm text-white/60 mb-1">{props.label}</label>
+    <input
+      {...props}
+      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+    />
+  </div>
+);
