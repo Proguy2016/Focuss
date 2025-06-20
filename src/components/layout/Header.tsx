@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, Bell, Search, Sun, Moon, LogOut, ChevronDown, Copy, User, Settings } from 'lucide-react';
+import { Menu, Bell, Search, Sun, Moon, LogOut, ChevronDown } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../common/Button';
@@ -10,7 +10,6 @@ export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const { state, dispatch } = useApp();
   const { user } = useAuth();
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [idCopied, setIdCopied] = useState(false);
   const navigate = useNavigate();
 
   const toggleTheme = () => {
@@ -29,14 +28,6 @@ export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
 
     // Navigate to the auth page
     navigate('/auth');
-  };
-
-  const copyUserId = () => {
-    if (user?.id) {
-      navigator.clipboard.writeText(user.id);
-      setIdCopied(true);
-      setTimeout(() => setIdCopied(false), 2000);
-    }
   };
 
   return (
@@ -127,17 +118,9 @@ export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
                 onClick={() => setProfileMenuOpen(!isProfileMenuOpen)}
               >
                 <div className="w-8 h-8 rounded-full bg-gradient-to-r from-accent-500 to-primary-500 flex items-center justify-center">
-                  {user.profilePicture ? (
-                    <img
-                      src={user.profilePicture}
-                      alt={`${user.firstName} ${user.lastName}`}
-                      className="w-full h-full rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-white font-semibold text-sm">
-                      {user?.firstName?.charAt(0)}
-                    </span>
-                  )}
+                  <span className="text-white font-semibold text-sm">
+                    {user?.firstName?.charAt(0)}
+                  </span>
                 </div>
                 <div className="hidden sm:block">
                   <p className="text-sm font-medium text-white">{user?.firstName} {user?.lastName}</p>
@@ -151,60 +134,32 @@ export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
-                    className="absolute right-0 mt-2 w-64 bg-black/50 backdrop-blur-lg rounded-lg shadow-xl border border-white/10 z-50"
+                    className="absolute right-0 mt-2 w-56 bg-black/50 backdrop-blur-lg rounded-lg shadow-xl border border-white/10 z-50 p-2"
                   >
-                    <div className="p-4 border-b border-white/10">
-                      <p className="text-sm font-medium text-white">{user?.firstName} {user?.lastName}</p>
-                      <p className="text-xs text-white/60 mt-1">{user?.email}</p>
-                      <div className="mt-2 flex items-center gap-2">
-                        <div className="text-xs text-white/60 bg-white/10 rounded p-1 px-2 flex-1 truncate" title={user?.id}>
-                          ID: {user?.id}
-                        </div>
-                        <button
-                          onClick={copyUserId}
-                          className="text-white/60 hover:text-white p-1 rounded transition-colors"
-                          title="Copy ID"
+                    <div className="p-2">
+                      <p className="text-xs text-white/60">User ID</p>
+                      <div className="flex items-center justify-between mt-1 gap-2">
+                        <span className="text-xs font-mono text-white/80 truncate" title={user.id}>
+                          {user.id}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => navigator.clipboard.writeText(user.id)}
+                          className="px-2 py-1 flex-shrink-0"
                         >
-                          {idCopied ? (
-                            <span className="text-success-400 text-xs">Copied!</span>
-                          ) : (
-                            <Copy size={14} />
-                          )}
-                        </button>
+                          Copy
+                        </Button>
                       </div>
                     </div>
-
-                    <div className="py-1">
-                      <button
-                        onClick={() => {
-                          setProfileMenuOpen(false);
-                          navigate('/profile');
-                        }}
-                        className="flex items-center w-full px-4 py-2 text-white/80 hover:bg-white/10 text-left transition-colors"
-                      >
-                        <User size={16} className="mr-2" />
-                        Profile
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setProfileMenuOpen(false);
-                          navigate('/settings');
-                        }}
-                        className="flex items-center w-full px-4 py-2 text-white/80 hover:bg-white/10 text-left transition-colors"
-                      >
-                        <Settings size={16} className="mr-2" />
-                        Settings
-                      </button>
-
-                      <button
-                        onClick={handleLogout}
-                        className="flex items-center w-full px-4 py-2 text-white/80 hover:bg-white/10 text-left transition-colors"
-                      >
-                        <LogOut size={16} className="mr-2" />
-                        Logout
-                      </button>
-                    </div>
+                    <div className="h-px bg-white/10 my-1"></div>
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center w-full px-4 py-2 text-white/80 hover:bg-white/10 text-left rounded-lg transition-colors"
+                    >
+                      <LogOut size={16} className="mr-2" />
+                      Logout
+                    </button>
                   </motion.div>
                 )}
               </AnimatePresence>

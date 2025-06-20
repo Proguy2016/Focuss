@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Plus, Search, Crown, Trophy, Target, Zap,
   MessageCircle, Heart, Share2, MoreHorizontal, Settings,
-  Calendar, Clock, TrendingUp, Award, Star, UserPlus, UserCheck
+  Calendar, Clock, TrendingUp, Award, Star, UserPlus, UserX, Mail,
+  Check, X, UserCheck, User, UserMinus
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
-import { Friends } from '../components/social/Friends';
+import FriendsService, { FriendProfile, FriendRequest } from '../services/FriendsService';
+import api from '../services/api';
 
 interface FocusGroup {
   id: string;
@@ -49,10 +52,21 @@ interface SocialPost {
 
 export const Social: React.FC = () => {
   const { state } = useApp();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'feed' | 'groups' | 'leaderboard' | 'friends'>('feed');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showJoinGroup, setShowJoinGroup] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Friends state
+  const [friends, setFriends] = useState<FriendProfile[]>([]);
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showAddFriend, setShowAddFriend] = useState(false);
+  const [newFriendEmail, setNewFriendEmail] = useState('');
+  const [selectedFriend, setSelectedFriend] = useState<FriendProfile | null>(null);
+  const [showFriendDetails, setShowFriendDetails] = useState(false);
+  const [friendDetailLoading, setFriendDetailLoading] = useState(false);
 
   const [newGroup, setNewGroup] = useState({
     name: '',
@@ -294,6 +308,230 @@ export const Social: React.FC = () => {
     </motion.div>
   );
 
+  // Fetch friends data
+  useEffect(() => {
+    if (activeTab === 'friends') {
+      fetchFriends();
+      fetchFriendRequests();
+    }
+  }, [activeTab]);
+
+  const fetchFriends = async () => {
+    try {
+      setIsLoading(true);
+      const friendsList = await FriendsService.getFriendList();
+      setFriends(friendsList);
+    } catch (error) {
+      console.error('Failed to fetch friends:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchFriendRequests = async () => {
+    try {
+      setIsLoading(true);
+      const response = await api.get('/api/friends/requests');
+      const requests = response.data.friendRequests || [];
+
+      // Fetch details for each friend request
+      const populatedRequests = await Promise.all(
+        requests.map(async (req: { friendId: string }) => {
+          try {
+            // Get friend info using the friendId
+            const friendResponse = await api.get(`/api/friends/info/${req.friendId}`);
+            const friendData = friendResponse.data;
+
+            // Create a sender object with the friend data
+            return {
+              ...req,
+              sender: {
+                _id: req.friendId,
+                firstName: friendData.friendFirstName,
+                lastName: friendData.friendLastName,
+                profilePicture: friendData.friendPfp,
+                bio: friendData.friendBio
+              }
+            };
+          } catch (error) {
+            console.error(`Failed to fetch info for sender ${req.friendId}`, error);
+            return req; // Return original request if sender info fails
+          }
+        })
+      );
+
+      setFriendRequests(populatedRequests);
+    } catch (error) {
+      console.error('Failed to fetch friend requests:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const sendFriendRequest = async () => {
+    try {
+      await FriendsService.sendFriendRequest(newFriendEmail);
+      setNewFriendEmail('');
+      setShowAddFriend(false);
+      // Show success message
+    } catch (error) {
+      console.error('Failed to send friend request:', error);
+      // Show error message
+    }
+  };
+
+  const acceptFriendRequest = async (requestId: string) => {
+    try {
+      await FriendsService.acceptFriendRequest(requestId);
+      fetchFriendRequests();
+      fetchFriends();
+    } catch (error) {
+      console.error('Failed to accept friend request:', error);
+    }
+  };
+
+  const declineFriendRequest = async (requestId: string) => {
+    try {
+      await FriendsService.declineFriendRequest(requestId);
+      fetchFriendRequests();
+    } catch (error) {
+      console.error('Failed to decline friend request:', error);
+    }
+  };
+
+  const unfriendUser = async (friendId: string) => {
+    try {
+      await FriendsService.unfriend(friendId);
+      fetchFriends();
+    } catch (error) {
+      console.error('Failed to unfriend user:', error);
+    }
+  };
+
+  const viewFriendDetails = async (friendId: string) => {
+    try {
+      setFriendDetailLoading(true);
+      const response = await api.get(`/api/friends/info/${friendId}`);
+      const friendData = response.data;
+
+      setSelectedFriend({
+        _id: friendId,
+        firstName: friendData.friendFirstName,
+        lastName: friendData.friendLastName,
+        profilePicture: friendData.friendPfp,
+        bio: friendData.friendBio,
+        email: '' // Backend doesn't return email for privacy reasons
+      });
+
+      setShowFriendDetails(true);
+    } catch (error) {
+      console.error('Failed to fetch friend details:', error);
+    } finally {
+      setFriendDetailLoading(false);
+    }
+  };
+
+  // Friend Card component
+  const FriendCard: React.FC<{ friend: FriendProfile; index: number }> = ({ friend, index }) => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.1 }}
+      onClick={() => viewFriendDetails(friend._id)}
+      className="cursor-pointer"
+    >
+      <Card variant="solid" className="p-4 bg-white/5 hover:bg-white/10 transition-colors">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-xl">
+              {friend.profilePicture ? (
+                <img
+                  src={friend.profilePicture}
+                  alt={`${friend.firstName} ${friend.lastName}`}
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : (
+                <User className="w-6 h-6 text-white" />
+              )}
+            </div>
+
+            <div className="flex-1">
+              <h3 className="font-semibold text-white">{friend.firstName} {friend.lastName}</h3>
+              {friend.level && <p className="text-xs text-white/60">Level {friend.level}</p>}
+              {friend.bio && <p className="text-sm text-white/60 line-clamp-1">{friend.bio}</p>}
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" icon={MessageCircle} onClick={(e) => e.stopPropagation()} />
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={UserMinus}
+              onClick={(e) => {
+                e.stopPropagation();
+                unfriendUser(friend._id);
+              }}
+              className="text-error-400 hover:bg-error-500/20"
+            />
+          </div>
+        </div>
+      </Card>
+    </motion.div>
+  );
+
+  // Friend Request Card component
+  const FriendRequestCard: React.FC<{ request: FriendRequest; index: number }> = ({ request, index }) => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.1 }}
+    >
+      <Card variant="solid" className="p-4 bg-white/5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-xl">
+              {request.sender?.profilePicture ? (
+                <img
+                  src={request.sender.profilePicture}
+                  alt={`${request.sender.firstName} ${request.sender.lastName}`}
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : (
+                <User className="w-6 h-6 text-white" />
+              )}
+            </div>
+
+            <div className="flex-1">
+              {request.sender ? (
+                <h3 className="font-semibold text-white">{request.sender.firstName} {request.sender.lastName}</h3>
+              ) : (
+                <h3 className="font-semibold text-white italic">Loading...</h3>
+              )}
+              <p className="text-xs text-white/60">Sent you a friend request</p>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              icon={Check}
+              onClick={() => acceptFriendRequest(request.friendId)}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={X}
+              onClick={() => declineFriendRequest(request.friendId)}
+              className="text-error-400 hover:bg-error-500/20"
+            />
+          </div>
+        </div>
+      </Card>
+    </motion.div>
+  );
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -310,27 +548,32 @@ export const Social: React.FC = () => {
         </div>
 
         <div className="flex gap-3">
-          <Button
-            variant="secondary"
-            icon={UserCheck}
-            onClick={() => setActiveTab('friends')}
-          >
-            Friends
-          </Button>
-          <Button
-            variant="secondary"
-            icon={Plus}
-            onClick={() => setShowCreateGroup(true)}
-          >
-            Create Group
-          </Button>
-          <Button
-            variant="primary"
-            icon={Search}
-            onClick={() => setShowJoinGroup(true)}
-          >
-            Find Groups
-          </Button>
+          {activeTab === 'friends' ? (
+            <Button
+              variant="secondary"
+              icon={UserPlus}
+              onClick={() => setShowAddFriend(true)}
+            >
+              Add Friend
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="secondary"
+                icon={Plus}
+                onClick={() => setShowCreateGroup(true)}
+              >
+                Create Group
+              </Button>
+              <Button
+                variant="primary"
+                icon={Search}
+                onClick={() => setShowJoinGroup(true)}
+              >
+                Find Groups
+              </Button>
+            </>
+          )}
         </div>
       </motion.div>
 
@@ -344,19 +587,18 @@ export const Social: React.FC = () => {
           Feed
         </Button>
         <Button
-          variant={activeTab === 'friends' ? 'primary' : 'ghost'}
-          size="sm"
-          icon={UserCheck}
-          onClick={() => setActiveTab('friends')}
-        >
-          Friends
-        </Button>
-        <Button
           variant={activeTab === 'groups' ? 'primary' : 'ghost'}
           size="sm"
           onClick={() => setActiveTab('groups')}
         >
           Groups
+        </Button>
+        <Button
+          variant={activeTab === 'friends' ? 'primary' : 'ghost'}
+          size="sm"
+          onClick={() => setActiveTab('friends')}
+        >
+          Friends
         </Button>
         <Button
           variant={activeTab === 'leaderboard' ? 'primary' : 'ghost'}
@@ -515,7 +757,114 @@ export const Social: React.FC = () => {
         )}
 
         {activeTab === 'friends' && (
-          <Friends />
+          <motion.div
+            key="friends"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+          >
+            {/* Main Friend List */}
+            <div className="lg:col-span-2 space-y-4">
+              <Card variant="glass" className="p-4">
+                <h3 className="text-lg font-semibold text-white mb-2">Your Friends</h3>
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/40" />
+                  <input
+                    type="text"
+                    placeholder="Search friends..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="input-field w-full pl-10"
+                  />
+                </div>
+
+                {isLoading ? (
+                  <div className="text-center py-8">
+                    <p className="text-white/60">Loading...</p>
+                  </div>
+                ) : friends.length > 0 ? (
+                  <div className="space-y-3">
+                    {friends
+                      .filter(friend =>
+                        `${friend.firstName} ${friend.lastName}`
+                          .toLowerCase()
+                          .includes(searchTerm.toLowerCase())
+                      )
+                      .map((friend, index) => (
+                        <FriendCard key={friend._id} friend={friend} index={index} />
+                      ))
+                    }
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Users className="w-12 h-12 text-white/20 mx-auto mb-2" />
+                    <p className="text-white/60">No friends yet</p>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon={UserPlus}
+                      onClick={() => setShowAddFriend(true)}
+                      className="mt-4"
+                    >
+                      Add Friend
+                    </Button>
+                  </div>
+                )}
+              </Card>
+            </div>
+
+            {/* Sidebar */}
+            <div className="space-y-6">
+              {/* Friend Requests */}
+              <Card variant="glass" className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-white">Friend Requests</h3>
+                  {friendRequests.length > 0 && (
+                    <div className="bg-primary-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">
+                      {friendRequests.length}
+                    </div>
+                  )}
+                </div>
+
+                {isLoading ? (
+                  <div className="text-center py-4">
+                    <p className="text-white/60">Loading...</p>
+                  </div>
+                ) : friendRequests.length > 0 ? (
+                  <div className="space-y-3">
+                    {friendRequests.map((request, index) => (
+                      <FriendRequestCard key={request.friendId} request={request} index={index} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <Mail className="w-8 h-8 text-white/20 mx-auto mb-2" />
+                    <p className="text-white/60">No pending requests</p>
+                  </div>
+                )}
+              </Card>
+
+              {/* Friend Stats */}
+              <Card variant="glass" className="p-6">
+                <h3 className="text-lg font-semibold text-white mb-4">Friend Stats</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Total Friends</span>
+                    <span className="text-white font-semibold">{friends.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Recent Activity</span>
+                    <span className="text-white font-semibold">5 sessions</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Study Buddies</span>
+                    <span className="text-white font-semibold">2 active</span>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </motion.div>
         )}
 
         {activeTab === 'leaderboard' && (
@@ -615,6 +964,63 @@ export const Social: React.FC = () => {
         )}
       </AnimatePresence>
 
+      {/* Add Friend Modal */}
+      <Modal
+        isOpen={showAddFriend}
+        onClose={() => setShowAddFriend(false)}
+        title="Add Friend"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-white/60 text-sm mb-2">Friend ID</label>
+            <div className="relative">
+              <input
+                type="text"
+                value={newFriendEmail}
+                onChange={(e) => setNewFriendEmail(e.target.value)}
+                placeholder="Enter friend's ID"
+                className="input-field w-full"
+                autoFocus
+              />
+            </div>
+            {user && (
+              <div className="mt-4 p-3 glass rounded-lg">
+                <p className="text-white/60 text-sm mb-2">Your User ID:</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-white font-mono bg-white/10 px-2 py-1 rounded">{user.id}</span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => navigator.clipboard.writeText(user.id)}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button
+              variant="primary"
+              onClick={sendFriendRequest}
+              fullWidth
+              disabled={!newFriendEmail.trim()}
+            >
+              Send Request
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setShowAddFriend(false)}
+              fullWidth
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Create Group Modal */}
       <Modal
         isOpen={showCreateGroup}
@@ -692,6 +1098,73 @@ export const Social: React.FC = () => {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Friend Details Modal */}
+      <Modal
+        isOpen={showFriendDetails}
+        onClose={() => setShowFriendDetails(false)}
+        title="Friend Profile"
+        size="md"
+      >
+        {friendDetailLoading ? (
+          <div className="flex justify-center py-8">
+            <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : selectedFriend ? (
+          <div className="space-y-6">
+            <div className="flex flex-col items-center">
+              <div className="w-24 h-24 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-4xl mb-4">
+                {selectedFriend.profilePicture ? (
+                  <img
+                    src={selectedFriend.profilePicture}
+                    alt={`${selectedFriend.firstName} ${selectedFriend.lastName}`}
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  <User className="w-12 h-12 text-white" />
+                )}
+              </div>
+
+              <h2 className="text-2xl font-bold text-white">{selectedFriend.firstName} {selectedFriend.lastName}</h2>
+              {selectedFriend.level && (
+                <p className="text-sm text-white/60">Level {selectedFriend.level}</p>
+              )}
+            </div>
+
+            <div className="glass p-4 rounded-lg">
+              <h3 className="text-white/80 text-sm mb-2">Bio</h3>
+              <p className="text-white/60">
+                {selectedFriend.bio || "No bio available."}
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button
+                variant="primary"
+                icon={MessageCircle}
+                fullWidth
+              >
+                Message
+              </Button>
+              <Button
+                variant="danger"
+                icon={UserMinus}
+                onClick={() => {
+                  unfriendUser(selectedFriend._id);
+                  setShowFriendDetails(false);
+                }}
+                fullWidth
+              >
+                Unfriend
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-white/60">Friend information not available.</p>
+          </div>
+        )}
       </Modal>
     </div>
   );

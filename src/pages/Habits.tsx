@@ -138,21 +138,59 @@ export const Habits: React.FC = () => {
 
       if (habitsToReset.length > 0) {
         console.log('Resetting daily habits:', habitsToReset.map(h => h.name));
-        // Here you might want to dispatch an action to reset these habits in the backend
-        // For now, we'll just update the local state to reflect the reset
-        const updatedHabits = state.habits.map(habit => {
-          if (habitsToReset.some(h => h.habitId === habit.habitId)) {
-            return { ...habit, progress: 0, completed: false };
+
+        try {
+          // Reset habits in the backend
+          for (const habit of habitsToReset) {
+            await api.put('/api/stats/resetHabit', { habitId: habit.habitId });
           }
-          return habit;
-        });
-        dispatch({ type: 'SET_HABITS', payload: updatedHabits });
+
+          // Fetch updated habits after reset
+          const response = await api.get('/api/stats/getHabits');
+          if (response.data && response.data.habits) {
+            const transformedHabits = response.data.habits.map((habit: any) => {
+              const categoryObj = categories.find(c => c.name === habit.category);
+              const frequencyObj = typeof habit.frequency === 'string'
+                ? { type: habit.frequency, customValue: null }
+                : habit.frequency;
+
+              return {
+                ...habit,
+                id: habit.habitId,
+                name: habit.name,
+                description: habit.description,
+                frequency: frequencyObj,
+                category: categoryObj || { name: habit.category, color: '#6B7280', icon: 'Zap' },
+                targetCount: habit.targetCount,
+                priority: habit.priority,
+                currentStreak: habit.streak,
+                progress: habit.progress,
+                completed: habit.completed,
+                lastCompleted: habit.lastCompleted,
+                startDate: habit.startDate,
+                resetDate: habit.resetDate,
+              };
+            });
+            dispatch({ type: 'SET_HABITS', payload: transformedHabits });
+          }
+        } catch (error) {
+          console.error("Failed to reset habits in backend:", error);
+
+          // Fallback to local reset if API call fails
+          const updatedHabits = state.habits.map(habit => {
+            if (habitsToReset.some(h => h.habitId === habit.habitId)) {
+              return { ...habit, progress: 0, completed: false };
+            }
+            return habit;
+          });
+          dispatch({ type: 'SET_HABITS', payload: updatedHabits });
+        }
       }
     };
 
     // Run once on mount and then set an interval to check daily
     checkAndResetHabits();
-    const interval = setInterval(checkAndResetHabits, 1000 * 60 * 60 * 24); // Check once a day
+    const interval = setInterval(checkAndResetHabits, 1000 * 60 * 60); // Check once an hour instead of once a day for more responsiveness
 
     return () => clearInterval(interval);
   }, [state.habits, dispatch]);
@@ -356,8 +394,8 @@ export const Habits: React.FC = () => {
         dispatch({ type: 'SET_HABITS', payload: transformedHabits });
       }
 
-      // Refresh stats to update the dashboard
-      await refreshStats();
+      // We're removing this call to prevent sidebar refresh
+      // await refreshStats();
 
     } catch (error) {
       // Only log error if it's not a 404

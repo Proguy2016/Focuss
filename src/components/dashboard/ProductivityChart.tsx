@@ -1,21 +1,23 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { useApp } from '../../contexts/AppContext';
-import { Card } from '../common/Card';
 
 export const ProductivityChart: React.FC = () => {
   const { state } = useApp();
 
-  const chartData = state.analytics?.focusSessions.productivityTrends.map(trend => ({
-    date: new Date(trend.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    score: trend.score,
-    sessions: trend.sessions,
-    focusTime: Math.round(trend.focusTime / 60), // Convert to hours
-  })) || [];
+  // Ensure that 'state.analytics.focusSessions.productivityTrends' exists and is an array
+  const chartData = Array.isArray(state.analytics?.focusSessions?.productivityTrends)
+    ? state.analytics.focusSessions.productivityTrends.map(trend => ({
+      date: new Date(trend.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      score: trend.score,
+      sessions: trend.sessions,
+      focusTime: Math.round(trend.focusTime / 60), // Convert to hours
+    }))
+    : [];
 
   return (
-    <Card variant="glass" className="p-6">
+    <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-semibold text-white">Productivity Trends</h2>
@@ -110,6 +112,6 @@ export const ProductivityChart: React.FC = () => {
           <p className="text-white/60 text-xs">Completion</p>
         </div>
       </div>
-    </Card>
+    </div>
   );
 };
