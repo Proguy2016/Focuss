@@ -19,9 +19,9 @@ console.log('Initializing server...');
 
 // Connect to MongoDB (replace with your actual MongoDB URI)
 mongoose.connect('mongodb://localhost:27017/focuss', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-})
+        useNewUrlParser: true,
+        useUnifiedTopology: true
+    })
     .then(() => console.log('Connected to MongoDB'))
     .catch(err => console.error('MongoDB connection error:', err));
 
@@ -75,7 +75,7 @@ const libraryUpload = multer({
 
 // Middleware
 app.use(cors({
-    origin: 'http://localhost:3000',
+    origin: ['http://localhost:3000', 'http://localhost:5173'],
     credentials: true
 }));
 app.use(express.json());
@@ -106,23 +106,23 @@ let mockUser = {
 
 // Mock library data
 let libraryItems = [{
-    id: 'folder-1',
-    type: 'folder',
-    name: 'Documents',
-    parentId: null,
-    path: '/',
-    createdAt: new Date(),
-    modifiedAt: new Date()
-},
-{
-    id: 'folder-2',
-    type: 'folder',
-    name: 'Images',
-    parentId: null,
-    path: '/',
-    createdAt: new Date(),
-    modifiedAt: new Date()
-}
+        id: 'folder-1',
+        type: 'folder',
+        name: 'Documents',
+        parentId: null,
+        path: '/',
+        createdAt: new Date(),
+        modifiedAt: new Date()
+    },
+    {
+        id: 'folder-2',
+        type: 'folder',
+        name: 'Images',
+        parentId: null,
+        path: '/',
+        createdAt: new Date(),
+        modifiedAt: new Date()
+    }
 ];
 
 // In-memory file tracking
