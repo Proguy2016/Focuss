@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Upload, FileText, Brain, BookOpen, HelpCircle, Eye, Menu, X, Trash2, Sparkles, ChevronLeft, Clock, LineChart, Target } from 'lucide-react';
+import { ChevronDown, ChevronRight, Upload, FileText, Brain, BookOpen, HelpCircle, Eye, Menu, X, Trash2, Sparkles, ChevronLeft, Clock, LineChart, Target, Pencil } from 'lucide-react';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -27,6 +27,7 @@ import PremiumStudySession from '../components/library/PremiumStudySession';
 
 interface LectureData {
   id: string;
+  _id?: string;
   title: string;
   pdfFile?: File;
   summary?: string | string[];
@@ -39,6 +40,7 @@ interface LectureData {
 
 interface Subject {
   id: string;
+  _id?: string;
   name: string;
   color: string;
   lectures: LectureData[];
@@ -117,122 +119,151 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
     }));
   };
 
-  const generateAIContent = async (subjectId: string, lectureId: string) => {
-    const lecture = subjectData.find(s => s.id === subjectId)?.lectures.find(l => l.id === lectureId);
-    const subject = subjectData.find(s => s.id === subjectId);
-    if (!lecture || !lecture.pdfFile || !subject) {
-      console.error("No PDF file or subject found for the lecture.");
+  const generateAIContent = async (subject: Subject, lecture: LectureData) => {
+    console.log('generateAIContent called with:', { subject, lecture });
+
+    if (!lecture) {
+      console.error("No lecture found.");
+      setError("No lecture selected. Please select a lecture first.");
+      return;
+    }
+
+    // Get the subject ID, checking both id and _id properties
+    const subjectId = subject.id || subject._id;
+    // Get the lecture ID, checking both id and _id properties
+    const lectureId = lecture.id || lecture._id;
+
+    if (!subjectId || !lectureId) {
+      console.error("Missing subject or lecture ID:", { subjectId, lectureId });
+      setError("Invalid subject or lecture ID.");
+      return;
+    }
+
+    // Check if we have a file to upload or if we already have a fileId
+    if (!lecture.pdfFile && !lecture.fileId) {
+      console.error("No PDF file or fileId found.");
+      setError("No PDF file selected. Please upload a file for this lecture first.");
       return;
     }
 
     setIsGenerating(true);
     setError(null);
-    setProcessingStatus({ status: 'Starting', progress: 0 });
+    setProcessingStatus({ status: 'Starting', progress: 0, message: 'Preparing to process...' });
 
     try {
-      // Step 1: Upload the file using the existing upload endpoint
-      const formData = new FormData();
-      formData.append('file', lecture.pdfFile);
-      formData.append('parentId', 'root'); // Adjust as needed
-      formData.append('path', '/');
-      formData.append('folderName', subject.name);
+      let fileId = lecture.fileId;
 
-      console.log('Uploading file:', lecture.pdfFile.name);
+      // If we have a file to upload but no fileId yet, upload it first
+      if (lecture.pdfFile && !fileId) {
+        setProcessingStatus({ status: 'Uploading', progress: 5, message: 'Uploading PDF file...' });
 
-      // Use the api service which automatically includes auth headers
-      const uploadResponse = await api.post('/api/up/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+        const formData = new FormData();
+        formData.append('file', lecture.pdfFile);
+        formData.append('folderName', subject.name);
+        formData.append('lectureName', lecture.title);
+        formData.append('lectureId', lectureId); // Add lectureId to the upload request
 
-      console.log('File uploaded successfully:', uploadResponse.data);
+        const uploadResponse = await api.post('/api/up/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
 
-      // Step 2: Analyze the PDF using our new AI endpoint
+        fileId = uploadResponse.data.id;
+        if (!fileId) {
+          throw new Error('No valid file ID returned from upload');
+        }
+
+        console.log(`File uploaded successfully. File ID: ${fileId}`);
+      }
+
+      setProcessingStatus({ status: 'Analyzing', progress: 10, message: 'Starting PDF analysis...' });
+
+      // Start the AI analysis job
+      console.log('Sending analyze-pdf request with params:', { fileId, lectureId, subjectId, title: lecture.title });
+
       const analyzeResponse = await api.post('/api/ai/analyze-pdf', {
-        fileId: uploadResponse.data.id,
-        lectureId: lectureId,
-        subjectId: subjectId,
-        title: lecture.title
+        fileId,
+        lectureId,
+        subjectId,
+        title: lecture.title,
       });
 
-      // Store job ID for tracking
-      const { jobId: newJobId } = analyzeResponse.data;
-      setJobId(newJobId);
+      const { jobId } = analyzeResponse.data;
+      if (!jobId) throw new Error('Failed to start analysis job.');
 
-      // Start polling for status updates
-      const statusCheckInterval = setInterval(async () => {
+      setJobId(jobId);
+      console.log(`Analysis job started with jobId: ${jobId}`);
+
+      // Poll for job status
+      const pollInterval = setInterval(async () => {
         try {
-          const statusResponse = await api.get(`/api/ai/job-status/${newJobId}`);
-          const { status, progress, message } = statusResponse.data;
+          const statusResponse = await api.get(`/api/ai/job-status/${jobId}`);
+          const { status, progress, message, data } = statusResponse.data;
 
-          // Update UI with status
+          console.log(`Job status update: ${status}, progress: ${progress}%, message: ${message}`);
           setProcessingStatus({ status, progress, message });
 
-          // If complete, stop polling and update the UI
           if (status === 'completed' || status === 'failed') {
-            clearInterval(statusCheckInterval);
+            clearInterval(pollInterval);
+            setIsGenerating(false);
+            setJobId(null);
 
             if (status === 'completed') {
-              // Save the generated content to the lecture
-              const saveResponse = await api.post('/api/ai/save-content', {
-                jobId: newJobId,
-                lectureId: lectureId
-              });
-
-              // Fetch the generated content
-              const contentResponse = await api.get(`/api/library/lecture-content/${lectureId}`);
-              const aiData = contentResponse.data.content;
-
-              // Update lecture with AI content
-              updateLectureWithContent(subjectId, lectureId, aiData, uploadResponse.data.id);
-
-              setIsGenerating(false);
-            } else if (status === 'failed') {
-              setError(`Error generating content: ${message || 'Unknown error'}`);
-              setIsGenerating(false);
+              console.log('Job completed, loading lecture content');
+              const content = await loadLectureContent(lectureId);
+              if (content) {
+                updateLectureWithContent(subjectId, lectureId, content, fileId || '');
+              }
+            } else {
+              setError(`Content generation failed: ${message || 'Unknown error'}`);
             }
           }
         } catch (error) {
-          console.error("Error checking processing status:", error);
-          clearInterval(statusCheckInterval);
-          setError("Failed to check processing status");
+          console.error("Error checking job status:", error);
+          setError("Failed to check processing status.");
+          clearInterval(pollInterval);
           setIsGenerating(false);
+          setJobId(null);
         }
-      }, 3000); // Check every 3 seconds
+      }, 3000);
 
-      // Set a timeout to stop polling after 10 minutes
-      setTimeout(() => {
-        clearInterval(statusCheckInterval);
-        if (isGenerating) {
-          setError("Processing is taking longer than expected. Please check back later.");
-          setIsGenerating(false);
-        }
-      }, 10 * 60 * 1000);
-
-    } catch (error) {
-      console.error("Error generating AI content:", error);
-      setError(error.response?.data?.message || error.message || 'An unexpected error occurred.');
+    } catch (error: any) {
+      console.error("Error during AI content generation process:", error);
+      const errorMessage = error.response?.data?.message || error.message || 'An unexpected error occurred.';
+      setError(errorMessage);
       setIsGenerating(false);
     }
   };
 
   // Helper function to update lecture with AI content
   const updateLectureWithContent = (subjectId: string, lectureId: string, aiData: any, fileId: string) => {
+    console.log('Updating lecture with content:', { subjectId, lectureId, aiData, fileId });
+
+    // Extract the content data from the response
+    // The API might return the content directly or nested in a 'content' property
+    const contentToUpdate = aiData;
+
+    if (!contentToUpdate) {
+      console.error('No valid content data in the response:', aiData);
+      setError('Failed to extract content from the API response');
+      return;
+    }
+
+    console.log('Content to update:', contentToUpdate);
+
     setSubjectData(prev => prev.map(subject => {
-      if (subject.id === subjectId) {
+      if (subject.id === subjectId || subject._id === subjectId) {
         return {
           ...subject,
           lectures: subject.lectures.map(l => {
-            if (l.id === lectureId) {
+            if (l.id === lectureId || l._id === lectureId) {
               return {
                 ...l,
-                summary: aiData.summary,
-                flashcards: aiData.flashcards,
-                examQuestions: aiData.examQuestions,
-                revision: aiData.revision,
+                summary: contentToUpdate.summary,
+                flashcards: contentToUpdate.flashcards,
+                examQuestions: contentToUpdate.examQuestions,
+                revision: contentToUpdate.revision,
                 fileId: fileId,
-                contentId: aiData._id
+                contentId: contentToUpdate._id
               };
             }
             return l;
@@ -245,12 +276,12 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
     // Also update selected lecture to show new content immediately
     setSelectedLecture(prev => prev ? {
       ...prev,
-      summary: aiData.summary,
-      flashcards: aiData.flashcards,
-      examQuestions: aiData.examQuestions,
-      revision: aiData.revision,
+      summary: contentToUpdate.summary,
+      flashcards: contentToUpdate.flashcards,
+      examQuestions: contentToUpdate.examQuestions,
+      revision: contentToUpdate.revision,
       fileId: fileId,
-      contentId: aiData._id
+      contentId: contentToUpdate._id
     } : null);
 
     setIsGenerating(false);
@@ -259,7 +290,11 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
   // Function to load previously generated content
   const loadLectureContent = async (lectureId: string) => {
     try {
+      console.log(`Loading lecture content for lectureId: ${lectureId}`);
       const response = await api.get(`/api/ai/lecture-content/${lectureId}`);
+      console.log('Lecture content response:', response.data);
+
+      // The API returns the content directly, not nested in a 'content' property
       return response.data;
     } catch (error) {
       console.error("Error loading lecture content:", error);
@@ -272,21 +307,20 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
     setSelectedLecture(lecture);
     setActiveView('summary');
 
+    // Get the lecture ID, checking both id and _id properties
+    const lectureId = lecture.id || lecture._id;
+
     // If the lecture has a contentId but no loaded content, fetch it
-    if (lecture.contentId && (!lecture.summary || !lecture.flashcards)) {
+    if (lecture.contentId && (!lecture.summary || !lecture.flashcards) && lectureId) {
       try {
-        const content = await loadLectureContent(lecture.id);
+        const content = await loadLectureContent(lectureId);
         if (content) {
           // Update the lecture with the loaded content
-          setSubjectData(prev => prev.map(subject => ({
-            ...subject,
-            lectures: subject.lectures.map(l =>
-              l.id === lecture.id ? { ...l, ...content } : l
-            )
-          })));
-
-          // Update the selected lecture
-          setSelectedLecture(prev => prev ? { ...prev, ...content } : null);
+          const subject = subjectData.find(s => s.lectures.some(l => (l.id || l._id) === lectureId));
+          if (subject) {
+            const subjectId = subject.id || subject._id || '';
+            updateLectureWithContent(subjectId, lectureId, content, lecture.fileId || '');
+          }
         }
       } catch (error) {
         console.error("Error loading lecture content:", error);
@@ -368,14 +402,30 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
 
   const handleDeleteLecture = async (subjectId: string, lectureId: string) => {
     try {
-      await api.delete(`/api/lectures/${lectureId}`);
+      console.log(`Deleting lecture: ${lectureId} from subject: ${subjectId}`);
+
+      // Find the lecture to get its file ID if available
+      const subject = subjectData.find(s => s.id === subjectId || s._id === subjectId);
+      const lecture = subject?.lectures.find(l => l.id === lectureId || l._id === lectureId);
+
+      // Delete the lecture from the backend
+      await api.delete(`/api/subjects/lectures/${lectureId}`);
+
+      // Update the UI immediately
       setSubjectData(
         subjectData.map((s) =>
-          s.id === subjectId
-            ? { ...s, lectures: s.lectures.filter((l) => l.id !== lectureId) }
+          (s.id === subjectId || s._id === subjectId)
+            ? { ...s, lectures: s.lectures.filter((l) => (l.id !== lectureId && l._id !== lectureId)) }
             : s
         )
       );
+
+      // If the deleted lecture was selected, clear the selection
+      if (selectedLecture && (selectedLecture.id === lectureId || selectedLecture._id === lectureId)) {
+        setSelectedLecture(null);
+      }
+
+      console.log(`Successfully deleted lecture: ${lectureId}`);
     } catch (error) {
       console.error("Error deleting lecture:", error);
     }
@@ -420,7 +470,7 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
             <CollapsibleContent className="ml-6 mt-2 space-y-1">
               {subject.lectures.map((lecture) => (
                 <ColoredGlassCard
-                  key={lecture.id}
+                  key={lecture.id || lecture._id}
                   className="p-3 cursor-pointer hover:bg-accent transition-colors"
                   onClick={() => selectLecture(lecture)}
                 >
@@ -558,11 +608,27 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
                       <h3 className="text-lg font-medium mb-2">Ready to Generate</h3>
                       <p className="text-muted-foreground mb-4 text-sm">Your PDF is uploaded. Now, generate your AI study content.</p>
                       <Button
+                        variant="default"
                         onClick={() => {
-                          const subject = subjectData.find(s => s.lectures.some(l => l.id === selectedLecture.id));
-                          if (subject) {
-                            generateAIContent(subject.id, selectedLecture.id);
+                          if (!selectedLecture) {
+                            setError('No lecture selected.');
+                            return;
                           }
+
+                          // Find the subject for this lecture
+                          const subject = subjectData.find(s =>
+                            s.lectures.some(l =>
+                              (l.id === selectedLecture.id || l._id === selectedLecture._id)
+                            )
+                          );
+
+                          if (!subject) {
+                            setError('Could not find the subject for this lecture.');
+                            return;
+                          }
+
+                          console.log('Generating AI content for:', { subject, lecture: selectedLecture });
+                          generateAIContent(subject, selectedLecture);
                         }}
                         className="gap-2"
                         disabled={isGenerating}
@@ -795,189 +861,227 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
   );
 };
 
-const AddSubjectDialog = ({ onAddSubject }) => {
-  const [name, setName] = useState("");
+interface AddSubjectDialogProps {
+  onAddSubject: (name: string) => void;
+}
+
+const AddSubjectDialog: React.FC<AddSubjectDialogProps> = ({ onAddSubject }) => {
+  const [name, setName] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (name.trim()) {
+      onAddSubject(name.trim());
+      setName('');
+      // Close dialog if it's open
+    }
+  };
+
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" className="mt-4 w-full">Add Subject</Button>
+        <Button variant="outline" className="w-full mt-4">Add Subject</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add New Subject</DialogTitle>
         </DialogHeader>
-        <Input
-          placeholder="Subject Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" onClick={() => onAddSubject(name)}>
-              Add
-            </Button>
-          </DialogClose>
-        </DialogFooter>
+        <form onSubmit={handleSubmit}>
+          <Input
+            placeholder="Subject name (e.g., Quantum Physics)"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="my-4"
+          />
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="submit">Add Subject</Button>
+            </DialogClose>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
 };
 
-const EditSubjectDialog = ({ subject, onEditSubject }) => {
-  const [name, setName] = useState(subject.name);
+interface EditSubjectDialogProps {
+  subject: Subject;
+  onEditSubject: (id: string, newName: string) => void;
+}
+
+const EditSubjectDialog: React.FC<EditSubjectDialogProps> = ({ subject, onEditSubject }) => {
+  const [newName, setNewName] = useState(subject.name);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newName.trim() && newName.trim() !== subject.name) {
+      onEditSubject(subject.id, newName.trim());
+    }
+  };
+
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon">
-          <Menu className="h-4 w-4" />
-        </Button>
+        <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit Subject</DialogTitle>
         </DialogHeader>
-        <Input
-          placeholder="Subject Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" onClick={() => onEditSubject(subject.id, name)}>
-              Save
-            </Button>
-          </DialogClose>
-        </DialogFooter>
+        <form onSubmit={handleSubmit}>
+          <Input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            className="my-4"
+          />
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="submit">Save Changes</Button>
+            </DialogClose>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
 };
 
-const DeleteSubjectDialog = ({ subject, onDeleteSubject }) => {
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon">
-          <Trash2 className="h-4 w-4 text-destructive" />
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Are you sure?</DialogTitle>
-        </DialogHeader>
-        <p>
-          Do you really want to delete the subject "{subject.name}"? This action cannot be undone.
-        </p>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
-          </DialogClose>
-          <DialogClose asChild>
-            <Button
-              variant="destructive"
-              onClick={() => onDeleteSubject(subject.id)}
-            >
-              Delete
-            </Button>
-          </DialogClose>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
+interface DeleteSubjectDialogProps {
+  subject: Subject;
+  onDeleteSubject: (id: string) => void;
+}
 
-const AddLectureDialog = ({ subjectId, onAddLecture }) => {
-  const [title, setTitle] = useState("");
+const DeleteSubjectDialog: React.FC<DeleteSubjectDialogProps> = ({ subject, onDeleteSubject }) => (
+  <Dialog>
+    <DialogTrigger asChild>
+      <Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+    </DialogTrigger>
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Are you sure?</DialogTitle>
+      </DialogHeader>
+      <p>This will permanently delete the subject "{subject.name}" and all its lectures. This action cannot be undone.</p>
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button variant="secondary">Cancel</Button>
+        </DialogClose>
+        <DialogClose asChild>
+          <Button variant="destructive" onClick={() => onDeleteSubject(subject.id)}>Delete</Button>
+        </DialogClose>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+);
+
+interface AddLectureDialogProps {
+  subjectId: string;
+  onAddLecture: (subjectId: string, title: string) => void;
+}
+
+const AddLectureDialog: React.FC<AddLectureDialogProps> = ({ subjectId, onAddLecture }) => {
+  const [title, setTitle] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (title.trim()) {
+      onAddLecture(subjectId, title.trim());
+      setTitle('');
+    }
+  };
+
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="ghost" className="w-full justify-start">Add Lecture</Button>
+        <Button variant="outline" size="sm" className="w-full mt-2">Add Lecture</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add New Lecture</DialogTitle>
         </DialogHeader>
-        <Input
-          placeholder="Lecture Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" onClick={() => onAddLecture(subjectId, title)}>
-              Add
-            </Button>
-          </DialogClose>
-        </DialogFooter>
+        <form onSubmit={handleSubmit}>
+          <Input
+            placeholder="Lecture title (e.g., Week 1: Introduction)"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="my-4"
+          />
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="submit">Add Lecture</Button>
+            </DialogClose>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
 };
 
-const EditLectureDialog = ({ lecture, subjectId, onEditLecture }) => {
-  const [title, setTitle] = useState(lecture.title);
+interface EditLectureDialogProps {
+  lecture: LectureData;
+  subjectId: string;
+  onEditLecture: (subjectId: string, lectureId: string, newTitle: string) => void;
+}
+
+const EditLectureDialog: React.FC<EditLectureDialogProps> = ({ lecture, subjectId, onEditLecture }) => {
+  const [newTitle, setNewTitle] = useState(lecture.title);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newTitle.trim() && newTitle.trim() !== lecture.title) {
+      onEditLecture(subjectId, lecture.id, newTitle.trim());
+    }
+  };
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon">
-          <Menu className="h-4 w-4" />
-        </Button>
+        <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit Lecture</DialogTitle>
         </DialogHeader>
-        <Input
-          placeholder="Lecture Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button
-              type="button"
-              onClick={() => onEditLecture(subjectId, lecture.id, title)}
-            >
-              Save
-            </Button>
-          </DialogClose>
-        </DialogFooter>
+        <form onSubmit={handleSubmit}>
+          <Input
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            className="my-4"
+          />
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="submit">Save Changes</Button>
+            </DialogClose>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
 };
 
-const DeleteLectureDialog = ({ lecture, subjectId, onDeleteLecture }) => {
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon">
-          <Trash2 className="h-4 w-4 text-destructive" />
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Are you sure?</DialogTitle>
-        </DialogHeader>
-        <p>
-          Do you really want to delete the lecture "{lecture.title}"? This action cannot be undone.
-        </p>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
-          </DialogClose>
-          <DialogClose asChild>
-            <Button
-              variant="destructive"
-              onClick={() => onDeleteLecture(subjectId, lecture.id)}
-            >
-              Delete
-            </Button>
-          </DialogClose>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
+interface DeleteLectureDialogProps {
+  lecture: LectureData;
+  subjectId: string;
+  onDeleteLecture: (subjectId: string, lectureId: string) => void;
+}
+
+const DeleteLectureDialog: React.FC<DeleteLectureDialogProps> = ({ lecture, subjectId, onDeleteLecture }) => (
+  <Dialog>
+    <DialogTrigger asChild>
+      <Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+    </DialogTrigger>
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Are you sure?</DialogTitle>
+      </DialogHeader>
+      <p>This will permanently delete the lecture "{lecture.title}". This action cannot be undone.</p>
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button variant="secondary">Cancel</Button>
+        </DialogClose>
+        <DialogClose asChild>
+          <Button variant="destructive" onClick={() => onDeleteLecture(subjectId, lecture.id)}>Delete</Button>
+        </DialogClose>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+);
 
 export default LibraryPage; 
