@@ -29,13 +29,15 @@ export const Sidebar: React.FC = () => {
   const { user } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  const totalXp = state.analytics?.overall?.xp || 0;
-  const level = getLevelFromXp(totalXp);
+  // Use the centrally managed analytics state
+  const { level, xp, nextLevelXp, totalXp } = state.analytics?.overall || {
+    level: 1,
+    xp: 0,
+    nextLevelXp: 100,
+    totalXp: 0
+  };
 
-  const xpForCurrentLevel = getTotalXpForLevel(level);
-  const xpForNextLevel = getXpToLevelUp(level);
-  const currentXpInLevel = totalXp - xpForCurrentLevel;
-  const progressPercentage = xpForNextLevel > 0 ? (currentXpInLevel / xpForNextLevel) * 100 : 0;
+  const progressPercentage = nextLevelXp > 0 ? (xp / nextLevelXp) * 100 : 0;
 
   const handleToggleCollapse = () => {
     setIsCollapsed(!isCollapsed);
@@ -114,7 +116,7 @@ export const Sidebar: React.FC = () => {
               <div className="flex justify-between text-sm text-gray-400 mb-1">
                 <span>XP Progress</span>
                 <span>
-                  {currentXpInLevel} / {xpForNextLevel}
+                  {xp} / {nextLevelXp}
                 </span>
               </div>
               <div className="w-full bg-gray-700/50 rounded-full h-2">

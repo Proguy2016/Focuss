@@ -150,6 +150,13 @@ export interface Analytics {
   habits: HabitAnalytics;
   tasks: TaskAnalytics;
   overall: OverallAnalytics;
+  dailyActivity?: Record<string, DailyActivityData>;
+}
+
+export interface DailyActivityData {
+  focusSessions: number;
+  focusTime: number;
+  tasksCompleted: number;
 }
 
 export interface FocusSessionAnalytics {
@@ -173,6 +180,7 @@ export interface HabitAnalytics {
 
 export interface TaskAnalytics {
   totalTasks: number;
+  totalCompleted?: number;
   completionRate: number;
   averageCompletionTime: number;
   priorityDistribution: PriorityDistribution[];
@@ -187,6 +195,7 @@ export interface OverallAnalytics {
   level: number;
   xp: number;
   nextLevelXp: number;
+  totalXp?: number; // Optional, for client-side calculations
 }
 
 export interface StreakData {

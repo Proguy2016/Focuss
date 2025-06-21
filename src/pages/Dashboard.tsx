@@ -20,103 +20,29 @@ interface ErrorResponse {
 }
 
 export const Dashboard: React.FC = () => {
-  const { state, dispatch } = useApp();
-  const [loading, setLoading] = useState(true);
-  const hasFetched = useRef(false);
+  const { state, dispatch, refreshStats } = useApp();
   const location = useLocation();
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const loadData = async () => {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      await refreshStats();
+      // Also fetch habits, can be consolidated with refreshStats if needed
       try {
-        // Check if we have a token
-        const token = localStorage.getItem('token');
-        if (!token) {
-          console.log('No authentication token found');
-          return;
-        }
-
-        setLoading(true);
-        const response = await api.get('/api/stats/get');
-        const data = response.data;
-        console.log('API Response Data:', data);
-
-        if (data && data.stats) {
-          dispatch({
-            type: 'SET_ANALYTICS',
-            payload: {
-              overall: {
-                productivityScore: data.stats.productivityScore,
-                achievements: [],
-                weeklyGoalProgress: 0,
-                monthlyGoalProgress: 0,
-                level: data.stats.level || 1,
-                xp: data.stats.xp || 0,
-                nextLevelXp: getXpToLevelUp(data.stats.level || 1),
-              },
-              focusSessions: {
-                totalSessions: data.stats.focusSessions,
-                totalFocusTime: data.stats.focusTime,
-                averageSessionLength: 0,
-                completionRate: 0,
-                streakData: [],
-                productivityTrends: [],
-                flowStateHours: [],
-                distractionPatterns: [],
-              },
-              tasks: {
-                totalTasks: data.stats.tasksCompleted?.totalTasks || 0,
-                completionRate: 0,
-                averageCompletionTime: 0,
-                priorityDistribution: [],
-                productivityByHour: data.stats.productivityByHour || [],
-              },
-              habits: {
-                totalHabits: 0,
-                completionRate: 0,
-                averageStreak: 0,
-                categoryBreakdown: [],
-                weeklyPatterns: [],
-              },
-            },
-          });
-        }
-      } catch (err: unknown) {
-        console.log('Stats fetch error:', err);
-        // Only show error if it's not a 404 "Stats not found" error
-        const axiosError = err as AxiosError<ErrorResponse>;
-        if (axiosError.response?.status !== 404 ||
-          axiosError.response?.data?.message !== "Stats not found for this user.") {
-          console.error('Failed to fetch stats:', err);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStats();
-
-    const fetchHabits = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          console.log('No authentication token found');
-          return;
-        }
-
         const response = await api.get('/api/stats/getHabits');
         if (response.data && response.data.habits) {
           dispatch({ type: 'SET_HABITS', payload: response.data.habits });
         }
       } catch (error) {
-        // Only log error if it's not a 404
         if ((error as AxiosError).response?.status !== 404) {
           console.error("Failed to fetch habits for dashboard:", error);
         }
       }
+      dispatch({ type: 'SET_LOADING', payload: false });
     };
 
-    fetchHabits();
-  }, [state.user, dispatch, location.key]);
+    loadData();
+  }, [dispatch, refreshStats, location.key]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -129,9 +55,8 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8 min-h-screen relative text-white">
-      {/* Background Gradient removed to allow global background to show */}
-
-      {loading && (
+      {/* We use the global loading state from AppContext */}
+      {state.isLoading && (
         <motion.div
           initial={{ opacity: 1 }}
           animate={{ opacity: 0 }}

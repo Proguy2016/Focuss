@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useMemo } from 'react';
 import { FocusSession, Habit, Task, Analytics, UserPreferences, HabitCompletion, TaskStatus } from '../types';
 import { DataService } from '../services/DataService';
-import { getLevelFromXp, getXpToLevelUp } from '../utils/leveling';
+import { getLevelFromXp, getXpToLevelUp, getTotalXpForLevel } from '../utils/leveling';
 import { useAuth } from './AuthContext';
 
 interface AppState {
@@ -130,37 +130,42 @@ export const AppContext = createContext<{
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const { user } = useAuth();
-  const dataService = new DataService();
+  const dataService = useMemo(() => new DataService(), []);
 
   // Function to fetch stats from backend and update analytics
-  const refreshStats = async () => {
+  const refreshStats = useCallback(async () => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       const token = localStorage.getItem('token');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (!token) {
+        // No need to fetch if not logged in
+        dispatch({ type: 'SET_LOADING', payload: false });
+        return;
+      }
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+
       const res = await fetch('http://localhost:5001/api/stats/get', {
         method: 'GET',
         credentials: 'include',
         headers,
       });
 
-      // Fetch achievements to calculate total XP from them
-      const achievementsRes = await fetch('http://localhost:5001/api/stats/achievements', { headers });
-      const achievementsData = await achievementsRes.json();
-      const unlockedAchievements = achievementsData.stats.achievements;
-      const xpFromAchievements = unlockedAchievements.reduce((sum: number, ach: any) => sum + ach.achievementId.xp, 0);
-
-      // Fetch tasks to calculate total XP from them (assuming 10 XP per task)
-      const tasksRes = await fetch('http://localhost:5001/api/stats/getTasks', { headers });
-      const tasksData = await tasksRes.json();
-      const completedTasks = tasksData.tasks.filter((task: any) => task.completed);
-      const xpFromTasks = completedTasks.length * 10;
-
-      const totalXp = xpFromAchievements + xpFromTasks;
-
       const data = await res.json();
       if (data && data.stats) {
+        const totalXp = Math.max(0, data.stats.xp || 0);
+        const level = getLevelFromXp(totalXp);
+        const xpForCurrentLevel = getTotalXpForLevel(level);
+        const xpForNextLevel = getXpToLevelUp(level);
+        const currentLevelXp = totalXp - xpForCurrentLevel;
+
+        let productivityByHour = data.stats.productivityByHour || [];
+        if (!Array.isArray(productivityByHour) || productivityByHour.length !== 24) {
+          productivityByHour = Array.from({ length: 24 }, (_, i) => ({
+            hour: i, productivityScore: 0, focusTime: 0, tasksCompleted: 0
+          }));
+        }
+
         dispatch({
           type: 'SET_ANALYTICS',
           payload: {
@@ -169,9 +174,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               achievements: [],
               weeklyGoalProgress: 0,
               monthlyGoalProgress: 0,
-              level: getLevelFromXp(totalXp),
-              xp: totalXp,
-              nextLevelXp: getXpToLevelUp(getLevelFromXp(totalXp))
+              level: level,
+              xp: currentLevelXp, // Use XP for the current level
+              nextLevelXp: xpForNextLevel,
+              totalXp: totalXp // Keep total XP for calculations
             },
             focusSessions: {
               totalSessions: data.stats.focusSessions,
@@ -185,10 +191,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             },
             tasks: {
               totalTasks: data.stats.tasksCompleted.totalTasks,
-              completionRate: 0,
+              totalCompleted: data.stats.tasksCompleted.totalCompleted || 0,
+              completionRate: data.stats.tasksCompleted.totalCompleted && data.stats.tasksCompleted.totalTasks ?
+                (data.stats.tasksCompleted.totalCompleted / data.stats.tasksCompleted.totalTasks) * 100 : 0,
               averageCompletionTime: 0,
               priorityDistribution: [],
-              productivityByHour: [],
+              productivityByHour: productivityByHour,
             },
             habits: {
               totalHabits: 0,
@@ -197,6 +205,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               categoryBreakdown: [],
               weeklyPatterns: [],
             },
+            dailyActivity: data.stats.dailyActivity || {},
           },
         });
       }
@@ -205,16 +214,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
-  };
+  }, [dispatch]);
 
-  useEffect(() => {
-    if (user) {
-      initializeApp();
-      refreshStats(); // Always fetch stats on user change
-    }
-  }, [user]);
-
-  const initializeApp = async () => {
+  const initializeApp = useCallback(async () => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
 
@@ -229,7 +231,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
-  };
+  }, [dataService, dispatch]);
+
+  useEffect(() => {
+    if (user) {
+      initializeApp();
+      refreshStats(); // Always fetch stats on user change
+    }
+  }, [user, refreshStats, initializeApp]);
 
   // Function to reset app state
   const resetAppState = () => {

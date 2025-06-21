@@ -1,6 +1,5 @@
 import React from 'react';
 import { useApp } from '../../contexts/AppContext';
-import { Card } from '../common/Card';
 import { TrendingUp, CheckCircle, Clock } from 'lucide-react';
 
 const StatCard: React.FC<{ title: string; value: string; icon: React.ElementType }> = ({ title, value, icon: Icon }) => (
@@ -25,7 +24,7 @@ export const AnalyticsStats: React.FC = () => {
     const taskCompletion = tasks?.completionRate ?? 0;
 
     return (
-        <Card variant="glass" className="p-6">
+        <div className="p-0">
             <h2 className="text-xl font-semibold text-white mb-4">Key Stats</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <StatCard
@@ -44,6 +43,6 @@ export const AnalyticsStats: React.FC = () => {
                     icon={TrendingUp}
                 />
             </div>
-        </Card>
+        </div>
     );
 }; 
