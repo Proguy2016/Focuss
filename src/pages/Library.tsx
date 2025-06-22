@@ -119,67 +119,48 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
     }));
   };
 
-  const generateAIContent = async (subject: Subject, lecture: LectureData) => {
-    console.log('generateAIContent called with:', { subject, lecture });
+  const generateAIContent = async (subjectId: string, lectureId: string) => {
+    console.log('generateAIContent called with:', { subjectId, lectureId });
 
-    if (!lecture) {
-      console.error("No lecture found.");
-      setError("No lecture selected. Please select a lecture first.");
-      return;
-    }
+    // Find the lecture and subject, checking both id and _id properties
+    const lecture = subjectData.find(s => (s.id === subjectId || s._id === subjectId))?.lectures.find(
+      l => (l.id === lectureId || l._id === lectureId)
+    );
+    const subject = subjectData.find(s => (s.id === subjectId || s._id === subjectId));
 
-    // Get the subject ID, checking both id and _id properties
-    const subjectId = subject.id || subject._id;
-    // Get the lecture ID, checking both id and _id properties
-    const lectureId = lecture.id || lecture._id;
+    console.log('Found lecture:', lecture);
+    console.log('Found subject:', subject);
 
-    if (!subjectId || !lectureId) {
-      console.error("Missing subject or lecture ID:", { subjectId, lectureId });
-      setError("Invalid subject or lecture ID.");
-      return;
-    }
-
-    // Check if we have a file to upload or if we already have a fileId
-    if (!lecture.pdfFile && !lecture.fileId) {
-      console.error("No PDF file or fileId found.");
-      setError("No PDF file selected. Please upload a file for this lecture first.");
+    if (!lecture || !lecture.pdfFile || !subject) {
+      console.error("No PDF file or subject found for the lecture.");
       return;
     }
 
     setIsGenerating(true);
     setError(null);
-    setProcessingStatus({ status: 'Starting', progress: 0, message: 'Preparing to process...' });
+    setProcessingStatus({ status: 'Starting', progress: 0, message: 'Preparing to upload...' });
 
     try {
-      let fileId = lecture.fileId;
+      // Step 1: Upload the file
+      const formData = new FormData();
+      formData.append('file', lecture.pdfFile);
+      formData.append('folderName', subject.name);
+      formData.append('lectureName', lecture.title); // Add lecture title for new folder structure
 
-      // If we have a file to upload but no fileId yet, upload it first
-      if (lecture.pdfFile && !fileId) {
-        setProcessingStatus({ status: 'Uploading', progress: 5, message: 'Uploading PDF file...' });
+      const uploadResponse = await api.post('/api/up/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
 
-        const formData = new FormData();
-        formData.append('file', lecture.pdfFile);
-        formData.append('folderName', subject.name);
-        formData.append('lectureName', lecture.title);
-        formData.append('lectureId', lectureId); // Add lectureId to the upload request
-
-        const uploadResponse = await api.post('/api/up/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-
-        fileId = uploadResponse.data.id;
-        if (!fileId) {
-          throw new Error('No valid file ID returned from upload');
-        }
-
-        console.log(`File uploaded successfully. File ID: ${fileId}`);
+      const fileId = uploadResponse.data.id;
+      if (!fileId) {
+        throw new Error('No valid file ID returned from upload');
       }
+      setProcessingStatus({ status: 'Uploaded', progress: 10, message: 'File uploaded successfully. Starting analysis...' });
 
-      setProcessingStatus({ status: 'Analyzing', progress: 10, message: 'Starting PDF analysis...' });
 
-      // Start the AI analysis job
-      console.log('Sending analyze-pdf request with params:', { fileId, lectureId, subjectId, title: lecture.title });
-
+      // Step 2: Start the AI analysis job
       const analyzeResponse = await api.post('/api/ai/analyze-pdf', {
         fileId,
         lectureId,
@@ -188,18 +169,17 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
       });
 
       const { jobId } = analyzeResponse.data;
-      if (!jobId) throw new Error('Failed to start analysis job.');
-
+      if (!jobId) {
+        throw new Error('Failed to start analysis job.');
+      }
       setJobId(jobId);
-      console.log(`Analysis job started with jobId: ${jobId}`);
 
-      // Poll for job status
+      // Step 3: Poll for job status
       const pollInterval = setInterval(async () => {
         try {
           const statusResponse = await api.get(`/api/ai/job-status/${jobId}`);
           const { status, progress, message, data } = statusResponse.data;
 
-          console.log(`Job status update: ${status}, progress: ${progress}%, message: ${message}`);
           setProcessingStatus({ status, progress, message });
 
           if (status === 'completed' || status === 'failed') {
@@ -208,12 +188,12 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
             setJobId(null);
 
             if (status === 'completed') {
-              console.log('Job completed, loading lecture content');
+              // Refetch content to update UI
               const content = await loadLectureContent(lectureId);
               if (content) {
-                updateLectureWithContent(subjectId, lectureId, content, fileId || '');
+                updateLectureWithContent(subjectId, lectureId, content, fileId);
               }
-            } else {
+            } else if (status === 'failed') {
               setError(`Content generation failed: ${message || 'Unknown error'}`);
             }
           }
@@ -224,7 +204,7 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
           setIsGenerating(false);
           setJobId(null);
         }
-      }, 3000);
+      }, 3000); // Poll every 3 seconds
 
     } catch (error: any) {
       console.error("Error during AI content generation process:", error);
@@ -236,20 +216,7 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
 
   // Helper function to update lecture with AI content
   const updateLectureWithContent = (subjectId: string, lectureId: string, aiData: any, fileId: string) => {
-    console.log('Updating lecture with content:', { subjectId, lectureId, aiData, fileId });
-
-    // Extract the content data from the response
-    // The API might return the content directly or nested in a 'content' property
-    const contentToUpdate = aiData;
-
-    if (!contentToUpdate) {
-      console.error('No valid content data in the response:', aiData);
-      setError('Failed to extract content from the API response');
-      return;
-    }
-
-    console.log('Content to update:', contentToUpdate);
-
+    const contentToUpdate = aiData.content || aiData;
     setSubjectData(prev => prev.map(subject => {
       if (subject.id === subjectId || subject._id === subjectId) {
         return {
@@ -293,8 +260,6 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
       console.log(`Loading lecture content for lectureId: ${lectureId}`);
       const response = await api.get(`/api/ai/lecture-content/${lectureId}`);
       console.log('Lecture content response:', response.data);
-
-      // The API returns the content directly, not nested in a 'content' property
       return response.data;
     } catch (error) {
       console.error("Error loading lecture content:", error);
@@ -334,11 +299,15 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
 
   const handleAddSubject = async (name: string) => {
     try {
+      console.log('Adding subject with name:', name);
       const response = await api.post('/api/subjects', { name });
+      console.log('Subject added successfully:', response.data);
       const newSubject = response.data;
       setSubjectData([...subjectData, newSubject]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding subject:", error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to add subject';
+      alert(`Error: ${errorMessage}`);
     }
   };
 
@@ -351,17 +320,22 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
 
   const handleAddLecture = async (subjectId: string, title: string) => {
     try {
+      console.log('Adding lecture with title:', title, 'to subject:', subjectId);
       const response = await api.post(`/api/subjects/${subjectId}/lectures`, { title });
+      console.log('Lecture added successfully:', response.data);
       const newLecture = response.data;
+
       setSubjectData(
         subjectData.map((s) =>
-          s.id === subjectId
+          (s.id === subjectId || s._id === subjectId)
             ? { ...s, lectures: [...s.lectures, newLecture] }
             : s
         )
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding lecture:", error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to add lecture';
+      alert(`Error: ${errorMessage}`);
     }
   };
 
@@ -393,39 +367,28 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
 
   const handleDeleteSubject = async (id: string) => {
     try {
+      console.log('Deleting subject with ID:', id);
       await api.delete(`/api/subjects/${id}`);
-      setSubjectData(subjectData.filter((s) => s.id !== id));
-    } catch (error) {
+      console.log('Subject deleted successfully');
+      // Filter by both id and _id to handle both formats
+      setSubjectData(subjectData.filter((s) => s.id !== id && s._id !== id));
+    } catch (error: any) {
       console.error("Error deleting subject:", error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to delete subject';
+      alert(`Error: ${errorMessage}`);
     }
   };
 
   const handleDeleteLecture = async (subjectId: string, lectureId: string) => {
     try {
-      console.log(`Deleting lecture: ${lectureId} from subject: ${subjectId}`);
-
-      // Find the lecture to get its file ID if available
-      const subject = subjectData.find(s => s.id === subjectId || s._id === subjectId);
-      const lecture = subject?.lectures.find(l => l.id === lectureId || l._id === lectureId);
-
-      // Delete the lecture from the backend
-      await api.delete(`/api/subjects/lectures/${lectureId}`);
-
-      // Update the UI immediately
+      await api.delete(`/api/lectures/${lectureId}`);
       setSubjectData(
         subjectData.map((s) =>
-          (s.id === subjectId || s._id === subjectId)
-            ? { ...s, lectures: s.lectures.filter((l) => (l.id !== lectureId && l._id !== lectureId)) }
+          s.id === subjectId
+            ? { ...s, lectures: s.lectures.filter((l) => l.id !== lectureId) }
             : s
         )
       );
-
-      // If the deleted lecture was selected, clear the selection
-      if (selectedLecture && (selectedLecture.id === lectureId || selectedLecture._id === lectureId)) {
-        setSelectedLecture(null);
-      }
-
-      console.log(`Successfully deleted lecture: ${lectureId}`);
     } catch (error) {
       console.error("Error deleting lecture:", error);
     }
@@ -470,7 +433,7 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
             <CollapsibleContent className="ml-6 mt-2 space-y-1">
               {subject.lectures.map((lecture) => (
                 <ColoredGlassCard
-                  key={lecture.id || lecture._id}
+                  key={lecture.id}
                   className="p-3 cursor-pointer hover:bg-accent transition-colors"
                   onClick={() => selectLecture(lecture)}
                 >
@@ -484,10 +447,10 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
                       <DeleteLectureDialog lecture={lecture} subjectId={subject.id} onDeleteLecture={handleDeleteLecture} />
                       <div className="flex gap-1">
                         {lecture.pdfFile && (
-                          <Badge variant="secondary" className="text-xs">PDF</Badge>
+                          <Badge key="pdf-badge" variant="secondary" className="text-xs">PDF</Badge>
                         )}
                         {lecture.summary && (
-                          <Badge variant="outline" className="text-xs">AI</Badge>
+                          <Badge key="ai-badge" variant="outline" className="text-xs">AI</Badge>
                         )}
                       </div>
                     </div>
@@ -608,27 +571,32 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
                       <h3 className="text-lg font-medium mb-2">Ready to Generate</h3>
                       <p className="text-muted-foreground mb-4 text-sm">Your PDF is uploaded. Now, generate your AI study content.</p>
                       <Button
-                        variant="default"
                         onClick={() => {
-                          if (!selectedLecture) {
-                            setError('No lecture selected.');
+                          console.log('Generate button clicked, selectedLecture:', selectedLecture);
+
+                          // Get the lecture ID, checking both id and _id properties
+                          const lectureId = selectedLecture?.id || selectedLecture?._id;
+
+                          if (!selectedLecture || !lectureId) {
+                            console.error('selectedLecture or lecture ID is missing!');
+                            setError('Cannot generate content: lecture ID is missing');
                             return;
                           }
 
-                          // Find the subject for this lecture
-                          const subject = subjectData.find(s =>
-                            s.lectures.some(l =>
-                              (l.id === selectedLecture.id || l._id === selectedLecture._id)
-                            )
-                          );
+                          const subject = subjectData.find(s => s.lectures.some(l => (l.id || l._id) === lectureId));
+                          console.log('Found subject for selectedLecture:', subject);
 
-                          if (!subject) {
-                            setError('Could not find the subject for this lecture.');
-                            return;
+                          if (subject) {
+                            const subjectId = subject.id || subject._id || '';
+                            console.log('Calling generateAIContent with:', {
+                              subjectId,
+                              lectureId
+                            });
+                            generateAIContent(subjectId, lectureId as string);
+                          } else {
+                            console.error('Subject not found for lecture:', selectedLecture);
+                            setError('Cannot generate content: subject not found');
                           }
-
-                          console.log('Generating AI content for:', { subject, lecture: selectedLecture });
-                          generateAIContent(subject, selectedLecture);
                         }}
                         className="gap-2"
                         disabled={isGenerating}
