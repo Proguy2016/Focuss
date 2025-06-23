@@ -11,7 +11,7 @@ interface AppState {
   tasks: Task[];
   analytics: Analytics | null;
   isLoading: boolean;
-  theme: 'light' | 'dark' | 'auto';
+  theme: 'light' | 'dark' | 'auto' | 'sunset' | 'oceanic';
   sidebarOpen: boolean;
   activeView: string;
   user?: any;
@@ -32,7 +32,7 @@ type AppAction =
   | { type: 'SET_HABIT_COMPLETIONS'; payload: HabitCompletion[] }
   | { type: 'SET_ANALYTICS'; payload: Analytics }
   | { type: 'SET_LOADING'; payload: boolean }
-  | { type: 'SET_THEME'; payload: 'light' | 'dark' | 'auto' }
+  | { type: 'SET_THEME'; payload: 'light' | 'dark' | 'auto' | 'sunset' | 'oceanic' }
   | { type: 'TOGGLE_SIDEBAR' }
   | { type: 'SET_ACTIVE_VIEW'; payload: string }
   | { type: 'RESET' };
@@ -259,3 +259,6 @@ export const useApp = () => {
   }
   return context;
 };
+
+// Add the missing useAppContext export as an alias for useApp
+export const useAppContext = useApp;

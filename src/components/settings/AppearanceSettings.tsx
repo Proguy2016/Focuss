@@ -3,7 +3,7 @@ import { ToggleSwitch } from '../common/ToggleSwitch';
 import { Button } from '../common/Button';
 
 interface Appearance {
-    theme: 'light' | 'dark' | 'auto';
+    theme: 'light' | 'dark' | 'auto' | 'sunset' | 'oceanic';
     accentColor: string;
     backgroundAnimation: string;
     reducedMotion: boolean;
@@ -56,6 +56,20 @@ export const AppearanceSettings: React.FC<AppearanceSettingsProps> = ({ appearan
                         onClick={() => onAppearanceChange('theme', 'auto')}
                     >
                         Auto
+                    </Button>
+                    <Button
+                        variant={appearance.theme === 'sunset' ? 'primary' : 'ghost'}
+                        size="sm"
+                        onClick={() => onAppearanceChange('theme', 'sunset')}
+                    >
+                        Sunset
+                    </Button>
+                    <Button
+                        variant={appearance.theme === 'oceanic' ? 'primary' : 'ghost'}
+                        size="sm"
+                        onClick={() => onAppearanceChange('theme', 'oceanic')}
+                    >
+                        Oceanic
                     </Button>
                 </div>
             </SettingRow>

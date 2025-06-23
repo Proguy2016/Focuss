@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import { AppProvider } from './contexts/AppContext';
+import { AppProvider, useAppContext } from './contexts/AppContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AnimatedBackground } from './components/common/AnimatedBackground';
 import { Sidebar } from './components/layout/Sidebar';
@@ -61,6 +61,19 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 function AppContent() {
   const { isAuthenticated, loading } = useAuth();
+  const { appearanceSettings } = useAppContext(); // Use useAppContext here
+
+  useEffect(() => {
+    const currentTheme = appearanceSettings.theme;
+    if (currentTheme === 'auto') {
+      // Implement logic to detect system preference if desired
+      // For now, 'auto' could default to 'light' or 'dark'
+      // Or remove 'auto' if not fully implemented
+      document.documentElement.removeAttribute('data-theme'); // Or set to a default like 'light'
+    } else {
+      document.documentElement.setAttribute('data-theme', currentTheme);
+    }
+  }, [appearanceSettings.theme]);
 
   if (loading) {
     return <LoadingScreen />;
