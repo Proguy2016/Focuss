@@ -1,33 +1,52 @@
 :root {
     /* Revised Light Theme (Default) */
-    --primary: #007AFF; /* A modern, friendly blue */
+    --primary: #007AFF;
+    /* A modern, friendly blue */
     --primary-light: #58AFFF;
     --primary-dark: #0056B3;
-    --secondary: #34C759; /* A complementary vibrant green */
+    --secondary: #34C759;
+    /* A complementary vibrant green */
     --secondary-light: #6DE087;
 
-    --text-primary: #1C1C1E; /* Near-black for strong readability */
-    --text-secondary: #636366; /* Softer gray for secondary text */
-    --background: #F2F2F7; /* Slightly off-white, easy on the eyes */
-    --card-background: #FFFFFF; /* Pure white for cards to pop */
-    
-    --dark: #002024; /* Kept for dark theme reference, but not primary for light */
-    --dark-light: #000000; /* Kept for dark theme reference */
-    --darker: #000000; /* Kept for dark theme reference */
-    --light: var(--background); /* Light theme uses its own background */
-    --gray: #AEAEB2; /* Neutral gray for borders, dividers */
-    --gray-dark: #8E8E93; /* Darker neutral gray */
+    --text-primary: #1C1C1E;
+    /* Near-black for strong readability */
+    --text-secondary: #636366;
+    /* Softer gray for secondary text */
+    --background: #F2F2F7;
+    /* Slightly off-white, easy on the eyes */
+    --card-background: #FFFFFF;
+    /* Pure white for cards to pop */
 
-    --red: #FF3B30; /* Standard red for errors */
-    --yellow: #FFCC00; /* Standard yellow for warnings */
-    --glass: rgba(242, 242, 247, 0.85); /* Glass effect based on light background */
+    --dark: #002024;
+    /* Kept for dark theme reference, but not primary for light */
+    --dark-light: #000000;
+    /* Kept for dark theme reference */
+    --darker: #000000;
+    /* Kept for dark theme reference */
+    --light: var(--background);
+    /* Light theme uses its own background */
+    --gray: #AEAEB2;
+    /* Neutral gray for borders, dividers */
+    --gray-dark: #8E8E93;
+    /* Darker neutral gray */
 
-    --emerald: #34D399; /* Kept for specific accents if needed */
-    --slate-dark: #0f172a; /* Kept for specific components if needed */
+    --red: #FF3B30;
+    /* Standard red for errors */
+    --yellow: #FFCC00;
+    /* Standard yellow for warnings */
+    --glass: rgba(242, 242, 247, 0.85);
+    /* Glass effect based on light background */
 
-    --shadow: 0 2px 10px rgba(0, 0, 0, 0.08); /* Softer, more modern shadow */
+    --emerald: #34D399;
+    /* Kept for specific accents if needed */
+    --slate-dark: #0f172a;
+    /* Kept for specific components if needed */
+
+    --shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    /* Softer, more modern shadow */
     --shadow-lg: 0 6px 20px rgba(0, 0, 0, 0.12);
-    --glow: 0 0 12px rgba(0, 122, 255, 0.4); /* Glow based on primary color */
+    --glow: 0 0 12px rgba(0, 122, 255, 0.4);
+    /* Glow based on primary color */
 
     /* Additional variables for better control in light theme */
     --border-color: #D1D1D6;
@@ -38,67 +57,99 @@
 
 /* Revised Sunset Theme */
 :root[data-theme="sunset"] {
-    --primary: #FF8C42; /* Warm Orange - like a setting sun */
+    --primary: #FF8C42;
+    /* Warm Orange - like a setting sun */
     --primary-light: #FFAA70;
     --primary-dark: #E0752A;
-    --secondary: #FFD700; /* Gold - for highlights */
+    --secondary: #FFD700;
+    /* Gold - for highlights */
     --secondary-light: #FFE55C;
 
-    --text-primary: #FFFFFF; /* White text for contrast on dark backgrounds */
-    --text-secondary: #FADDC4; /* Soft, warm off-white for secondary text */
-    --background: #4B0082; /* Indigo - deep twilight sky */
-    --card-background: #6A0DAD; /* Purple - slightly lighter for cards */
-    
-    --dark: var(--background); /* Sunset theme uses its own dark background */
-    --dark-light: #800080; /* Brighter Purple */
-    --darker: #30004A; /* Very Dark Indigo */
-    --light: var(--text-primary); /* Light elements will be the primary text color */
-    --gray: #D8BFD8; /* Thistle - a muted purple-gray for accents */
+    --text-primary: #FFFFFF;
+    /* White text for contrast on dark backgrounds */
+    --text-secondary: #FADDC4;
+    /* Soft, warm off-white for secondary text */
+    --background: #4B0082;
+    /* Indigo - deep twilight sky */
+    --card-background: #6A0DAD;
+    /* Purple - slightly lighter for cards */
+
+    --dark: var(--background);
+    /* Sunset theme uses its own dark background */
+    --dark-light: #800080;
+    /* Brighter Purple */
+    --darker: #30004A;
+    /* Very Dark Indigo */
+    --light: var(--text-primary);
+    /* Light elements will be the primary text color */
+    --gray: #D8BFD8;
+    /* Thistle - a muted purple-gray for accents */
     --gray-dark: #B092B0;
 
-    --red: #FF6347; /* Tomato Red - for errors, fits the warm theme */
-    --yellow: #FFDB58; /* Mustard Yellow - for warnings */
-    --glass: rgba(75, 0, 130, 0.75); /* Indigo glass effect */
+    --red: #FF6347;
+    /* Tomato Red - for errors, fits the warm theme */
+    --yellow: #FFDB58;
+    /* Mustard Yellow - for warnings */
+    --glass: rgba(75, 0, 130, 0.75);
+    /* Indigo glass effect */
 
     --shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
     --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.35);
-    --glow: 0 0 15px rgba(255, 140, 66, 0.6); /* Glow from primary orange */
+    --glow: 0 0 15px rgba(255, 140, 66, 0.6);
+    /* Glow from primary orange */
 
-    --border-color: #8A2BE2; /* Blue Violet for borders */
+    --border-color: #8A2BE2;
+    /* Blue Violet for borders */
     --input-background: #8A2BE2;
-    --input-border: #9932CC; /* Dark Orchid */
+    --input-border: #9932CC;
+    /* Dark Orchid */
     --button-text: #FFFFFF;
 }
 
 /* Oceanic Theme */
 :root[data-theme="oceanic"] {
-    --primary: #00A8CC; /* Cerulean Blue */
+    --primary: #00A8CC;
+    /* Cerulean Blue */
     --primary-light: #33B9D6;
     --primary-dark: #008FAA;
-    --secondary: #80DED9; /* Turquoise */
+    --secondary: #80DED9;
+    /* Turquoise */
     --secondary-light: #A6E9E4;
 
-    --text-primary: #FFFFFF; /* White text for good contrast on dark blue */
-    --text-secondary: #B0E0E6; /* Powder Blue for secondary text */
-    --background: #0D2B36; /* Deep Ocean Blue */
-    --card-background: #1A4A5A; /* Slightly lighter blue for cards */
-    
-    --dark: var(--background); /* Oceanic theme uses its own dark background */
+    --text-primary: #FFFFFF;
+    /* White text for good contrast on dark blue */
+    --text-secondary: #B0E0E6;
+    /* Powder Blue for secondary text */
+    --background: #0D2B36;
+    /* Deep Ocean Blue */
+    --card-background: #1A4A5A;
+    /* Slightly lighter blue for cards */
+
+    --dark: var(--background);
+    /* Oceanic theme uses its own dark background */
     --dark-light: #1A4A5A;
-    --darker: #001A22; /* Very Dark Blue */
-    --light: var(--text-primary); /* Light elements will be the primary text color */
-    --gray: #778899; /* Light Slate Gray - for muted elements */
+    --darker: #001A22;
+    /* Very Dark Blue */
+    --light: var(--text-primary);
+    /* Light elements will be the primary text color */
+    --gray: #778899;
+    /* Light Slate Gray - for muted elements */
     --gray-dark: #5A6872;
 
-    --red: #FF6B6B; /* A suitable red for this palette */
-    --yellow: #FFD166; /* A suitable yellow */
-    --glass: rgba(13, 43, 54, 0.75); /* Deep blue glass */
+    --red: #FF6B6B;
+    /* A suitable red for this palette */
+    --yellow: #FFD166;
+    /* A suitable yellow */
+    --glass: rgba(13, 43, 54, 0.75);
+    /* Deep blue glass */
 
     --shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
     --shadow-lg: 0 10px 35px rgba(0, 0, 0, 0.4);
-    --glow: 0 0 15px rgba(0, 168, 204, 0.6); /* Cerulean glow */
+    --glow: 0 0 15px rgba(0, 168, 204, 0.6);
+    /* Cerulean glow */
 
-    --border-color: #1F6375; /* Darker teal for borders */
+    --border-color: #1F6375;
+    /* Darker teal for borders */
     --input-background: #1F6375;
     --input-border: #27798F;
     --button-text: #FFFFFF;

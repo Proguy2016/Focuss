@@ -119,7 +119,6 @@ function AppContent() {
             <Route path="/auth" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth />} />
             <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth initialView="login" />} />
             <Route path="/signup" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth initialView="signup" />} />
-            <Route path="/reset-password" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth initialView="reset" />} />
 
             {/* App routes */}
             <Route path="/dashboard" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />

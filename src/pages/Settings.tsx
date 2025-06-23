@@ -74,7 +74,7 @@ export const Settings: React.FC = () => {
         localStorage.setItem(LOCAL_STORAGE_PREFS_KEY, JSON.stringify(newPrefs));
     };
     const handleNotificationChange = (key: any, value: any) => setNotifications(prev => ({ ...prev, [key]: value }));
-    
+
     // Update handleAppearanceChange to dispatch to AppContext
     const handleAppearanceChange = (key: keyof typeof appearanceSettings, value: any) => {
         dispatch({ type: 'UPDATE_APPEARANCE_SETTING', payload: { key, value } });

@@ -4,14 +4,16 @@ import {
   Users, Plus, Search, Crown, Trophy, Target, Zap,
   MessageCircle, Heart, Share2, MoreHorizontal, Settings,
   Calendar, Clock, TrendingUp, Award, Star, UserPlus, UserX, Mail,
-  Check, X, UserCheck, User, UserMinus
+  Check, X, UserCheck, User, UserMinus, Edit, Trash2, Send
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
+import { Input } from '../components/common/Input';
 import FriendsService, { FriendProfile, FriendRequest } from '../services/FriendsService';
+import FeedService, { Post as ApiPost } from '../services/FeedService';
 import api from '../services/api';
 
 interface FocusGroup {
@@ -68,12 +70,244 @@ export const Social: React.FC = () => {
   const [showFriendDetails, setShowFriendDetails] = useState(false);
   const [friendDetailLoading, setFriendDetailLoading] = useState(false);
 
+  // Feed state
+  const [posts, setPosts] = useState<ApiPost[]>([]);
+  const [feedLoading, setFeedLoading] = useState(true);
+  const [feedError, setFeedError] = useState<string | null>(null);
+  const [newPostContent, setNewPostContent] = useState('');
+  const [editingPost, setEditingPost] = useState<ApiPost | null>(null);
+  const [editContent, setEditContent] = useState('');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const limit = 10;
+
+  // Comments state
+  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
+  const [commentContents, setCommentContents] = useState<Record<string, string>>({});
+  const [comments, setComments] = useState<Record<string, ApiPost[]>>({});
+  const [loadingComments, setLoadingComments] = useState<Record<string, boolean>>({});
+  const [commentPages, setCommentPages] = useState<Record<string, number>>({});
+  const [hasMoreComments, setHasMoreComments] = useState<Record<string, boolean>>({});
+
   const [newGroup, setNewGroup] = useState({
     name: '',
     description: '',
     isPublic: true,
     maxMembers: 10,
   });
+
+  // Feed API functions
+  useEffect(() => {
+    if (activeTab === 'feed') {
+      fetchPosts();
+    }
+  }, [activeTab, currentPage]);
+
+  const fetchPosts = async () => {
+    try {
+      setFeedLoading(true);
+      const response = await FeedService.getPosts(currentPage, limit);
+
+      if (response && response.posts) {
+        if (currentPage === 0) {
+          setPosts(response.posts);
+        } else {
+          setPosts(prev => [...prev, ...response.posts]);
+        }
+
+        // Check if we have more posts to load
+        setHasMore(response.posts.length === limit);
+      }
+    } catch (err: any) {
+      setFeedError(err.message || 'Failed to fetch posts');
+      console.error('Error fetching posts:', err);
+    } finally {
+      setFeedLoading(false);
+    }
+  };
+
+  const createPost = async () => {
+    if (!newPostContent.trim()) return;
+
+    try {
+      await FeedService.createPost(newPostContent);
+      setNewPostContent('');
+      // Refresh posts after creating a new one
+      setCurrentPage(0);
+      fetchPosts();
+    } catch (err: any) {
+      setFeedError(err.message || 'Failed to create post');
+      console.error('Error creating post:', err);
+    }
+  };
+
+  const updatePost = async () => {
+    if (!editingPost || !editContent.trim()) return;
+
+    try {
+      await FeedService.editPost(editingPost._id, editContent);
+
+      // Update local state
+      setPosts(posts.map(post =>
+        post._id === editingPost._id
+          ? { ...post, content: editContent }
+          : post
+      ));
+
+      setShowEditModal(false);
+      setEditingPost(null);
+      setEditContent('');
+    } catch (err: any) {
+      setFeedError(err.message || 'Failed to update post');
+      console.error('Error updating post:', err);
+    }
+  };
+
+  const deletePost = async (postId: string) => {
+    try {
+      await FeedService.deletePost(postId);
+      // Remove post from local state
+      setPosts(posts.filter(post => post._id !== postId));
+    } catch (err: any) {
+      setFeedError(err.message || 'Failed to delete post');
+      console.error('Error deleting post:', err);
+    }
+  };
+
+  const likePost = async (postId: string) => {
+    try {
+      await FeedService.likePost(postId);
+
+      // Update local state
+      setPosts(posts.map(post => {
+        if (post._id === postId) {
+          const isAlreadyLiked = post.likes.users.includes(user?._id || '');
+
+          if (!isAlreadyLiked) {
+            return {
+              ...post,
+              likes: {
+                users: [...post.likes.users, user?._id || ''],
+                count: post.likes.count + 1
+              }
+            };
+          }
+        }
+        return post;
+      }));
+    } catch (err: any) {
+      setFeedError(err.message || 'Failed to like post');
+      console.error('Error liking post:', err);
+    }
+  };
+
+  const unlikePost = async (postId: string) => {
+    try {
+      await FeedService.unlikePost(postId);
+
+      // Update local state
+      setPosts(posts.map(post => {
+        if (post._id === postId) {
+          const isLiked = post.likes.users.includes(user?._id || '');
+
+          if (isLiked) {
+            return {
+              ...post,
+              likes: {
+                users: post.likes.users.filter(id => id !== user?._id),
+                count: Math.max(0, post.likes.count - 1)
+              }
+            };
+          }
+        }
+        return post;
+      }));
+    } catch (err: any) {
+      setFeedError(err.message || 'Failed to unlike post');
+      console.error('Error unliking post:', err);
+    }
+  };
+
+  const handleEditClick = (post: ApiPost) => {
+    setEditingPost(post);
+    setEditContent(post.content);
+    setShowEditModal(true);
+  };
+
+  const loadMorePosts = () => {
+    setCurrentPage(prev => prev + 1);
+  };
+
+  // Comment functions
+  const toggleComments = async (postId: string) => {
+    const isExpanded = expandedComments[postId] || false;
+
+    setExpandedComments({
+      ...expandedComments,
+      [postId]: !isExpanded
+    });
+
+    if (!isExpanded && !comments[postId]) {
+      await fetchComments(postId);
+    }
+  };
+
+  const fetchComments = async (postId: string) => {
+    try {
+      setLoadingComments({ ...loadingComments, [postId]: true });
+
+      const page = commentPages[postId] || 0;
+      const response = await FeedService.getComments(postId, page, 5);
+
+      if (response && response.posts) {
+        if (page === 0) {
+          setComments({
+            ...comments,
+            [postId]: response.posts
+          });
+        } else {
+          setComments({
+            ...comments,
+            [postId]: [...(comments[postId] || []), ...response.posts]
+          });
+        }
+
+        setHasMoreComments({
+          ...hasMoreComments,
+          [postId]: response.posts.length === 5
+        });
+      }
+    } catch (err: any) {
+      console.error('Error fetching comments:', err);
+    } finally {
+      setLoadingComments({ ...loadingComments, [postId]: false });
+    }
+  };
+
+  const loadMoreComments = async (postId: string) => {
+    const nextPage = (commentPages[postId] || 0) + 1;
+    setCommentPages({ ...commentPages, [postId]: nextPage });
+    await fetchComments(postId);
+  };
+
+  const addComment = async (postId: string) => {
+    const content = commentContents[postId];
+    if (!content || !content.trim()) return;
+
+    try {
+      await FeedService.createPost(content, undefined, postId);
+
+      // Clear input and refresh comments
+      setCommentContents({ ...commentContents, [postId]: '' });
+
+      // Reset comments page and fetch again
+      setCommentPages({ ...commentPages, [postId]: 0 });
+      await fetchComments(postId);
+    } catch (err: any) {
+      console.error('Error adding comment:', err);
+    }
+  };
 
   // Mock data
   const focusGroups: FocusGroup[] = [
@@ -169,13 +403,14 @@ export const Social: React.FC = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const formatTimestamp = (date: Date) => {
+  const formatTimestamp = (date: Date | string) => {
     const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    const postDate = typeof date === 'string' ? new Date(date) : date;
+    const diffInHours = (now.getTime() - postDate.getTime()) / (1000 * 60 * 60);
 
     if (diffInHours < 1) return 'Just now';
     if (diffInHours < 24) return `${Math.floor(diffInHours)}h ago`;
-    return date.toLocaleDateString();
+    return postDate.toLocaleDateString();
   };
 
   const getPostIcon = (type: string) => {
@@ -186,6 +421,54 @@ export const Social: React.FC = () => {
       case 'habit': return Zap;
       default: return Target;
     }
+  };
+
+  const CommentItem: React.FC<{ comment: ApiPost; index: number }> = ({ comment, index }) => {
+    const isOwnComment = comment.userId._id === user?._id;
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.05 }}
+        className="pl-12 mb-3"
+      >
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary-500/80 to-secondary-500/80 flex items-center justify-center text-sm">
+            {comment.userId.profilePicture ? (
+              <img
+                src={comment.userId.profilePicture}
+                alt={`${comment.userId.firstName} ${comment.userId.lastName}`}
+                className="w-full h-full rounded-full object-cover"
+              />
+            ) : (
+              <span>{comment.userId.firstName.charAt(0)}{comment.userId.lastName.charAt(0)}</span>
+            )}
+          </div>
+
+          <div className="flex-1 bg-dark/30 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-semibold text-white text-sm">
+                {comment.userId.firstName} {comment.userId.lastName}
+              </span>
+              <span className="text-xs text-white/40">{formatTimestamp(comment.timePosted)}</span>
+            </div>
+
+            <p className="text-white/80 text-sm">{comment.content}</p>
+          </div>
+
+          {isOwnComment && (
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={Trash2}
+              onClick={() => deletePost(comment._id)}
+              className="!p-1 h-auto"
+            />
+          )}
+        </div>
+      </motion.div>
+    );
   };
 
   const PostCard: React.FC<{ post: SocialPost; index: number }> = ({ post, index }) => {
@@ -235,6 +518,178 @@ export const Social: React.FC = () => {
             </div>
 
             <Button variant="ghost" size="sm" icon={MoreHorizontal} />
+          </div>
+        </Card>
+      </motion.div>
+    );
+  };
+
+  // Component for API posts
+  const ApiPostCard: React.FC<{ post: ApiPost; index: number }> = ({ post, index }) => {
+    const isOwnPost = post.userId._id === user?._id;
+    const isLiked = post.likes.users.includes(user?._id || '');
+    const isCommentsExpanded = expandedComments[post._id] || false;
+    const postComments = comments[post._id] || [];
+    const isLoadingComments = loadingComments[post._id] || false;
+    const hasMoreCommentsToLoad = hasMoreComments[post._id] || false;
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.1 }}
+      >
+        <Card variant="glass" className="p-6">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-xl">
+              {post.userId.profilePicture ? (
+                <img
+                  src={post.userId.profilePicture}
+                  alt={`${post.userId.firstName} ${post.userId.lastName}`}
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : (
+                <span>{post.userId.firstName.charAt(0)}{post.userId.lastName.charAt(0)}</span>
+              )}
+            </div>
+
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="font-semibold text-white">
+                  {post.userId.firstName} {post.userId.lastName}
+                </span>
+                <span className="text-xs text-white/40">{formatTimestamp(post.timePosted)}</span>
+              </div>
+
+              <p className="text-white/80 mb-4">{post.content}</p>
+
+              {post.attachment && post.attachment.included && (
+                <div className="mb-4">
+                  {post.attachment.type === 'image' && (
+                    <img
+                      src={post.attachment.content}
+                      alt="Post attachment"
+                      className="max-w-full rounded-lg"
+                    />
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center gap-6">
+                <button
+                  onClick={() => isLiked ? unlikePost(post._id) : likePost(post._id)}
+                  className={`flex items-center gap-2 text-sm transition-colors ${isLiked ? 'text-error-400' : 'text-white/60 hover:text-error-400'}`}
+                >
+                  <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+                  {post.likes.count}
+                </button>
+
+                <button
+                  onClick={() => toggleComments(post._id)}
+                  className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Comment
+                </button>
+
+                <button className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors">
+                  <Share2 className="w-4 h-4" />
+                  Share
+                </button>
+              </div>
+
+              {/* Comments section */}
+              {isCommentsExpanded && (
+                <div className="mt-4 pt-4 border-t border-white/10">
+                  {/* Comment input */}
+                  <div className="flex gap-2 mb-4">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-primary-500/80 to-secondary-500/80 flex items-center justify-center text-sm">
+                      {user?.profilePicture ? (
+                        <img
+                          src={user.profilePicture}
+                          alt={`${user?.firstName} ${user?.lastName}`}
+                          className="w-full h-full rounded-full object-cover"
+                        />
+                      ) : (
+                        <span>{user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}</span>
+                      )}
+                    </div>
+                    <div className="flex-1 flex gap-2">
+                      <Input
+                        type="text"
+                        placeholder="Write a comment..."
+                        value={commentContents[post._id] || ''}
+                        onChange={(e) => setCommentContents({
+                          ...commentContents,
+                          [post._id]: e.target.value
+                        })}
+                        className="flex-1"
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            addComment(post._id);
+                          }
+                        }}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => addComment(post._id)}
+                        icon={Send}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Comments list */}
+                  <div className="space-y-3">
+                    {isLoadingComments && postComments.length === 0 ? (
+                      <div className="text-center py-3">
+                        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+                        <p className="mt-2 text-sm text-white/60">Loading comments...</p>
+                      </div>
+                    ) : postComments.length === 0 ? (
+                      <p className="text-center text-sm text-white/60 py-2">No comments yet. Be the first to comment!</p>
+                    ) : (
+                      <>
+                        {postComments.map((comment, idx) => (
+                          <CommentItem key={comment._id} comment={comment} index={idx} />
+                        ))}
+
+                        {hasMoreCommentsToLoad && (
+                          <div className="text-center pt-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => loadMoreComments(post._id)}
+                              disabled={isLoadingComments}
+                              className="text-sm"
+                            >
+                              {isLoadingComments ? 'Loading...' : 'Load more comments'}
+                            </Button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {isOwnPost && (
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={Edit}
+                  onClick={() => handleEditClick(post)}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={Trash2}
+                  onClick={() => deletePost(post._id)}
+                />
+              </div>
+            )}
           </div>
         </Card>
       </motion.div>
@@ -625,14 +1080,33 @@ export const Social: React.FC = () => {
               <Card variant="glass" className="p-6">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-r from-accent-500 to-primary-500 flex items-center justify-center text-xl">
-                    🎯
+                    {user?.profilePicture ? (
+                      <img
+                        src={user.profilePicture}
+                        alt={`${user?.firstName} ${user?.lastName}`}
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <span>{user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}</span>
+                    )}
                   </div>
-                  <input
+                  <Input
                     type="text"
                     placeholder="Share your progress..."
-                    className="flex-1 bg-transparent text-white placeholder-white/40 focus:outline-none"
+                    className="flex-1"
+                    value={newPostContent}
+                    onChange={(e) => setNewPostContent(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        createPost();
+                      }
+                    }}
                   />
-                  <Button variant="primary" size="sm">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={createPost}
+                  >
                     Post
                   </Button>
                 </div>
@@ -640,9 +1114,34 @@ export const Social: React.FC = () => {
 
               {/* Posts */}
               <div className="space-y-4">
-                {socialPosts.map((post, index) => (
-                  <PostCard key={post.id} post={post} index={index} />
-                ))}
+                {feedLoading && posts.length === 0 ? (
+                  <div className="text-center py-10">
+                    <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+                    <p className="mt-2 text-white/60">Loading posts...</p>
+                  </div>
+                ) : posts.length === 0 ? (
+                  <Card variant="glass" className="p-6 text-center">
+                    <p className="text-white/60">No posts yet. Be the first to post!</p>
+                  </Card>
+                ) : (
+                  <>
+                    {posts.map((post, index) => (
+                      <ApiPostCard key={post._id} post={post} index={index} />
+                    ))}
+
+                    {hasMore && (
+                      <div className="text-center py-4">
+                        <Button
+                          variant="outline"
+                          onClick={loadMorePosts}
+                          disabled={feedLoading}
+                        >
+                          {feedLoading ? 'Loading...' : 'Load More'}
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
 
@@ -1165,6 +1664,37 @@ export const Social: React.FC = () => {
             <p className="text-white/60">Friend information not available.</p>
           </div>
         )}
+      </Modal>
+
+      {/* Edit Post Modal */}
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingPost(null);
+          setEditContent('');
+        }}
+        title="Edit Post"
+      >
+        <Input
+          type="text"
+          value={editContent}
+          onChange={(e) => setEditContent(e.target.value)}
+          className="mb-4 w-full"
+        />
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowEditModal(false);
+              setEditingPost(null);
+              setEditContent('');
+            }}
+          >
+            Cancel
+          </Button>
+          <Button onClick={updatePost}>Save</Button>
+        </div>
       </Modal>
     </div>
   );
