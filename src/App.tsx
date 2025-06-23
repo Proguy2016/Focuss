@@ -61,10 +61,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 function AppContent() {
   const { isAuthenticated, loading } = useAuth();
-  const { appearanceSettings } = useAppContext(); // Use useAppContext here
+  const { state } = useAppContext(); // Get state from context
 
   useEffect(() => {
-    const currentTheme = appearanceSettings.theme;
+    // Use optional chaining and provide a default theme if undefined
+    const currentTheme = state?.theme || 'dark';
     if (currentTheme === 'auto') {
       // Implement logic to detect system preference if desired
       // For now, 'auto' could default to 'light' or 'dark'
@@ -73,7 +74,7 @@ function AppContent() {
     } else {
       document.documentElement.setAttribute('data-theme', currentTheme);
     }
-  }, [appearanceSettings.theme]);
+  }, [state?.theme]);
 
   if (loading) {
     return <LoadingScreen />;
@@ -89,7 +90,7 @@ function AppContent() {
             <Route path="/auth" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth />} />
             <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth initialView="login" />} />
             <Route path="/signup" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth initialView="signup" />} />
-            <Route path="/reset-password" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth initialView="reset" />} />
+            <Route path="/reset-password" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth initialView="login" />} />
 
             {/* App routes */}
             <Route path="/dashboard" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
