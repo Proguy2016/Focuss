@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 
 interface AnimatedBackgroundProps {
-  variant?: 'default' | 'particles' | 'waves' | 'gradient' | 'fireflies';
+  variant?: 'default' | 'particles' | 'waves' | 'gradient' | 'fireflies' | 'neuralNetwork'; // Added neuralNetwork
   className?: string;
 }
 
@@ -20,6 +20,8 @@ export const AnimatedBackground: React.FC<AnimatedBackgroundProps> = ({
         return <GradientBackground />;
       case 'fireflies':
         return <FireflyBackground />;
+      case 'neuralNetwork':
+        return <NeuralNetworkBackground />;
       default:
         return <DefaultBackground />;
     }
@@ -151,3 +153,110 @@ const GradientBackground: React.FC = () => (
     }}
   />
 );
+
+const NeuralNetworkBackground: React.FC = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    const particles: Particle[] = [];
+    const particleCount = 50; // Adjust for density
+
+    // Get computed styles for colors
+    const style = getComputedStyle(document.documentElement);
+    const primaryColor = style.getPropertyValue('--primary').trim() || '#007AFF'; // Fallback
+    const particleColor = style.getPropertyValue('--text-secondary').trim() || '#636366'; // Fallback
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    interface Particle {
+      x: number;
+      y: number;
+      size: number;
+      speedX: number;
+      speedY: number;
+    }
+
+    const initParticles = () => {
+      particles.length = 0; // Clear existing particles
+      for (let i = 0; i < particleCount; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          size: Math.random() * 2 + 1,
+          speedX: (Math.random() - 0.5) * 0.5,
+          speedY: (Math.random() - 0.5) * 0.5,
+        });
+      }
+    };
+
+    const drawParticles = () => {
+      particles.forEach(particle => {
+        ctx.fillStyle = particleColor;
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    };
+
+    const updateParticles = () => {
+      particles.forEach(particle => {
+        particle.x += particle.speedX;
+        particle.y += particle.speedY;
+
+        if (particle.x < 0 || particle.x > canvas.width) particle.speedX *= -1;
+        if (particle.y < 0 || particle.y > canvas.height) particle.speedY *= -1;
+      });
+    };
+
+    const drawConnections = () => {
+      ctx.strokeStyle = primaryColor; // Use primary color for connections
+      ctx.lineWidth = 0.2;
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance < 120) { // Connection distance
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+    };
+    
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      updateParticles();
+      drawParticles();
+      drawConnections();
+      animationFrameId = requestAnimationFrame(animate);
+    };
+
+    initParticles();
+    animate();
+
+    const handleResize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      initParticles(); // Re-initialize particles on resize
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []); // Empty dependency array ensures this runs once on mount and cleans up on unmount
+
+  return <canvas ref={canvasRef} className="absolute inset-0 opacity-50" />;
+};

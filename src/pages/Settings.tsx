@@ -10,7 +10,7 @@ import { AppearanceSettings } from '../components/settings/AppearanceSettings';
 import { DataSettings } from '../components/settings/DataSettings';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useAppContext } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContext'; // Import useApp
 
 type SettingsTab = 'profile' | 'preferences' | 'notifications' | 'appearance' | 'data';
 
@@ -24,11 +24,11 @@ const SETTINGS_TABS = [
 
 export const Settings: React.FC = () => {
     const { user } = useAuth();
-    const { state, dispatch } = useAppContext();
+    const { state: appState, dispatch } = useApp(); // Use AppContext
     const LOCAL_STORAGE_PREFS_KEY = `focus-ritual-preferences-${user?.id || 'default'}`;
     const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
 
-    // Mock state for demonstration. In a real app, this would come from context or a server.
+    // Preferences and Notifications can remain local to this component or be moved to context if needed elsewhere
     const [preferences, setPreferences] = useState({
         workDuration: 25, shortBreakDuration: 5, longBreakDuration: 15, sessionsUntilLongBreak: 4,
         autoStartBreaks: false, autoStartWork: false, soundEnabled: true, ambientVolume: 50,
@@ -39,17 +39,18 @@ export const Settings: React.FC = () => {
         goalDeadlines: true, weeklyReports: false, achievementUnlocks: true, socialUpdates: false,
         marketingEmails: false, reminderSound: 'default', quietHours: { enabled: false, start: '22:00', end: '07:00' }
     });
-
-    // Use theme from AppContext state
-    const [appearance, setAppearance] = useState({
-        theme: state.theme || 'dark' as 'light' | 'dark' | 'auto' | 'sunset' | 'oceanic',
-        accentColor: '#34D399',
-        backgroundAnimation: 'default',
-        reducedMotion: false,
-        compactMode: false,
-        fontSize: 'medium',
-        highContrast: false,
-    });
+    // Appearance settings are now read from AppContext
+    const appearanceSettings = {
+        theme: appState.theme,
+        accentColor: appState.accentColor,
+        backgroundAnimation: appState.backgroundAnimation,
+        reducedMotion: appState.reducedMotion,
+        compactMode: appState.compactMode,
+        fontSize: appState.fontSize,
+        highContrast: appState.highContrast,
+        isPremiumFeaturesEnabled: appState.isPremiumFeaturesEnabled,
+        premiumBackground: appState.premiumBackground,
+    };
 
     useEffect(() => {
         const savedPrefs = localStorage.getItem(LOCAL_STORAGE_PREFS_KEY);
@@ -73,16 +74,10 @@ export const Settings: React.FC = () => {
         localStorage.setItem(LOCAL_STORAGE_PREFS_KEY, JSON.stringify(newPrefs));
     };
     const handleNotificationChange = (key: any, value: any) => setNotifications(prev => ({ ...prev, [key]: value }));
-    const handleAppearanceChange = (key: any, value: any) => {
-        setAppearance(prev => ({ ...prev, [key]: value }));
-
-        // Update theme in AppContext if that's what changed
-        if (key === 'theme') {
-            dispatch({ type: 'SET_THEME', payload: value });
-
-            // Apply theme change immediately
-            document.documentElement.setAttribute('data-theme', value);
-        }
+    
+    // Update handleAppearanceChange to dispatch to AppContext
+    const handleAppearanceChange = (key: keyof typeof appearanceSettings, value: any) => {
+        dispatch({ type: 'UPDATE_APPEARANCE_SETTING', payload: { key, value } });
     };
 
     const handleExport = () => alert("Exporting data...");
@@ -97,7 +92,7 @@ export const Settings: React.FC = () => {
             case 'notifications':
                 return <NotificationSettings notifications={notifications} onNotificationChange={handleNotificationChange} />;
             case 'appearance':
-                return <AppearanceSettings appearance={appearance} onAppearanceChange={handleAppearanceChange} />;
+                return <AppearanceSettings appearance={appearanceSettings} onAppearanceChange={handleAppearanceChange as any} />;
             case 'data':
                 return <DataSettings onExport={handleExport} onDelete={handleDelete} />;
             default:

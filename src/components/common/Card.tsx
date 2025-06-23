@@ -6,6 +6,7 @@ interface CardProps extends Omit<HTMLMotionProps<'div'>, 'children' | 'style'> {
   variant?: 'default' | 'glass' | 'solid';
   className?: string;
   interactive?: boolean;
+  isPremium?: boolean; // New prop
   hover?: boolean;
   glow?: boolean;
 }
@@ -15,6 +16,7 @@ export const Card: React.FC<CardProps> = ({
   variant = 'default',
   className = '',
   interactive = false,
+  isPremium = false, // Default to false
   hover,
   glow,
   ...props
@@ -41,11 +43,11 @@ export const Card: React.FC<CardProps> = ({
   const getVariantClasses = () => {
     switch (variant) {
       case 'glass':
-        return 'bg-white/5 backdrop-blur-lg border border-white/10 shadow-lg';
+        return isPremium ? 'premium-glass-card' : 'bg-white/5 backdrop-blur-lg border border-white/10 shadow-lg';
       case 'solid':
-        return 'bg-gray-800/80 border border-gray-700/80';
-      default:
-        return 'bg-white/5 backdrop-blur-lg border border-white/10 shadow-lg';
+        return isPremium ? 'premium-card bg-[var(--card-background)]' : 'bg-gray-800/80 border border-gray-700/80';
+      default: // default can also be premium
+        return isPremium ? 'premium-card bg-[var(--card-background)]' : 'bg-white/5 backdrop-blur-lg border border-white/10 shadow-lg';
     }
   };
 

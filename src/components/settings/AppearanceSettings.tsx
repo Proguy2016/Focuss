@@ -3,18 +3,22 @@ import { ToggleSwitch } from '../common/ToggleSwitch';
 import { Button } from '../common/Button';
 
 interface Appearance {
-    theme: 'light' | 'dark' | 'auto' | 'sunset' | 'oceanic';
+    theme: 'light' | 'dark' | 'auto' | 'sunset' | 'oceanic'; // Added new themes
     accentColor: string;
-    backgroundAnimation: string;
+    backgroundAnimation: string; // This might be where we select the premium background
     reducedMotion: boolean;
     compactMode: boolean;
     fontSize: string;
     highContrast: boolean;
+    isPremiumFeaturesEnabled?: boolean; // New for premium UI toggle
+    premiumBackground?: 'default' | 'neuralNetwork'; // To select premium background
 }
 
 interface AppearanceSettingsProps {
     appearance: Appearance;
     onAppearanceChange: (key: keyof Appearance, value: any) => void;
+    // Potentially a prop to know if the user is actually a premium subscriber
+    // For now, we'll assume the toggle itself handles the visual state
 }
 
 const SettingRow: React.FC<{ title: string, description: string, children: React.ReactNode }> = ({ title, description, children }) => (
@@ -73,6 +77,34 @@ export const AppearanceSettings: React.FC<AppearanceSettingsProps> = ({ appearan
                     </Button>
                 </div>
             </SettingRow>
+
+            <SettingRow title="Premium Features" description="Enable enhanced UI elements like premium cards and backgrounds.">
+                <ToggleSwitch
+                    checked={!!appearance.isPremiumFeaturesEnabled}
+                    onCheckedChange={(checked: boolean) => onAppearanceChange('isPremiumFeaturesEnabled', checked)}
+                />
+            </SettingRow>
+
+            {appearance.isPremiumFeaturesEnabled && (
+                 <SettingRow title="Premium Background" description="Choose your premium animated background.">
+                     <div className="flex items-center space-x-2 bg-gray-800 rounded-lg p-1">
+                        <Button
+                            variant={(!appearance.premiumBackground || appearance.premiumBackground === 'default') ? 'primary' : 'ghost'}
+                            size="sm"
+                            onClick={() => onAppearanceChange('premiumBackground', 'default')}
+                        >
+                            Fireflies (Default)
+                        </Button>
+                        <Button
+                            variant={appearance.premiumBackground === 'neuralNetwork' ? 'primary' : 'ghost'}
+                            size="sm"
+                            onClick={() => onAppearanceChange('premiumBackground', 'neuralNetwork')}
+                        >
+                            Neural Network
+                        </Button>
+                    </div>
+                </SettingRow>
+            )}
 
             <SettingRow title="Accent Color" description="Select your preferred accent color.">
                 <div className="flex items-center space-x-2">

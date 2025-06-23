@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import { AppProvider, useAppContext } from './contexts/AppContext';
+import { AppProvider, useApp } from './contexts/AppContext'; // Import useApp
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AnimatedBackground } from './components/common/AnimatedBackground';
 import { Sidebar } from './components/layout/Sidebar';
@@ -61,36 +61,65 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 function AppContent() {
   const { isAuthenticated, loading } = useAuth();
-  const { state } = useAppContext(); // Get state from context
+  const { state } = useApp(); // Use useApp to get AppContext state
 
   useEffect(() => {
-    // Use optional chaining and provide a default theme if undefined
-    const currentTheme = state?.theme || 'dark';
+    // Apply theme
+    const currentTheme = state.theme;
     if (currentTheme === 'auto') {
-      // Implement logic to detect system preference if desired
-      // For now, 'auto' could default to 'light' or 'dark'
-      // Or remove 'auto' if not fully implemented
-      document.documentElement.removeAttribute('data-theme'); // Or set to a default like 'light'
+      // Basic auto: remove data-theme to rely on system preference via prefers-color-scheme in CSS
+      // More advanced auto would involve JS detection and setting light/dark explicitly
+      document.documentElement.removeAttribute('data-theme');
+      // Check system preference and apply light or dark if not handled by pure CSS
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.classList.add('dark'); // Assuming your tailwind.config.js uses 'class' strategy
+        document.documentElement.classList.remove('light');
+      } else {
+        document.documentElement.classList.add('light');
+        document.documentElement.classList.remove('dark');
+      }
     } else {
       document.documentElement.setAttribute('data-theme', currentTheme);
+      // Ensure Tailwind dark/light classes are also managed if theme isn't 'auto'
+      if (currentTheme === 'dark' || currentTheme === 'sunset' || currentTheme === 'oceanic') { // Assuming these are dark themes
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+      } else { // Assuming 'light' is the other explicit option
+        document.documentElement.classList.add('light');
+        document.documentElement.classList.remove('dark');
+      }
     }
-  }, [state?.theme]);
+  }, [state.theme]);
+
+  // Apply premium status to body class for global premium styling if needed
+  useEffect(() => {
+    if (state.isPremiumFeaturesEnabled) {
+      document.body.classList.add('premium-features-enabled');
+    } else {
+      document.body.classList.remove('premium-features-enabled');
+    }
+  }, [state.isPremiumFeaturesEnabled]);
 
   if (loading) {
     return <LoadingScreen />;
   }
 
+  // Determine background variant
+  const backgroundVariant = state.isPremiumFeaturesEnabled && state.premiumBackground === 'neuralNetwork'
+    ? 'neuralNetwork'
+    : state.backgroundAnimation; // Fallback to standard background animation
+
   return (
     <Router>
       <div className="min-h-screen text-white">
-        <AnimatedBackground variant="particles" />
+        <AnimatedBackground variant={backgroundVariant as any} /> {/* Cast as any if type issues */}
 
         <AnimatePresence mode="wait">
           <Routes>
             <Route path="/auth" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth />} />
             <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth initialView="login" />} />
             <Route path="/signup" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth initialView="signup" />} />
-            <Route path="/reset-password" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth initialView="login" />} />
+            <Route path="/reset-password" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth initialView="reset" />} />
 
             {/* App routes */}
             <Route path="/dashboard" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
