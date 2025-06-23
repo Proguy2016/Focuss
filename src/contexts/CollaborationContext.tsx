@@ -80,40 +80,49 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
     const [currentUser, setCurrentUser] = useState<Participant | null>(null);
     const [isConnected, setIsConnected] = useState(false);
     const [currentRoomCode, setCurrentRoomCode] = useState<string>('');
-    
+
     const socketRef = useRef<Socket | null>(null);
 
     const joinRoom = useCallback((roomCode: string) => {
         if (socketRef.current) return;
-        
+
         setCurrentRoomCode(roomCode);
 
-        const socket = io('http://localhost:4000', {
+        // Get auth token from localStorage
+        const token = localStorage.getItem('token') || 'guest-token';
+
+        const socket = io('http://localhost:5001', {
             withCredentials: true,
             transports: ['websocket', 'polling'],
             extraHeaders: {
                 "Access-Control-Allow-Origin": "http://localhost:5173"
-            }
+            },
+            auth: {
+                token: token // Pass token in auth object
+            },
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000,
+            timeout: 10000
         });
         socketRef.current = socket;
-        
+
         socket.on('connect', () => {
             console.log('[Client] Connected to socket server with ID:', socket.id);
-            
+
             // Use authenticated user data or fallback to a default
             const participantName = authUser ? `${authUser.firstName} ${authUser.lastName}` : 'Anonymous';
             const participantAvatar = authUser?.profilePicture || `https://i.pravatar.cc/40?u=${socket.id}`;
 
-            const user = { 
+            const user = {
                 name: participantName,
-                avatar: participantAvatar, 
-                isSpeaking: false, 
-                isTyping: false, 
-                handRaised: false 
+                avatar: participantAvatar,
+                isSpeaking: false,
+                isTyping: false,
+                handRaised: false
             };
             const userWithId = { ...user, id: socket.id! };
             setCurrentUser(userWithId);
-            
+
             console.log(`[Client] Emitting 'joinRoom' for room '${roomCode}' with user:`, userWithId);
             socket.emit('joinRoom', { roomCode, user: userWithId });
             setIsConnected(true);
@@ -146,9 +155,14 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
             console.log('[Client] Disconnected from socket server.');
             setIsConnected(false)
         });
-        
+
         socket.on('connect_error', (err) => {
             console.error('[Client] Connection Error:', err);
+            // Provide more detailed error information
+            if (err.message.includes('Authentication')) {
+                console.log('[Client] Authentication error - using fallback anonymous connection');
+                // You could implement a fallback connection strategy here
+            }
         });
 
         socket.on('userLeft', ({ userId }: { userId: string }) => setParticipants(prev => prev.filter(p => p.id !== userId)));
@@ -159,7 +173,7 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
                     const newReactions = { ...msg.reactions };
                     if (!newReactions[emoji]) newReactions[emoji] = [];
                     if (!newReactions[emoji].includes(userId)) {
-                         newReactions[emoji].push(userId);
+                        newReactions[emoji].push(userId);
                     } else {
                         // Allow toggling reaction off
                         newReactions[emoji] = newReactions[emoji].filter(id => id !== userId);
@@ -173,7 +187,7 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
             setParticipants(prev => prev.map(p => p.id === userId ? { ...p, isTyping } : p));
         });
     }, [authUser]);
-    
+
     const leaveRoom = useCallback(() => {
         if (socketRef.current) {
             socketRef.current.disconnect();
@@ -227,7 +241,7 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
         if (!query.trim()) return;
 
         const userQuery: AiInteraction = { id: `ai${Date.now()}`, type: 'user_query', text: query };
-        
+
         // Mock AI Response
         const aiResponseText = `Based on your query about "${query}", I suggest focusing on the key deliverables outlined in the project brief.`;
         const aiResponse: AiInteraction = { id: `ai${Date.now() + 1}`, type: 'ai_response', text: aiResponseText };
@@ -244,21 +258,21 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
 
         try {
             console.log('[Client] Uploading file:', file.name);
-            
+
             // Create form data for the file upload
             const formData = new FormData();
             formData.append('file', file);
             formData.append('roomCode', currentRoomCode);
-            
+
             // Get the auth token from localStorage
             const token = localStorage.getItem('token');
             if (!token) {
                 throw new Error('Authentication token not found');
             }
-            
+
             // Upload the file to the backend
             const response = await axios.post(
-                'http://localhost:5001/api/up/collaboration-upload', 
+                'http://localhost:5001/api/up/collaboration-upload',
                 formData,
                 {
                     headers: {
@@ -267,9 +281,9 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
                     }
                 }
             );
-            
+
             console.log('[Client] File upload response:', response.data);
-            
+
             if (response.data && response.data.success) {
                 // Notify the collaboration server about the new file
                 socketRef.current.emit('fileShared', response.data);

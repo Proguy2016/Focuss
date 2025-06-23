@@ -6,6 +6,8 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import mongoose from 'mongoose';
+import http from 'http';
+import { Server } from 'socket.io';
 
 const __filename = fileURLToPath(
     import.meta.url);
@@ -13,15 +15,100 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = 5001;
+const server = http.createServer(app);
+
+// Socket.IO setup
+const io = new Server(server, {
+    cors: {
+        origin: ['http://localhost:3000', 'http://localhost:5173'],
+        methods: ['GET', 'POST'],
+        credentials: true,
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    },
+    transports: ['websocket', 'polling']
+});
+
+// Optional authentication middleware
+io.use((socket, next) => {
+    const token = socket.handshake.auth.token;
+
+    // If token exists, you could verify it here
+    // For now, we'll allow connections even without a token
+    console.log('Socket connection attempt with token:', token ? 'present' : 'not present');
+    next();
+});
+
+// Socket.IO connection handling without requiring authentication
+io.on('connection', (socket) => {
+    console.log('Client connected to socket server:', socket.id);
+
+    socket.on('joinRoom', (data) => {
+        const { roomCode, user } = data;
+        socket.join(roomCode);
+        console.log(`User ${user.name} (${socket.id}) joined room ${roomCode}`);
+
+        // Get current room state
+        const roomState = {
+            participants: getRoomParticipants(roomCode),
+            messages: getRoomMessages(roomCode),
+            files: getRoomFiles(roomCode)
+        };
+
+        // Add the new user to participants
+        roomState.participants.push({ ...user, id: socket.id });
+
+        // Inform others in the room
+        socket.to(roomCode).emit('userJoined', { user: { ...user, id: socket.id } });
+
+        // Send room state to the new user
+        socket.emit('roomState', roomState);
+    });
+
+    socket.on('sendMessage', (message) => {
+        console.log('Message received:', message);
+        socket.to(message.roomCode).emit('newMessage', message);
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Client disconnected:', socket.id);
+        // Handle user disconnection
+    });
+});
+
+// Helper functions for room state
+const roomParticipants = new Map();
+const roomMessages = new Map();
+const roomFiles = new Map();
+
+function getRoomParticipants(roomCode) {
+    if (!roomParticipants.has(roomCode)) {
+        roomParticipants.set(roomCode, []);
+    }
+    return roomParticipants.get(roomCode);
+}
+
+function getRoomMessages(roomCode) {
+    if (!roomMessages.has(roomCode)) {
+        roomMessages.set(roomCode, []);
+    }
+    return roomMessages.get(roomCode);
+}
+
+function getRoomFiles(roomCode) {
+    if (!roomFiles.has(roomCode)) {
+        roomFiles.set(roomCode, []);
+    }
+    return roomFiles.get(roomCode);
+}
 
 // Better startup logging
 console.log('Initializing server...');
 
 // Connect to MongoDB (replace with your actual MongoDB URI)
 mongoose.connect('mongodb://localhost:27017/focuss', {
-        useNewUrlParser: true,
-        useUnifiedTopology: true
-    })
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+})
     .then(() => console.log('Connected to MongoDB'))
     .catch(err => console.error('MongoDB connection error:', err));
 
@@ -106,23 +193,23 @@ let mockUser = {
 
 // Mock library data
 let libraryItems = [{
-        id: 'folder-1',
-        type: 'folder',
-        name: 'Documents',
-        parentId: null,
-        path: '/',
-        createdAt: new Date(),
-        modifiedAt: new Date()
-    },
-    {
-        id: 'folder-2',
-        type: 'folder',
-        name: 'Images',
-        parentId: null,
-        path: '/',
-        createdAt: new Date(),
-        modifiedAt: new Date()
-    }
+    id: 'folder-1',
+    type: 'folder',
+    name: 'Documents',
+    parentId: null,
+    path: '/',
+    createdAt: new Date(),
+    modifiedAt: new Date()
+},
+{
+    id: 'folder-2',
+    type: 'folder',
+    name: 'Images',
+    parentId: null,
+    path: '/',
+    createdAt: new Date(),
+    modifiedAt: new Date()
+}
 ];
 
 // In-memory file tracking
@@ -517,7 +604,7 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
     console.log('API endpoints available:');
     console.log('  POST /api/auth/login');
