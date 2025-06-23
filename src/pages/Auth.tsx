@@ -34,17 +34,23 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [focusedInput, setFocusedInput] = useState<string | null>(null);
+  const [rememberMe, setRememberMe] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Clear form error when switching views
   // Clear form error when switching views
   useEffect(() => {
     setFormError(null);
     clearError();
   }, [isLogin, clearError]);
 
+  // Update form error when auth error changes
   // Update form error when auth error changes
   useEffect(() => {
     if (error) {
@@ -57,6 +63,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
       if (!email) return "Email is required";
       if (!password) return "Password is required";
     } else {
+      if (!firstName) return "First name is required";
+      if (!lastName) return "Last name is required";
       if (!firstName) return "First name is required";
       if (!lastName) return "Last name is required";
       if (!email) return "Email is required";
@@ -80,6 +88,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
         await login({ email, password });
       } else {
         await register({ firstName, lastName, email, password });
+        await register({ firstName, lastName, email, password });
       }
       navigate('/dashboard');
     } catch (err) {
@@ -101,7 +110,22 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
     setFormError("Social login is not implemented yet");
   };
 
+  const handleFormClick = () => {
+    console.log('Form clicked');
+  };
+
+  const handleSignInButtonClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    handleSubmit(e);
+  };
+
+  const handleSocialLogin = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setFormError("Social login is not implemented yet");
+  };
+
   return (
+    <form onSubmit={handleSubmit} onClick={handleFormClick} className="space-y-4">
     <form onSubmit={handleSubmit} onClick={handleFormClick} className="space-y-4">
       {formError && (
         <motion.div
@@ -308,12 +332,27 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
         fullWidth
         className="mt-5 h-10 cursor-pointer"
         icon={loading ? undefined : ArrowRight}
+        className="mt-5 h-10 cursor-pointer"
+        icon={loading ? undefined : ArrowRight}
         loading={loading}
+        onClick={handleSignInButtonClick}
         onClick={handleSignInButtonClick}
       >
         {isLogin ? "Sign In" : "Sign Up"}
+        {isLogin ? "Sign In" : "Sign Up"}
       </Button>
 
+      <div className="relative mt-2 mb-5 flex items-center">
+        <div className="flex-grow border-t border-white/5"></div>
+        <motion.span
+          className="mx-3 text-xs text-white/40"
+          initial={{ opacity: 0.7 }}
+          animate={{ opacity: [0.7, 0.9, 0.7] }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+        >
+          or
+        </motion.span>
+        <div className="flex-grow border-t border-white/5"></div>
       <div className="relative mt-2 mb-5 flex items-center">
         <div className="flex-grow border-t border-white/5"></div>
         <motion.span
@@ -364,9 +403,66 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
           <div className="absolute inset-0 bg-white/5 rounded-full blur opacity-0 group-hover/social:opacity-70 transition-opacity duration-300" />
           <div className="relative overflow-hidden bg-white/5 text-white h-10 w-10 rounded-full border border-white/10 hover:border-white/20 transition-all duration-300 flex items-center justify-center">
             <div className="w-5 h-5 flex items-center justify-center text-white/80 group-hover/social:text-white transition-colors duration-300">G</div>
+      <div className="flex gap-3 justify-center">
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          type="button"
+          onClick={handleSocialLogin}
+          className="relative group/social"
+        >
+          <div className="absolute inset-0 bg-white/5 rounded-full blur opacity-0 group-hover/social:opacity-70 transition-opacity duration-300" />
+          <div className="relative overflow-hidden bg-white/5 text-white h-10 w-10 rounded-full border border-white/10 hover:border-white/20 transition-all duration-300 flex items-center justify-center">
+            <Github className="w-5 h-5 text-white/80 group-hover/social:text-white transition-colors duration-300" />
           </div>
         </motion.button>
+
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          type="button"
+          onClick={handleSocialLogin}
+          className="relative group/social"
+        >
+          <div className="absolute inset-0 bg-white/5 rounded-full blur opacity-0 group-hover/social:opacity-70 transition-opacity duration-300" />
+          <div className="relative overflow-hidden bg-white/5 text-white h-10 w-10 rounded-full border border-white/10 hover:border-white/20 transition-all duration-300 flex items-center justify-center">
+            <Twitter className="w-5 h-5 text-white/80 group-hover/social:text-white transition-colors duration-300" />
+          </div>
+        </motion.button>
+
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          type="button"
+          onClick={handleSocialLogin}
+          className="relative group/social"
+        >
+          <div className="absolute inset-0 bg-white/5 rounded-full blur opacity-0 group-hover/social:opacity-70 transition-opacity duration-300" />
+          <div className="relative overflow-hidden bg-white/5 text-white h-10 w-10 rounded-full border border-white/10 hover:border-white/20 transition-all duration-300 flex items-center justify-center">
+            <div className="w-5 h-5 flex items-center justify-center text-white/80 group-hover/social:text-white transition-colors duration-300">G</div>
+          </div>
+        </motion.button>
+        </motion.button>
       </div>
+
+      <motion.p
+        className="text-center text-xs text-white/60 mt-4"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.5 }}
+      >
+        {isLogin ? "Don't have an account?" : "Already have an account?"}{' '}
+        <button
+          type="button"
+          onClick={onToggleView}
+          className="relative inline-block group/signup"
+        >
+          <span className="relative z-10 text-white group-hover/signup:text-white/70 transition-colors duration-300 font-medium">
+            {isLogin ? "Sign up" : "Sign in"}
+          </span>
+          <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-white group-hover/signup:w-full transition-all duration-300" />
+        </button>
+      </motion.p>
 
       <motion.p
         className="text-center text-xs text-white/60 mt-4"
@@ -686,6 +782,53 @@ export const AuthUI: React.FC<AuthUIProps> = ({ initialView = 'login' }) => {
   };
 
   return (
+    <div className="min-h-screen w-screen bg-dark relative overflow-hidden flex items-center justify-center">
+      <div className="absolute inset-0 bg-gradient-to-br from-dark via-darker to-black" />
+
+      <div className="absolute inset-0 opacity-[0.03] mix-blend-soft-light"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+          backgroundSize: '200px 200px'
+        }}
+      />
+
+      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[120vh] h-[60vh] rounded-b-[50%] bg-primary/10 blur-[80px]" />
+      <motion.div
+        className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[100vh] h-[60vh] rounded-b-full bg-secondary/10 blur-[60px]"
+        animate={{
+          opacity: [0.1, 0.2, 0.1],
+          scale: [0.98, 1.02, 0.98]
+        }}
+        transition={{
+          duration: 8,
+          repeat: Infinity,
+          repeatType: "mirror"
+        }}
+      />
+      <motion.div
+        className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[90vh] h-[90vh] rounded-t-full bg-primary/10 blur-[60px]"
+        animate={{
+          opacity: [0.2, 0.3, 0.2],
+          scale: [1, 1.1, 1]
+        }}
+        transition={{
+          duration: 6,
+          repeat: Infinity,
+          repeatType: "mirror",
+          delay: 1
+        }}
+      />
+
+      <div className="absolute left-1/4 top-1/4 w-96 h-96 bg-white/5 rounded-full blur-[100px] animate-pulse opacity-40" />
+      <div className="absolute right-1/4 bottom-1/4 w-96 h-96 bg-white/5 rounded-full blur-[100px] animate-pulse delay-1000 opacity-40" />
+
+      <AnimatePresence mode="wait">
+        <AuthCard
+          key={view}
+          isLogin={view === 'login'}
+          onToggleView={toggleView}
+        />
+      </AnimatePresence>
     <div className="min-h-screen w-screen bg-dark relative overflow-hidden flex items-center justify-center">
       <div className="absolute inset-0 bg-gradient-to-br from-dark via-darker to-black" />
 

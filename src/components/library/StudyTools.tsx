@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
+import { Card } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Progress } from '../../components/ui/progress';
+import { Separator } from '../../components/ui/separator';
 import {
     Brain,
     Check,
@@ -14,7 +14,7 @@ import {
     Lightbulb,
     AlertCircle
 } from 'lucide-react';
-import { ColoredGlassCard } from '@/components/ui/ColoredGlassCard';
+import { ColoredGlassCard } from '../../components/ui/ColoredGlassCard';
 
 interface QuizQuestion {
     question: string;
@@ -181,7 +181,7 @@ export const QuizMode: React.FC<{ examQuestions: Array<{ question: string; answe
     const currentQuestion = quizQuestions[currentQuestionIndex];
 
     return (
-        <Card className="p-6">
+        <Card className="p-6 bg-gradient-to-br from-blue-50/30 to-indigo-50/30 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200/50 dark:border-blue-800/30">
             <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold">Quiz Mode</h3>
                 <div className="text-sm text-muted-foreground">
@@ -228,7 +228,7 @@ export const QuizMode: React.FC<{ examQuestions: Array<{ question: string; answe
                         <Lightbulb className="h-4 w-4 text-yellow-500" />
                         Explanation
                     </h5>
-                    <p className="text-muted-foreground">{currentQuestion.explanation}</p>
+                    <p className="text-muted-foreground whitespace-pre-wrap break-words">{currentQuestion.explanation}</p>
                 </div>
             )}
 
@@ -382,7 +382,7 @@ export const SpacedRepetitionFlashcards: React.FC<{ flashcards: FlashcardData[] 
     }).length;
 
     return (
-        <Card className="p-6">
+        <Card className="p-6 bg-gradient-to-br from-green-50/30 to-emerald-50/30 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200/50 dark:border-green-800/30">
             <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold">Spaced Repetition</h3>
                 <div className="text-sm text-muted-foreground">

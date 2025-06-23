@@ -31,8 +31,21 @@ class AIService {
     // Analyze PDF file and generate content
     async analyzePDF(fileId: string, lectureId: string, subjectId: string, title: string): Promise<{ jobId: string }> {
         try {
+            console.log('Analyzing PDF with parameters:', { fileId, lectureId, subjectId, title });
+
+            if (!fileId || !lectureId || !subjectId || !title) {
+                console.error('Missing required parameters for PDF analysis:', { fileId, lectureId, subjectId, title });
+                throw new Error('Missing required parameters for PDF analysis');
+            }
+
             const response = await api.post('/api/ai/analyze-pdf', { fileId, lectureId, subjectId, title });
+            console.log('Analyze PDF response:', response.data);
+
             const jobId = response.data.jobId;
+            if (!jobId) {
+                console.error('No job ID returned from analyze-pdf endpoint');
+                throw new Error('Failed to start analysis job');
+            }
 
             // Initialize job status
             this.processingJobs.set(jobId, {
