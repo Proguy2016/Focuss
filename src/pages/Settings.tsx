@@ -10,6 +10,7 @@ import { AppearanceSettings } from '../components/settings/AppearanceSettings';
 import { DataSettings } from '../components/settings/DataSettings';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useAppContext } from '../contexts/AppContext';
 
 type SettingsTab = 'profile' | 'preferences' | 'notifications' | 'appearance' | 'data';
 
@@ -23,6 +24,7 @@ const SETTINGS_TABS = [
 
 export const Settings: React.FC = () => {
     const { user } = useAuth();
+    const { state, dispatch } = useAppContext();
     const LOCAL_STORAGE_PREFS_KEY = `focus-ritual-preferences-${user?.id || 'default'}`;
     const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
 
@@ -37,8 +39,10 @@ export const Settings: React.FC = () => {
         goalDeadlines: true, weeklyReports: false, achievementUnlocks: true, socialUpdates: false,
         marketingEmails: false, reminderSound: 'default', quietHours: { enabled: false, start: '22:00', end: '07:00' }
     });
+
+    // Use theme from AppContext state
     const [appearance, setAppearance] = useState({
-        theme: 'dark' as 'light' | 'dark' | 'auto',
+        theme: state.theme || 'dark' as 'light' | 'dark' | 'auto' | 'sunset' | 'oceanic',
         accentColor: '#34D399',
         backgroundAnimation: 'default',
         reducedMotion: false,
@@ -69,7 +73,17 @@ export const Settings: React.FC = () => {
         localStorage.setItem(LOCAL_STORAGE_PREFS_KEY, JSON.stringify(newPrefs));
     };
     const handleNotificationChange = (key: any, value: any) => setNotifications(prev => ({ ...prev, [key]: value }));
-    const handleAppearanceChange = (key: any, value: any) => setAppearance(prev => ({ ...prev, [key]: value }));
+    const handleAppearanceChange = (key: any, value: any) => {
+        setAppearance(prev => ({ ...prev, [key]: value }));
+
+        // Update theme in AppContext if that's what changed
+        if (key === 'theme') {
+            dispatch({ type: 'SET_THEME', payload: value });
+
+            // Apply theme change immediately
+            document.documentElement.setAttribute('data-theme', value);
+        }
+    };
 
     const handleExport = () => alert("Exporting data...");
     const handleDelete = () => confirm("Are you sure you want to delete your account?") && alert("Account deleted.");

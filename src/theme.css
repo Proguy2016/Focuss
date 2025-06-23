@@ -17,7 +17,63 @@
     --glass: rgba(0, 32, 36, 0.7);
 
     --emerald: #34d399;
-    
+
+    --slate-dark: #0f172a;
+
+    --shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.4);
+    --glow: 0 0 15px rgba(4, 217, 217, 0.5);
+}
+
+/* Light theme */
+:root[data-theme="light"] {
+    --primary: #04d9d9;
+    --primary-light: #2cfffe;
+    --primary-dark: #00a8a8;
+    --secondary: #00a8a8;
+    --secondary-light: #04d9d9;
+
+    --dark: #f0f0f0;
+    --dark-light: #ffffff;
+    --darker: #e0e0e0;
+    --light: #222222;
+    --gray: #555555;
+    --gray-dark: #333333;
+
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --glass: rgba(240, 240, 240, 0.7);
+
+    --emerald: #34d399;
+
+    --slate-dark: #f8fafc;
+
+    --shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.15);
+    --glow: 0 0 15px rgba(4, 217, 217, 0.3);
+}
+
+/* Dark theme - explicitly defined for clarity */
+:root[data-theme="dark"] {
+    --primary: #04d9d9;
+    --primary-light: #2cfffe;
+    --primary-dark: #00a8a8;
+    --secondary: #00a8a8;
+    --secondary-light: #04d9d9;
+
+    --dark: #002024;
+    --dark-light: #000000;
+    --darker: #000000;
+    --light: #ffffff;
+    --gray: #bdbdbd;
+    --gray-dark: #888888;
+
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --glass: rgba(0, 32, 36, 0.7);
+
+    --emerald: #34d399;
+
     --slate-dark: #0f172a;
 
     --shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
@@ -26,55 +82,77 @@
 }
 
 :root[data-theme="sunset"] {
-    --primary: #FF6B6B; /* Coral */
+    --primary: #FF6B6B;
+    /* Coral */
     --primary-light: #FF8E8E;
     --primary-dark: #E05252;
-    --secondary: #FFD166; /* Saffron */
+    --secondary: #FFD166;
+    /* Saffron */
     --secondary-light: #FFE08C;
 
-    --dark: #4A4A4A; /* Dark Gray */
+    --dark: #4A4A4A;
+    /* Dark Gray */
     --dark-light: #6B6B6B;
-    --darker: #2E2E2E; /* Almost Black */
-    --light: #FFF9F2; /* Creamy White */
+    --darker: #2E2E2E;
+    /* Almost Black */
+    --light: #FFF9F2;
+    /* Creamy White */
     --gray: #BDBDBD;
     --gray-dark: #888888;
 
     --red: #EF4444;
     --yellow: #f59e0b;
-    --glass: rgba(74, 74, 74, 0.7); /* Darker glass for contrast */
+    --glass: rgba(74, 74, 74, 0.7);
+    /* Darker glass for contrast */
 
-    --emerald: #34D399; /* Keep for accents if needed */
-    
-    --slate-dark: #0f172a; /* Keep for specific components if needed */
+    --emerald: #34D399;
+    /* Keep for accents if needed */
+
+    --slate-dark: #0f172a;
+    /* Keep for specific components if needed */
 
     --shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
     --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.3);
-    --glow: 0 0 15px rgba(255, 107, 107, 0.5); /* Coral glow */
+    --glow: 0 0 15px rgba(255, 107, 107, 0.5);
+    /* Coral glow */
 }
 
 :root[data-theme="oceanic"] {
-    --primary: #00A8CC; /* Cerulean Blue */
+    --primary: #00A8CC;
+    /* Cerulean Blue */
     --primary-light: #33B9D6;
     --primary-dark: #008FAA;
-    --secondary: #80DED9; /* Turquoise */
+    --secondary: #80DED9;
+    /* Turquoise */
     --secondary-light: #A6E9E4;
 
-    --dark: #0D2B36; /* Deep Ocean Blue */
+    --dark: #0D2B36;
+    /* Deep Ocean Blue */
     --dark-light: #1A4A5A;
-    --darker: #001A22; /* Very Dark Blue */
-    --light: #F0F8FF; /* Alice Blue */
-    --gray: #B0C4DE; /* Light Steel Blue */
-    --gray-dark: #778899; /* Light Slate Gray */
+    --darker: #001A22;
+    /* Very Dark Blue */
+    --light: #F0F8FF;
+    /* Alice Blue */
+    --gray: #B0C4DE;
+    /* Light Steel Blue */
+    --gray-dark: #778899;
+    /* Light Slate Gray */
 
-    --red: #EF4444; /* Keep for error states */
-    --yellow: #f59e0b; /* Keep for warning states */
-    --glass: rgba(13, 43, 54, 0.7); /* Deep blue glass */
+    --red: #EF4444;
+    /* Keep for error states */
+    --yellow: #f59e0b;
+    /* Keep for warning states */
+    --glass: rgba(13, 43, 54, 0.7);
+    /* Deep blue glass */
 
-    --emerald: #34D399; /* Keep for accents if needed */
-    
-    --slate-dark: #0f172a; /* Keep for specific components if needed */
+    --emerald: #34D399;
+    /* Keep for accents if needed */
+
+    --slate-dark: #0f172a;
+    /* Keep for specific components if needed */
 
     --shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
     --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.3);
-    --glow: 0 0 15px rgba(0, 168, 204, 0.5); /* Cerulean glow */
+    --glow: 0 0 15px rgba(0, 168, 204, 0.5);
+    /* Cerulean glow */
 }
