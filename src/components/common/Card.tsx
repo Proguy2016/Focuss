@@ -1,13 +1,12 @@
 import React, { useRef } from 'react';
 import { motion, HTMLMotionProps, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { cn } from '../../lib/utils'; // Import cn utility
 
 interface CardProps extends Omit<HTMLMotionProps<'div'>, 'children' | 'style'> {
   children: React.ReactNode;
   variant?: 'default' | 'glass' | 'solid';
   className?: string;
   interactive?: boolean;
-  isPremium?: boolean; // New prop
-  hover?: boolean;
   glow?: boolean;
 }
 
@@ -16,9 +15,7 @@ export const Card: React.FC<CardProps> = ({
   variant = 'default',
   className = '',
   interactive = false,
-  isPremium = false, // Default to false
-  hover,
-  glow,
+  glow = false,
   ...props
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -33,64 +30,57 @@ export const Card: React.FC<CardProps> = ({
     mouseY.set(e.clientY - top);
   };
 
-  const springConfig = { damping: 15, stiffness: 200 };
+  const springConfig = { damping: 20, stiffness: 300 };
   const smoothMouseX = useSpring(mouseX, springConfig);
   const smoothMouseY = useSpring(mouseY, springConfig);
 
-  const rotateX = useTransform(smoothMouseY, [0, 300], [10, -10]);
-  const rotateY = useTransform(smoothMouseX, [0, 400], [-10, 10]);
+  const rotateX = useTransform(smoothMouseY, [0, 300], [7, -7]);
+  const rotateY = useTransform(smoothMouseX, [0, 400], [-7, 7]);
 
-  const getVariantClasses = () => {
-    switch (variant) {
-      case 'glass':
-        return isPremium ? 'premium-glass-card' : 'bg-white/5 backdrop-blur-lg border border-white/10 shadow-lg';
-      case 'solid':
-        return isPremium ? 'premium-card bg-[var(--card-background)]' : 'bg-gray-800/80 border border-gray-700/80';
-      default: // default can also be premium
-        return isPremium ? 'premium-card bg-[var(--card-background)]' : 'bg-white/5 backdrop-blur-lg border border-white/10 shadow-lg';
-    }
+  const baseClasses = "rounded-2xl p-6 transition-all duration-300 relative overflow-hidden";
+  
+  const variantClasses = {
+      glass: "bg-white/5 backdrop-blur-xl border border-white/10 shadow-lg",
+      solid: "bg-gray-900/80 border border-gray-700/80",
+      default: "bg-white/5 backdrop-blur-xl border border-white/10 shadow-lg"
   };
 
+  const glowClasses = glow ? "shadow-primary/20 shadow-[0_0_15px] border-primary/20" : "";
+  
   const interactiveStyle = interactive ? {
     rotateX,
     rotateY,
-    transformStyle: 'preserve-3d' as 'preserve-3d',
+    transformStyle: 'preserve-3d' as const,
   } : {};
 
   return (
     <motion.div
       ref={cardRef}
-      className={`
-        rounded-2xl p-6 transition-all duration-300 relative overflow-hidden
-        ${getVariantClasses()}
-        ${className}
-      `}
+      className={cn(baseClasses, variantClasses[variant], glowClasses, className)}
       style={interactiveStyle}
       onMouseMove={interactive ? handleMouseMove : undefined}
       onMouseLeave={() => {
-        mouseX.set(200);
-        mouseY.set(150);
+        if(interactive) {
+            mouseX.set(200);
+            mouseY.set(150);
+        }
       }}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
       {...props}
     >
-      <div style={{ transform: 'translateZ(20px)' }}>{children}</div>
+      <div className="relative z-10" style={interactive ? { transform: 'translateZ(30px)' } : {}}>{children}</div>
       {interactive && (
         <motion.div
+          className="absolute inset-0 z-0"
           style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
             background: useTransform(
               smoothMouseY,
               [0, 300],
               [
-                `radial-gradient(circle at ${smoothMouseX}px ${smoothMouseY}px, rgba(255, 255, 255, 0.1), transparent 60%)`,
-                `radial-gradient(circle at ${smoothMouseX}px ${smoothMouseY}px, rgba(255, 255, 255, 0), transparent 80%)`
+                `radial-gradient(circle at ${smoothMouseX}px ${smoothMouseY}px, hsla(0, 0%, 100%, 0.1), transparent 40%)`,
+                `radial-gradient(circle at ${smoothMouseX}px ${smoothMouseY}px, hsla(0, 0%, 100%, 0), transparent 60%)`
               ]
             ),
           }}

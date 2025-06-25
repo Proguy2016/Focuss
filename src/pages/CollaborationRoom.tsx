@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, FormEvent, useEffect } from "react";
-import { Users, Copy, X } from "lucide-react";
+import { Users, Copy, X, Bot, Send, Upload, Share2, Calendar } from "lucide-react";
 import { Button } from "../components/common/Button";
-import { Card } from "../components/common/Card";
+import { Card, CardHeader, CardTitle, CardContent } from "../components/common/Card";
 import { Modal } from "../components/common/Modal";
 import { Input } from "../components/collaboration/Input";
 import { useRoomCode } from "../components/collaboration/useRoomCode";
@@ -12,69 +12,17 @@ import { SharedFilesPanel } from "../components/collaboration/SharedFilesPanel";
 import { MainContent } from "../components/collaboration/MainContent";
 import { AiAssistantPanel } from "../components/collaboration/AiAssistantPanel";
 import { CollaborationProvider, useCollaboration } from '../contexts/CollaborationContext';
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import { Timer } from "../components/collaboration/Timer";
+import { SidebarTabs } from "../components/collaboration/SidebarTabs";
+import StudentCollaborationRoom from '../components/collaboration/StudentCollaborationRoom';
+import { ScrollArea } from "../components/common/ScrollArea";
+import { Avatar, AvatarImage, AvatarFallback } from "../components/common/Avatar";
+import { Separator } from "../components/common/Separator";
 
-function ActiveRoom({ roomCode, onLeaveRoom }: { roomCode: string, onLeaveRoom: () => void }) {
-    const [showInviteModal, setShowInviteModal] = useState(false);
-    const { joinRoom, leaveRoom, isConnected } = useCollaboration();
-
-    useEffect(() => {
-        // This effect runs when the component mounts, triggering the connection
-        // to the server and joining the specific room.
-        joinRoom(roomCode);
-
-        // The cleanup function returned by useEffect will run when the component unmounts
-        return () => {
-            leaveRoom();
-        };
-    }, [roomCode, joinRoom, leaveRoom]);
-
-    if (!isConnected) {
-        return (
-            <div className="flex items-center justify-center h-screen w-full text-white">
-                <div className="text-center">
-                    <p className="text-2xl font-bold mb-2">Connecting to Collaboration Service...</p>
-                    <p className="text-white/60">Please wait.</p>
-                </div>
-            </div>
-        );
-    }
-    
-    return (
-        <>
-            <div className="h-screen w-full text-white p-4 flex flex-col gap-4">
-                <header className="flex-shrink-0 flex justify-between items-center glass p-4 rounded-lg">
-                    <div>
-                        <h1 className="text-2xl font-bold">Collaboration Space</h1>
-                        <p className="text-white/60">Room Code: <span className="font-mono text-primary-300">{roomCode}</span></p>
-                    </div>
-                    <div>
-                        <Button variant="danger" onClick={onLeaveRoom}><X className="mr-2 h-4 w-4" /> Leave Room</Button>
-                    </div>
-                </header>
-                <div className="flex-1 flex gap-4 overflow-hidden">
-                    <aside className="w-1/4 flex flex-col gap-4">
-                        <ParticipantsPanel roomCode={roomCode} onInvite={() => setShowInviteModal(true)} />
-                        <div className="flex-1">
-                            <SharedFilesPanel />
-                        </div>
-                    </aside>
-                    <main className="flex-1">
-                        <MainContent />
-                    </main>
-                    <aside className="w-1/4">
-                        <AiAssistantPanel />
-                    </aside>
-                </div>
-            </div>
-            <Modal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} title="Invite to Collaborate">
-                <p>Share this room code with others.</p>
-                <div className="flex items-center space-x-2 bg-gray-800 p-2 rounded-md mt-4">
-                    <p className="text-lg font-mono text-white flex-1">{roomCode}</p>
-                    <Button size="icon" variant="ghost" onClick={() => navigator.clipboard.writeText(roomCode)}><Copy className="h-4 w-4" /></Button>
-                </div>
-            </Modal>
-        </>
-    );
+function ActiveRoom() {
+    // Instead of the old UI, render the new StudentCollaborationRoom
+    return <StudentCollaborationRoom />;
 }
 
 function CollaborationRoom({ onJoinRoom, onCreateRoom }: { onJoinRoom: (code: string) => void, onCreateRoom: () => void }) {
@@ -138,7 +86,7 @@ export default function CollaborationRoomApp() {
         <CollaborationProvider>
             <div className="w-full h-full">
                 {activeRoom ? (
-                    <ActiveRoom roomCode={activeRoom} onLeaveRoom={handleLeaveRoom} />
+                    <ActiveRoom />
                 ) : (
                     <CollaborationRoom onJoinRoom={handleJoinRoom} onCreateRoom={handleCreateRoom} />
                 )}

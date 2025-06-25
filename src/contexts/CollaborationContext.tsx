@@ -2,8 +2,25 @@ import React, { createContext, useContext, useState, ReactNode, useCallback, use
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext'; // Import the useAuth hook
 import axios from 'axios';
+import { TLStore, createTLStore } from '@tldraw/tldraw';
 
 // --- TYPE DEFINITIONS ---
+
+export interface TimerState {
+    mode: 'work' | 'break';
+    timeRemaining: number;
+    isRunning: boolean;
+}
+
+export interface Task {
+    id: string;
+    text: string;
+    completed: boolean;
+    currentRoomCode: string;
+    tldrawStore: TLStore;
+    tasks: Task[];
+    timer: TimerState;
+}
 
 export interface Participant { // Exporting for use in components
     id: string;
@@ -49,17 +66,29 @@ interface CollaborationState {
     aiInteractions: AiInteraction[];
     isConnected: boolean;
     socketRef: React.RefObject<Socket | null>; // Expose socketRef for direct access
+    currentRoomCode: string;
+    tldrawStore: TLStore;
+    tasks: Task[];
+    timer: TimerState;
 }
 
 interface CollaborationContextType extends CollaborationState {
     joinRoom: (roomCode: string) => void;
     leaveRoom: () => void;
-    sendMessage: (message: string) => void;
+    sendMessage: (message: string, replyTo?: string | null) => void;
     addReaction: (messageId: string, emoji: string) => void;
     setTyping: (isTyping: boolean) => void;
+    toggleHandRaised: () => void;
     summarizeChat: () => void;
     askAi: (query: string) => void;
     uploadFile: (file: File) => Promise<void>;
+    handleTldrawMount: (tldraw: any) => void;
+    addTask: (text: string) => void;
+    toggleTask: (id: string) => void;
+    deleteTask: (id: string) => void;
+    startTimer: () => void;
+    pauseTimer: () => void;
+    resetTimer: () => void;
 }
 
 // A mock current user. In a real app, this would come from an auth context.
@@ -80,6 +109,9 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
     const [currentUser, setCurrentUser] = useState<Participant | null>(null);
     const [isConnected, setIsConnected] = useState(false);
     const [currentRoomCode, setCurrentRoomCode] = useState<string>('');
+    const [tldrawStore] = useState(() => createTLStore());
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [timer, setTimer] = useState<TimerState>({ mode: 'work', timeRemaining: 25 * 60, isRunning: false });
 
     const socketRef = useRef<Socket | null>(null);
 
@@ -91,7 +123,7 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
         // Get auth token from localStorage
         const token = localStorage.getItem('token') || 'guest-token';
 
-        const socket = io('http://localhost:5001', {
+        const socket = io('http://localhost:4000', {
             withCredentials: true,
             transports: ['websocket', 'polling'],
             extraHeaders: {
@@ -128,11 +160,12 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
             setIsConnected(true);
         });
 
-        socket.on('roomState', (state: { participants: Participant[], messages: ChatMessage[], files: SharedFile[] }) => {
+        socket.on('roomState', (state: { participants: Participant[], messages: ChatMessage[], files: SharedFile[], tasks: Task[] }) => {
             console.log('[Client] Received roomState:', state);
             setParticipants(state.participants);
             setMessages(state.messages);
             if (state.files) setFiles(state.files);
+            if (state.tasks) setTasks(state.tasks);
         });
 
         socket.on('fileAdded', (file: SharedFile) => {
@@ -186,7 +219,23 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
         socket.on('typingStatusChanged', ({ userId, isTyping }) => {
             setParticipants(prev => prev.map(p => p.id === userId ? { ...p, isTyping } : p));
         });
-    }, [authUser]);
+
+        socket.on('handRaisedToggled', ({ userId, handRaised }) => {
+            setParticipants(prev => prev.map(p => p.id === userId ? { ...p, handRaised } : p));
+        });
+
+        socket.on('tldrawUpdate', (data) => {
+            tldrawStore.loadSnapshot(data.snapshot);
+        });
+
+        socket.on('tasksUpdate', (newTasks: Task[]) => {
+            setTasks(newTasks);
+        });
+
+        socket.on('timerUpdate', (newTimerState: TimerState) => {
+            setTimer(newTimerState);
+        });
+    }, [authUser, tldrawStore]);
 
     const leaveRoom = useCallback(() => {
         if (socketRef.current) {
@@ -198,13 +247,15 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
         setParticipants([]);
         setMessages([]);
         setCurrentUser(null);
+        setTasks([]);
+        setTimer({ mode: 'work', timeRemaining: 25 * 60, isRunning: false });
     }, []);
 
     // --- REAL-TIME FUNCTIONS ---
 
-    const sendMessage = useCallback((message: string) => {
+    const sendMessage = useCallback((message: string, replyTo: string | null = null) => {
         if (!message.trim() || !socketRef.current || !currentUser) return;
-        const newMessage = {
+        const newMessage: ChatMessage = {
             id: `msg-${Date.now()}`, // Ensure unique message ID
             userId: currentUser.id,
             name: currentUser.name,
@@ -212,6 +263,7 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
             message,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             reactions: {},
+            ...(replyTo && { replyTo }),
         };
         socketRef.current.emit('sendMessage', newMessage);
     }, [currentUser]);
@@ -224,6 +276,11 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
     const setTyping = useCallback((isTyping: boolean) => {
         if (!socketRef.current || !currentUser) return;
         socketRef.current.emit('setTyping', { userId: currentUser.id, isTyping });
+    }, [currentUser]);
+
+    const toggleHandRaised = useCallback(() => {
+        if (!socketRef.current || !currentUser) return;
+        socketRef.current.emit('toggleHandRaised', { userId: currentUser.id });
     }, [currentUser]);
 
     const summarizeChat = useCallback(() => {
@@ -249,6 +306,15 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
         setAiInteractions(prev => [...prev, userQuery, aiResponse]);
     }, []);
 
+    const handleTldrawMount = useCallback((tldraw: any) => {
+        tldraw.on('change', (event: any) => {
+            if (event.source !== 'user' || !socketRef.current) return;
+            socketRef.current.emit('tldrawUpdate', {
+                snapshot: tldraw.store.getSnapshot(),
+            });
+        });
+    }, []);
+
     // File upload function
     const uploadFile = useCallback(async (file: File) => {
         if (!socketRef.current || !currentUser || !currentRoomCode || !authUser) {
@@ -272,7 +338,7 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
 
             // Upload the file to the backend
             const response = await axios.post(
-                'http://localhost:5001/api/up/collaboration-upload',
+                'http://localhost:4000/api/up/collaboration-upload',
                 formData,
                 {
                     headers: {
@@ -296,6 +362,36 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
         }
     }, [currentUser, currentRoomCode, authUser]);
 
+    const addTask = useCallback((text: string) => {
+        if (!socketRef.current) return;
+        socketRef.current.emit('addTask', { text });
+    }, []);
+
+    const toggleTask = useCallback((id: string) => {
+        if (!socketRef.current) return;
+        socketRef.current.emit('toggleTask', { id });
+    }, []);
+
+    const deleteTask = useCallback((id: string) => {
+        if (!socketRef.current) return;
+        socketRef.current.emit('deleteTask', { id });
+    }, []);
+
+    const startTimer = useCallback(() => {
+        if (!socketRef.current) return;
+        socketRef.current.emit('startTimer');
+    }, []);
+
+    const pauseTimer = useCallback(() => {
+        if (!socketRef.current) return;
+        socketRef.current.emit('pauseTimer');
+    }, []);
+
+    const resetTimer = useCallback(() => {
+        if (!socketRef.current) return;
+        socketRef.current.emit('resetTimer');
+    }, []);
+
     const value = {
         participants,
         files,
@@ -304,14 +400,26 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
         aiInteractions,
         isConnected,
         socketRef,
+        currentRoomCode,
+        tldrawStore,
+        tasks,
+        timer,
         joinRoom,
         leaveRoom,
         sendMessage,
         addReaction,
         setTyping,
+        toggleHandRaised,
         summarizeChat,
         askAi,
         uploadFile,
+        handleTldrawMount,
+        addTask,
+        toggleTask,
+        deleteTask,
+        startTimer,
+        pauseTimer,
+        resetTimer,
     };
 
     return (

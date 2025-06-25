@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Bot, BookOpen, Send, Lightbulb, BrainCircuit } from "lucide-react";
 import { Button } from "../common/Button";
-import { Card } from "../common/Card";
 import { Input } from "./Input";
 import { useCollaboration } from "../../contexts/CollaborationContext";
 import { AiInteraction } from "../../contexts/CollaborationContext";
@@ -27,7 +26,6 @@ export const AiAssistantPanel: React.FC = () => {
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        // Scroll to the bottom of the chat on new message
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
@@ -40,15 +38,23 @@ export const AiAssistantPanel: React.FC = () => {
     };
 
     return (
-        <Card variant="glass" className="p-4 h-full flex flex-col">
+        <div className="p-4 h-full flex flex-col">
             <h3 className="text-lg font-bold mb-2 text-white flex items-center gap-2 flex-shrink-0">
                 <Bot className="text-primary-300" /> AI Assistant
             </h3>
 
             <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto pr-2 my-4 flex flex-col">
-                {aiInteractions.map(interaction => (
-                    <AiInteractionBubble key={interaction.id} interaction={interaction} />
-                ))}
+                {aiInteractions.length === 0 ? (
+                    <div className="text-center py-10 flex-1 flex flex-col items-center justify-center">
+                        <BrainCircuit className="mx-auto h-12 w-12 text-white/20" />
+                        <p className="mt-4 text-sm text-white/60">AI Assistant is ready.</p>
+                        <p className="text-xs text-white/40">Ask a question or use a suggestion.</p>
+                    </div>
+                ) : (
+                    aiInteractions.map(interaction => (
+                        <AiInteractionBubble key={interaction.id} interaction={interaction} />
+                    ))
+                )}
             </div>
 
             <div className="mt-auto pt-4 border-t border-white/10 flex-shrink-0">
@@ -72,6 +78,6 @@ export const AiAssistantPanel: React.FC = () => {
                     </Button>
                 </form>
             </div>
-        </Card>
+        </div>
     );
 }; 

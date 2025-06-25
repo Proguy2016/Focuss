@@ -34,23 +34,17 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [focusedInput, setFocusedInput] = useState<string | null>(null);
-  const [rememberMe, setRememberMe] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Clear form error when switching views
   // Clear form error when switching views
   useEffect(() => {
     setFormError(null);
     clearError();
   }, [isLogin, clearError]);
 
-  // Update form error when auth error changes
   // Update form error when auth error changes
   useEffect(() => {
     if (error) {
@@ -63,8 +57,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
       if (!email) return "Email is required";
       if (!password) return "Password is required";
     } else {
-      if (!firstName) return "First name is required";
-      if (!lastName) return "Last name is required";
       if (!firstName) return "First name is required";
       if (!lastName) return "Last name is required";
       if (!email) return "Email is required";
@@ -88,7 +80,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
         await login({ email, password });
       } else {
         await register({ firstName, lastName, email, password });
-        await register({ firstName, lastName, email, password });
       }
       navigate('/dashboard');
     } catch (err) {
@@ -110,22 +101,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
     setFormError("Social login is not implemented yet");
   };
 
-  const handleFormClick = () => {
-    console.log('Form clicked');
-  };
-
-  const handleSignInButtonClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    handleSubmit(e);
-  };
-
-  const handleSocialLogin = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setFormError("Social login is not implemented yet");
-  };
-
   return (
-    <form onSubmit={handleSubmit} onClick={handleFormClick} className="space-y-4">
     <form onSubmit={handleSubmit} onClick={handleFormClick} className="space-y-4">
       {formError && (
         <motion.div
@@ -264,16 +240,17 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
               className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-10 focus:bg-white/10"
             />
 
-            <div
+            <button
+              type="button"
+              className="absolute right-3 text-white/40 hover:text-white transition-colors duration-300"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 cursor-pointer"
             >
               {showPassword ? (
-                <Eye className="w-4 h-4 text-white/40 hover:text-white transition-colors duration-300" />
+                <EyeOff className="w-4 h-4" />
               ) : (
-                <EyeOff className="w-4 h-4 text-white/40 hover:text-white transition-colors duration-300" />
+                <Eye className="w-4 h-4" />
               )}
-            </div>
+            </button>
 
             {focusedInput === "password" && (
               <motion.div
@@ -289,56 +266,37 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
         </motion.div>
       </motion.div>
 
-      <div className="flex items-center justify-between pt-1">
-        <div className="flex items-center space-x-2">
-          <div className="relative">
-            <input
-              id="remember-me"
-              name="remember-me"
-              type="checkbox"
-              checked={rememberMe}
-              onChange={() => setRememberMe(!rememberMe)}
-              className="appearance-none h-4 w-4 rounded border border-white/20 bg-white/5 checked:bg-white checked:border-white focus:outline-none focus:ring-1 focus:ring-white/30 transition-all duration-200"
-            />
-            {rememberMe && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="absolute inset-0 flex items-center justify-center text-black pointer-events-none"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-              </motion.div>
-            )}
-          </div>
-          <label htmlFor="remember-me" className="text-xs text-white/60 hover:text-white/80 transition-colors duration-200">
-            Remember me
-          </label>
-        </div>
+      <div className="flex items-center justify-between">
+        <label className="flex items-center space-x-2 select-none cursor-pointer text-xs text-white/60">
+          <input
+            type="checkbox"
+            checked={rememberMe}
+            onChange={() => setRememberMe(!rememberMe)}
+            className="rounded bg-white/10 border-transparent checked:bg-primary checked:border-primary focus-visible:ring-offset-0 focus-visible:ring-transparent"
+          />
+          <span>Remember me</span>
+        </label>
 
         {isLogin && (
-          <div className="text-xs relative group/link">
-            <a href="#" className="text-white/60 hover:text-white transition-colors duration-200">
-              Forgot password?
-            </a>
-          </div>
+          <button
+            type="button"
+            className="relative group/forgot text-xs text-white/60"
+          >
+            <span className="relative z-10 group-hover/forgot:text-white/70 transition-colors duration-300">Forgot password?</span>
+            <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-white/60 group-hover/forgot:w-full transition-all duration-300" />
+          </button>
         )}
       </div>
 
-      {/* Standalone button instead of submit button */}
       <Button
+        type="button"
         variant="primary"
         fullWidth
         className="mt-5 h-10 cursor-pointer"
         icon={loading ? undefined : ArrowRight}
-        className="mt-5 h-10 cursor-pointer"
-        icon={loading ? undefined : ArrowRight}
         loading={loading}
         onClick={handleSignInButtonClick}
-        onClick={handleSignInButtonClick}
       >
-        {isLogin ? "Sign In" : "Sign Up"}
         {isLogin ? "Sign In" : "Sign Up"}
       </Button>
 
@@ -353,17 +311,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
           or
         </motion.span>
         <div className="flex-grow border-t border-white/5"></div>
-      <div className="relative mt-2 mb-5 flex items-center">
-        <div className="flex-grow border-t border-white/5"></div>
-        <motion.span
-          className="mx-3 text-xs text-white/40"
-          initial={{ opacity: 0.7 }}
-          animate={{ opacity: [0.7, 0.9, 0.7] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-        >
-          or
-        </motion.span>
-        <div className="flex-grow border-t border-white/5"></div>
       </div>
 
       <div className="flex gap-3 justify-center">
@@ -403,66 +350,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
           <div className="absolute inset-0 bg-white/5 rounded-full blur opacity-0 group-hover/social:opacity-70 transition-opacity duration-300" />
           <div className="relative overflow-hidden bg-white/5 text-white h-10 w-10 rounded-full border border-white/10 hover:border-white/20 transition-all duration-300 flex items-center justify-center">
             <div className="w-5 h-5 flex items-center justify-center text-white/80 group-hover/social:text-white transition-colors duration-300">G</div>
-      <div className="flex gap-3 justify-center">
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          type="button"
-          onClick={handleSocialLogin}
-          className="relative group/social"
-        >
-          <div className="absolute inset-0 bg-white/5 rounded-full blur opacity-0 group-hover/social:opacity-70 transition-opacity duration-300" />
-          <div className="relative overflow-hidden bg-white/5 text-white h-10 w-10 rounded-full border border-white/10 hover:border-white/20 transition-all duration-300 flex items-center justify-center">
-            <Github className="w-5 h-5 text-white/80 group-hover/social:text-white transition-colors duration-300" />
           </div>
-        </motion.button>
-
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          type="button"
-          onClick={handleSocialLogin}
-          className="relative group/social"
-        >
-          <div className="absolute inset-0 bg-white/5 rounded-full blur opacity-0 group-hover/social:opacity-70 transition-opacity duration-300" />
-          <div className="relative overflow-hidden bg-white/5 text-white h-10 w-10 rounded-full border border-white/10 hover:border-white/20 transition-all duration-300 flex items-center justify-center">
-            <Twitter className="w-5 h-5 text-white/80 group-hover/social:text-white transition-colors duration-300" />
-          </div>
-        </motion.button>
-
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          type="button"
-          onClick={handleSocialLogin}
-          className="relative group/social"
-        >
-          <div className="absolute inset-0 bg-white/5 rounded-full blur opacity-0 group-hover/social:opacity-70 transition-opacity duration-300" />
-          <div className="relative overflow-hidden bg-white/5 text-white h-10 w-10 rounded-full border border-white/10 hover:border-white/20 transition-all duration-300 flex items-center justify-center">
-            <div className="w-5 h-5 flex items-center justify-center text-white/80 group-hover/social:text-white transition-colors duration-300">G</div>
-          </div>
-        </motion.button>
         </motion.button>
       </div>
-
-      <motion.p
-        className="text-center text-xs text-white/60 mt-4"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-      >
-        {isLogin ? "Don't have an account?" : "Already have an account?"}{' '}
-        <button
-          type="button"
-          onClick={onToggleView}
-          className="relative inline-block group/signup"
-        >
-          <span className="relative z-10 text-white group-hover/signup:text-white/70 transition-colors duration-300 font-medium">
-            {isLogin ? "Sign up" : "Sign in"}
-          </span>
-          <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-white group-hover/signup:w-full transition-all duration-300" />
-        </button>
-      </motion.p>
 
       <motion.p
         className="text-center text-xs text-white/60 mt-4"
@@ -523,312 +413,30 @@ const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView }) => {
         onMouseLeave={handleMouseLeave}
         whileHover={{ z: 10 }}
       >
-        <div className="relative group">
-          <motion.div
-            className="absolute -inset-[1px] rounded-2xl opacity-0 group-hover:opacity-70 transition-opacity duration-700 pointer-events-none"
-            animate={{
-              boxShadow: [
-                "0 0 10px 2px rgba(255,255,255,0.03)",
-                "0 0 15px 5px rgba(255,255,255,0.05)",
-                "0 0 10px 2px rgba(255,255,255,0.03)"
-              ],
-              opacity: [0.2, 0.4, 0.2]
-            }}
-            transition={{
-              duration: 4,
-              repeat: Infinity,
-              ease: "easeInOut",
-              repeatType: "mirror"
-            }}
-          />
-
-          <div className="absolute -inset-[1px] rounded-2xl overflow-hidden pointer-events-none">
-            <motion.div
-              className="absolute top-0 left-0 h-[3px] w-[50%] bg-gradient-to-r from-transparent via-white to-transparent opacity-70"
-              initial={{ filter: "blur(2px)" }}
-              animate={{
-                left: ["-50%", "100%"],
-                opacity: [0.3, 0.7, 0.3],
-                filter: ["blur(1px)", "blur(2.5px)", "blur(1px)"]
-              }}
-              transition={{
-                left: {
-                  duration: 2.5,
-                  ease: "easeInOut",
-                  repeat: Infinity,
-                  repeatDelay: 1
-                },
-                opacity: {
-                  duration: 1.2,
-                  repeat: Infinity,
-                  repeatType: "mirror"
-                },
-                filter: {
-                  duration: 1.5,
-                  repeat: Infinity,
-                  repeatType: "mirror"
-                }
-              }}
-            />
-
-            <motion.div
-              className="absolute top-0 right-0 h-[50%] w-[3px] bg-gradient-to-b from-transparent via-white to-transparent opacity-70"
-              initial={{ filter: "blur(2px)" }}
-              animate={{
-                top: ["-50%", "100%"],
-                opacity: [0.3, 0.7, 0.3],
-                filter: ["blur(1px)", "blur(2.5px)", "blur(1px)"]
-              }}
-              transition={{
-                top: {
-                  duration: 2.5,
-                  ease: "easeInOut",
-                  repeat: Infinity,
-                  repeatDelay: 1,
-                  delay: 0.6
-                },
-                opacity: {
-                  duration: 1.2,
-                  repeat: Infinity,
-                  repeatType: "mirror",
-                  delay: 0.6
-                },
-                filter: {
-                  duration: 1.5,
-                  repeat: Infinity,
-                  repeatType: "mirror",
-                  delay: 0.6
-                }
-              }}
-            />
-
-            <motion.div
-              className="absolute bottom-0 right-0 h-[3px] w-[50%] bg-gradient-to-r from-transparent via-white to-transparent opacity-70"
-              initial={{ filter: "blur(2px)" }}
-              animate={{
-                right: ["-50%", "100%"],
-                opacity: [0.3, 0.7, 0.3],
-                filter: ["blur(1px)", "blur(2.5px)", "blur(1px)"]
-              }}
-              transition={{
-                right: {
-                  duration: 2.5,
-                  ease: "easeInOut",
-                  repeat: Infinity,
-                  repeatDelay: 1,
-                  delay: 1.2
-                },
-                opacity: {
-                  duration: 1.2,
-                  repeat: Infinity,
-                  repeatType: "mirror",
-                  delay: 1.2
-                },
-                filter: {
-                  duration: 1.5,
-                  repeat: Infinity,
-                  repeatType: "mirror",
-                  delay: 1.2
-                }
-              }}
-            />
-
-            <motion.div
-              className="absolute bottom-0 left-0 h-[50%] w-[3px] bg-gradient-to-b from-transparent via-white to-transparent opacity-70"
-              initial={{ filter: "blur(2px)" }}
-              animate={{
-                bottom: ["-50%", "100%"],
-                opacity: [0.3, 0.7, 0.3],
-                filter: ["blur(1px)", "blur(2.5px)", "blur(1px)"]
-              }}
-              transition={{
-                bottom: {
-                  duration: 2.5,
-                  ease: "easeInOut",
-                  repeat: Infinity,
-                  repeatDelay: 1,
-                  delay: 1.8
-                },
-                opacity: {
-                  duration: 1.2,
-                  repeat: Infinity,
-                  repeatType: "mirror",
-                  delay: 1.8
-                },
-                filter: {
-                  duration: 1.5,
-                  repeat: Infinity,
-                  repeatType: "mirror",
-                  delay: 1.8
-                }
-              }}
-            />
-
-            <motion.div
-              className="absolute top-0 left-0 h-[5px] w-[5px] rounded-full bg-white/40 blur-[1px]"
-              animate={{
-                opacity: [0.2, 0.4, 0.2]
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                repeatType: "mirror"
-              }}
-            />
-            <motion.div
-              className="absolute top-0 right-0 h-[8px] w-[8px] rounded-full bg-white/60 blur-[2px]"
-              animate={{
-                opacity: [0.2, 0.4, 0.2]
-              }}
-              transition={{
-                duration: 2.4,
-                repeat: Infinity,
-                repeatType: "mirror",
-                delay: 0.5
-              }}
-            />
-            <motion.div
-              className="absolute bottom-0 right-0 h-[8px] w-[8px] rounded-full bg-white/60 blur-[2px]"
-              animate={{
-                opacity: [0.2, 0.4, 0.2]
-              }}
-              transition={{
-                duration: 2.2,
-                repeat: Infinity,
-                repeatType: "mirror",
-                delay: 1
-              }}
-            />
-            <motion.div
-              className="absolute bottom-0 left-0 h-[5px] w-[5px] rounded-full bg-white/40 blur-[1px]"
-              animate={{
-                opacity: [0.2, 0.4, 0.2]
-              }}
-              transition={{
-                duration: 2.3,
-                repeat: Infinity,
-                repeatType: "mirror",
-                delay: 1.5
-              }}
-            />
+        <Card className="p-8 bg-black/60 backdrop-blur-lg overflow-hidden border-white/10">
+          <div className="mb-6 text-center">
+            <h2 className="text-2xl font-medium text-white">
+              {isLogin ? "Welcome Back" : "Create Account"}
+            </h2>
+            <p className="text-white/60 text-sm mt-1">
+              {isLogin ? "Sign in to continue to Focuss" : "Sign up to get started with Focuss"}
+            </p>
           </div>
-
-          <div className="absolute -inset-[0.5px] rounded-2xl bg-gradient-to-r from-white/3 via-white/7 to-white/3 opacity-0 group-hover:opacity-70 transition-opacity duration-500 pointer-events-none" />
-
-          <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl p-6 border border-white/[0.05] shadow-2xl overflow-hidden">
-            <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
-              style={{
-                backgroundImage: `linear-gradient(135deg, white 0.5px, transparent 0.5px), linear-gradient(45deg, white 0.5px, transparent 0.5px)`,
-                backgroundSize: '30px 30px'
-              }}
-            />
-
-            <div className="text-center space-y-1 mb-5">
-              <motion.div
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: "spring", duration: 0.8 }}
-                className="mx-auto w-10 h-10 rounded-full border border-white/10 flex items-center justify-center relative overflow-hidden pointer-events-none"
-              >
-                <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70">F</span>
-                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-50" />
-              </motion.div>
-
-              <motion.h1
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-white/80"
-              >
-                {isLogin ? "Welcome Back" : "Create Account"}
-              </motion.h1>
-
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3 }}
-                className="text-white/60 text-xs"
-              >
-                {isLogin ? "Sign in to continue" : "Sign up to get started"}
-              </motion.p>
-            </div>
-
-            <AuthForm onToggleView={onToggleView} isLogin={isLogin} />
-          </div>
-        </div>
+          <AuthForm isLogin={isLogin} onToggleView={onToggleView} />
+        </Card>
       </motion.div>
     </motion.div>
   );
 };
 
-interface AuthUIProps {
-  initialView?: 'login' | 'signup';
-}
-
-export const AuthUI: React.FC<AuthUIProps> = ({ initialView = 'login' }) => {
-  const [view, setView] = useState<'login' | 'signup'>(initialView);
-  const { isAuthenticated } = useAuth();
-  const navigate = useNavigate();
-
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/dashboard');
-    }
-  }, [isAuthenticated, navigate]);
+const Auth: React.FC = () => {
+  const [view, setView] = useState<'login' | 'register'>('login');
 
   const toggleView = () => {
-    setView(view === 'login' ? 'signup' : 'login');
+    setView(view === 'login' ? 'register' : 'login');
   };
 
   return (
-    <div className="min-h-screen w-screen bg-dark relative overflow-hidden flex items-center justify-center">
-      <div className="absolute inset-0 bg-gradient-to-br from-dark via-darker to-black" />
-
-      <div className="absolute inset-0 opacity-[0.03] mix-blend-soft-light"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-          backgroundSize: '200px 200px'
-        }}
-      />
-
-      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[120vh] h-[60vh] rounded-b-[50%] bg-primary/10 blur-[80px]" />
-      <motion.div
-        className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[100vh] h-[60vh] rounded-b-full bg-secondary/10 blur-[60px]"
-        animate={{
-          opacity: [0.1, 0.2, 0.1],
-          scale: [0.98, 1.02, 0.98]
-        }}
-        transition={{
-          duration: 8,
-          repeat: Infinity,
-          repeatType: "mirror"
-        }}
-      />
-      <motion.div
-        className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[90vh] h-[90vh] rounded-t-full bg-primary/10 blur-[60px]"
-        animate={{
-          opacity: [0.2, 0.3, 0.2],
-          scale: [1, 1.1, 1]
-        }}
-        transition={{
-          duration: 6,
-          repeat: Infinity,
-          repeatType: "mirror",
-          delay: 1
-        }}
-      />
-
-      <div className="absolute left-1/4 top-1/4 w-96 h-96 bg-white/5 rounded-full blur-[100px] animate-pulse opacity-40" />
-      <div className="absolute right-1/4 bottom-1/4 w-96 h-96 bg-white/5 rounded-full blur-[100px] animate-pulse delay-1000 opacity-40" />
-
-      <AnimatePresence mode="wait">
-        <AuthCard
-          key={view}
-          isLogin={view === 'login'}
-          onToggleView={toggleView}
-        />
-      </AnimatePresence>
     <div className="min-h-screen w-screen bg-dark relative overflow-hidden flex items-center justify-center">
       <div className="absolute inset-0 bg-gradient-to-br from-dark via-darker to-black" />
 
@@ -880,6 +488,4 @@ export const AuthUI: React.FC<AuthUIProps> = ({ initialView = 'login' }) => {
   );
 };
 
-export default function Auth({ initialView = 'login' }: AuthUIProps) {
-  return <AuthUI initialView={initialView} />;
-} 
+export default Auth; 
