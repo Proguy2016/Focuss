@@ -33,15 +33,15 @@ export const Button: React.FC<ButtonProps> = ({
   const getVariantClasses = () => {
     switch (variant) {
       case 'primary':
-        return 'bg-gradient-to-r from-primary-500 to-secondary-500 text-white hover:from-primary-600 hover:to-secondary-600';
+        return 'bg-gradient-to-r from-primary-500 via-emerald to-secondary-500 text-white shadow-lg hover:from-primary-400 hover:to-emerald focus:ring-2 focus:ring-primary-400';
       case 'secondary':
         return 'glass text-white hover:bg-white/20';
       case 'ghost':
         return 'text-white hover:bg-white/10';
       case 'danger':
-        return 'bg-gradient-to-r from-error-500 to-error-600 text-white hover:from-error-600 hover:to-error-700';
+        return 'bg-gradient-to-r from-red-500 via-yellow-500 to-red-600 text-white shadow-lg hover:from-red-600 hover:to-yellow-600 focus:ring-2 focus:ring-red-400';
       case 'success':
-        return 'bg-gradient-to-r from-success-500 to-success-600 text-white hover:from-success-600 hover:to-success-700';
+        return 'bg-gradient-to-r from-emerald to-primary-500 text-white shadow-lg hover:from-emerald/80 hover:to-primary-400 focus:ring-2 focus:ring-emerald';
       case 'glass':
         return 'bg-white/10 backdrop-blur-md border border-white/10 text-white hover:bg-white/20';
       case 'outline':
@@ -74,10 +74,10 @@ export const Button: React.FC<ButtonProps> = ({
 
   const baseClasses = `
     inline-flex items-center justify-center gap-2 rounded-xl font-semibold
-    transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary-500/50
+    transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary-400/80
     disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer
     ${fullWidth ? 'w-full' : ''}
-    ${glow ? 'hover:shadow-lg' : ''}
+    ${glow ? 'hover:shadow-[0_0_16px_4px_var(--primary)] focus:shadow-[0_0_16px_4px_var(--primary)]' : ''}
   `;
 
   return (
@@ -98,13 +98,13 @@ export const Button: React.FC<ButtonProps> = ({
       )}
       
       {Icon && iconPosition === 'left' && !loading && (
-        <Icon size={size === 'sm' ? 16 : size === 'lg' ? 24 : 20} />
+        <Icon size={variant === 'primary' ? (size === 'sm' ? 20 : size === 'lg' ? 28 : 24) : (size === 'sm' ? 16 : size === 'lg' ? 24 : 20)} />
       )}
       
       {children}
       
       {Icon && iconPosition === 'right' && !loading && (
-        <Icon size={size === 'sm' ? 16 : size === 'lg' ? 24 : 20} />
+        <Icon size={variant === 'primary' ? (size === 'sm' ? 20 : size === 'lg' ? 28 : 24) : (size === 'sm' ? 16 : size === 'lg' ? 24 : 20)} />
       )}
     </motion.button>
   );

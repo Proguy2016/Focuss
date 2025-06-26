@@ -123,18 +123,31 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
     const socketRef = useRef<Socket | null>(null);
 
     const joinRoom = useCallback((roomCode: string) => {
-        if (socketRef.current) return;
+        // If already connected to this room, don't reconnect
+        if (socketRef.current && currentRoomCode === roomCode) {
+            console.log(`[Client] Already connected to room ${roomCode}`);
+            return;
+        }
+        
+        // If connected to a different room, disconnect first
+        if (socketRef.current) {
+            console.log(`[Client] Disconnecting from current room to join ${roomCode}`);
+            socketRef.current.disconnect();
+            socketRef.current = null;
+        }
 
+        console.log(`[Client] Attempting to join room: ${roomCode}`);
         setCurrentRoomCode(roomCode);
 
         // Get auth token from localStorage
         const token = localStorage.getItem('token') || 'guest-token';
 
+        // Create a new socket connection
         const socket = io('http://localhost:4000', {
             withCredentials: true,
             transports: ['websocket', 'polling'],
             extraHeaders: {
-                "Access-Control-Allow-Origin": "http://localhost:5173"
+                "Access-Control-Allow-Origin": "*"
             },
             auth: {
                 token: token // Pass token in auth object
@@ -143,13 +156,15 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
             reconnectionDelay: 1000,
             timeout: 10000
         });
+        
         socketRef.current = socket;
 
+        // Listen for connection event
         socket.on('connect', () => {
             console.log('[Client] Connected to socket server with ID:', socket.id);
 
             // Use authenticated user data or fallback to a default
-            const participantName = authUser ? `${authUser.firstName} ${authUser.lastName}` : 'Anonymous';
+            const participantName = authUser ? `${authUser.firstName} ${authUser.lastName}` : 'Anonymous User';
             const participantAvatar = authUser?.profilePicture || `https://i.pravatar.cc/40?u=${socket.id}`;
 
             const user = {
@@ -166,6 +181,23 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
             console.log(`[Client] Emitting 'joinRoom' for room '${roomCode}' with user:`, userWithId);
             socket.emit('joinRoom', { roomCode, user: userWithId });
             setIsConnected(true);
+        });
+
+        // Handle reconnection
+        socket.io.on("reconnect", () => {
+            console.log('[Client] Reconnected to socket server');
+            if (currentUser && roomCode) {
+                console.log(`[Client] Rejoining room ${roomCode} after reconnection`);
+                socket.emit('joinRoom', { 
+                    roomCode, 
+                    user: currentUser 
+                });
+            }
+        });
+
+        // Log connection attempts
+        socket.io.on("reconnect_attempt", (attempt) => {
+            console.log(`[Client] Reconnection attempt ${attempt}`);
         });
 
         socket.on('roomState', (state: { participants: Participant[], messages: ChatMessage[], files: SharedFile[], tasks: Task[] }) => {
