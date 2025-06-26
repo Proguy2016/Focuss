@@ -242,68 +242,153 @@ const KanbanColumn: React.FC<{ title: string, tasks: Task[], onEdit: (task: Task
   </div>
 );
 
-const TaskRow = ({ task, onFocus, onEdit, onDelete, onStatusToggle }: { task: Task, onFocus: () => void, onEdit: () => void, onDelete: () => void, onStatusToggle: () => void }) => {
+const TaskRow = ({ task, onFocus, onEdit, onDelete, onStatusToggle, onUpdateTask }: {
+  task: Task,
+  onFocus: () => void,
+  onEdit: () => void,
+  onDelete: () => void,
+  onStatusToggle: () => void,
+  onUpdateTask: (updatedTask: Task) => void
+}) => {
+  const [showSubtasks, setShowSubtasks] = useState(false);
+
+  const toggleSubtaskDisplay = (e: React.MouseEvent) => {
+    // Prevent toggling if clicking on the status toggle or action buttons
+    const target = e.target as HTMLElement;
+    if (target.closest('button') && !target.closest('.subtask-toggle-button')) {
+        // If the click was on a button, but not specifically the subtask toggle button, do nothing.
+        // This allows action buttons (edit, delete, focus, status) to work without toggling subtasks.
+        return;
+    }
+    if (task.subtasks && task.subtasks.length > 0) {
+      setShowSubtasks(!showSubtasks);
+    }
+  };
+
+  const handleToggleSubtaskStatus = (subtaskId: string) => {
+    const updatedSubtasks = task.subtasks.map(subtask =>
+      subtask.id === subtaskId ? { ...subtask, completed: !subtask.completed } : subtask
+    );
+    onUpdateTask({ ...task, subtasks: updatedSubtasks });
+  };
+
+  const numCompletedSubtasks = task.subtasks?.filter(st => st.completed).length || 0;
+  const totalSubtasks = task.subtasks?.length || 0;
+
   return (
-    <motion.tr
-      layout
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="border-b border-white/5 hover:bg-white/5 transition-colors duration-200"
-    >
-      <td className="p-4">
-        <button onClick={onStatusToggle} className="flex items-center justify-center group">
-          {task.status.type === 'completed' ? (
-            <CheckCircle2 className="w-6 h-6 text-green-500" />
-          ) : (
-            <Circle className="w-6 h-6 text-white/40 group-hover:text-white" />
-          )}
-        </button>
-      </td>
-      <td className="p-4">
-        <p className={`font-medium ${task.status.type === 'completed' ? 'line-through text-white/50' : ''}`}>
-          {task.title}
-        </p>
-        {task.description && <p className="text-sm text-white/40 mt-1 hidden sm:block">{task.description}</p>}
-      </td>
-      <td className="p-4 hidden md:table-cell">
-        {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No date'}
-      </td>
-      <td className="p-4 hidden sm:table-cell">
-        <span className="flex items-center gap-2">
-          <Flag className="w-4 h-4" style={{ color: task.priority.color }} />
-          {task.priority.level.charAt(0).toUpperCase() + task.priority.level.slice(1)}
-        </span>
-      </td>
-      <td className="p-4 hidden lg:table-cell">
-        <span
-          className={`px-3 py-1 rounded-full text-xs font-semibold ${task.status.type === 'completed' ? 'bg-green-500/20 text-green-300' :
-            task.status.type === 'inProgress' ? 'bg-yellow-500/20 text-yellow-300' :
-              'bg-gray-500/20 text-gray-300'
-            }`}
-        >
-          {task.status.type === 'todo' ? 'To Do' : task.status.type === 'inProgress' ? 'In Progress' : 'Completed'}
-        </span>
-      </td>
-      <td className="p-4 text-right">
-        <div className="flex justify-end items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={onFocus} title="Focus on this task">
-            <Play className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={onEdit} title="Edit task">
-            <Edit className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={onDelete} className="text-red-500/70 hover:bg-red-500/20" title="Delete task">
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        </div>
-      </td>
-    </motion.tr>
+    <>
+      <motion.tr
+        layout
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className={`border-b border-white/5 hover:bg-white/5 transition-colors duration-200 ${task.subtasks && task.subtasks.length > 0 ? 'cursor-pointer' : ''}`}
+        onClick={toggleSubtaskDisplay}
+      >
+        <td className="p-4 w-12">
+          <button onClick={(e) => { e.stopPropagation(); onStatusToggle(); }} className="flex items-center justify-center group">
+            {task.status.type === 'completed' ? (
+              <CheckCircle2 className="w-6 h-6 text-green-500" />
+            ) : (
+              <Circle className="w-6 h-6 text-white/40 group-hover:text-white" />
+            )}
+          </button>
+        </td>
+        <td className="p-4">
+          <div className="flex items-center">
+            <p className={`font-medium ${task.status.type === 'completed' ? 'line-through text-white/50' : ''}`}>
+              {task.title}
+            </p>
+            {task.subtasks && task.subtasks.length > 0 && (
+              <button
+                onClick={(e) => {e.stopPropagation(); setShowSubtasks(!showSubtasks);}}
+                className="ml-2 text-xs text-white/50 hover:text-white subtask-toggle-button p-1 rounded hover:bg-white/10"
+                title={showSubtasks ? "Hide subtasks" : "Show subtasks"}
+              >
+                <ChevronDown className={`w-4 h-4 transition-transform ${showSubtasks ? 'rotate-180' : ''}`} />
+                 ({numCompletedSubtasks}/{totalSubtasks})
+              </button>
+            )}
+          </div>
+          {task.description && <p className="text-sm text-white/40 mt-1 hidden sm:block">{task.description}</p>}
+        </td>
+        <td className="p-4 hidden md:table-cell">
+          {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No date'}
+        </td>
+        <td className="p-4 hidden sm:table-cell">
+          <span className="flex items-center gap-2">
+            <Flag className="w-4 h-4" style={{ color: task.priority.color }} />
+            {task.priority.level.charAt(0).toUpperCase() + task.priority.level.slice(1)}
+          </span>
+        </td>
+        <td className="p-4 hidden lg:table-cell">
+          <span
+            className={`px-3 py-1 rounded-full text-xs font-semibold ${task.status.type === 'completed' ? 'bg-green-500/20 text-green-300' :
+              task.status.type === 'inProgress' ? 'bg-yellow-500/20 text-yellow-300' :
+                'bg-gray-500/20 text-gray-300'
+              }`}
+          >
+            {task.status.type === 'todo' ? 'To Do' : task.status.type === 'inProgress' ? 'In Progress' : 'Completed'}
+          </span>
+        </td>
+        <td className="p-4 text-right">
+          <div className="flex justify-end items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onFocus();}} title="Focus on this task">
+              <Play className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onEdit();}} title="Edit task">
+              <Edit className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onDelete();}} className="text-red-500/70 hover:bg-red-500/20" title="Delete task">
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        </td>
+      </motion.tr>
+      <AnimatePresence>
+        {showSubtasks && task.subtasks && task.subtasks.length > 0 && (
+          <motion.tr
+            key={`${task.id}-subtasks`}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="bg-white/5"
+          >
+            <td colSpan={6} className="p-0"> {/* Colspan should match number of columns in header */}
+              <div className="p-4 pl-16"> {/* Indent subtasks */}
+                <div className="space-y-2">
+                  {task.subtasks.map(subtask => (
+                    <div
+                      key={subtask.id}
+                      className="flex items-center text-sm group"
+                    >
+                      <button
+                        onClick={(e) => {e.stopPropagation(); handleToggleSubtaskStatus(subtask.id);}}
+                        className="flex-shrink-0 cursor-pointer p-1 rounded-full hover:bg-white/20"
+                      >
+                        {subtask.completed ? (
+                          <CheckCircle2 className="w-5 h-5 text-green-400" />
+                        ) : (
+                          <Circle className="w-5 h-5 text-white/40 group-hover:text-green-400 transition-colors" />
+                        )}
+                      </button>
+                      <span className={`ml-2 ${subtask.completed ? 'line-through text-white/50' : 'text-white/80'}`}>
+                        {subtask.title}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </td>
+          </motion.tr>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
 export const Tasks: React.FC = () => {
-  const { dispatch } = useApp();
+  const { dispatch } = useApp(); // Assuming useApp provides dispatch for global state
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -346,27 +431,74 @@ export const Tasks: React.FC = () => {
         Low: { level: 'low', color: '#3B82F6' },
       };
 
-      const transformedTasks = data.tasks.map((task: any): Task => ({
-        id: task.taskId,
-        title: task.taskTitle,
-        description: task.taskDescription,
-        status: { type: 'todo', color: 'gray' }, // Default status, will be overwritten if task exists
-        priority: priorityMap[task.priority] || priorityMap.Medium,
-        dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
-        createdAt: task.createdAt ? new Date(task.createdAt) : new Date(),
-        subtasks: Array.isArray(task.subTasks) ? task.subTasks.map((subtaskTitle: string, index: number) => ({
-          id: `${task.taskId}-sub-${index}`,
-          title: subtaskTitle,
-          completed: false,
-        })) : [],
-        category: task.category,
-        tags: task.tags,
-      }));
+      const transformedTasks = data.tasks.map((backendTask: any): Task => {
+        // Determine task status based on backend data
+        let taskStatusType: TaskStatus['type'] = 'todo'; // Default
+        if (backendTask.completed === true) { // Assuming backend sends a 'completed' boolean
+          taskStatusType = 'completed';
+        } else if (backendTask.status) { // Or if backend sends a status string
+          if (backendTask.status === 'completed') taskStatusType = 'completed';
+          else if (backendTask.status === 'inProgress') taskStatusType = 'inProgress';
+          else if (backendTask.status === 'blocked') taskStatusType = 'blocked';
+        }
+        // Add other conditions if backend provides more granular status like 'inProgress'
+
+        const taskStatus: TaskStatus = {
+          type: taskStatusType,
+          label: taskStatusType.charAt(0).toUpperCase() + taskStatusType.slice(1), // Basic label
+          color: taskStatusType === 'completed' ? 'green' : taskStatusType === 'inProgress' ? 'yellow' : 'gray', // Basic colors
+        };
+
+        return {
+          id: backendTask.taskId,
+          title: backendTask.taskTitle,
+          description: backendTask.taskDescription,
+          status: taskStatus,
+          priority: priorityMap[backendTask.priority] || priorityMap.Medium,
+          dueDate: backendTask.dueDate ? new Date(backendTask.dueDate) : undefined,
+          createdAt: backendTask.createdAt ? new Date(backendTask.createdAt) : new Date(), // Assuming backend sends createdAt
+          updatedAt: backendTask.updatedAt ? new Date(backendTask.updatedAt) : new Date(), // Assuming backend sends updatedAt
+          subtasks: Array.isArray(backendTask.subTasks) ? backendTask.subTasks.map((subtaskItem: any, index: number) => {
+            if (typeof subtaskItem === 'string') {
+              return {
+                id: `${backendTask.taskId}-sub-${index}`,
+                title: subtaskItem,
+                completed: false, // Default for string-based subtasks
+              };
+            } else if (typeof subtaskItem === 'object' && subtaskItem !== null && typeof subtaskItem.title === 'string') {
+              return { // Assuming subtask object like { title: "string", completed: boolean }
+                id: subtaskItem.id || `${backendTask.taskId}-sub-${index}`, // Use subtask id if provided
+                title: subtaskItem.title,
+                completed: subtaskItem.completed === true, // Ensure boolean
+              };
+            }
+            return null; // Or handle error for unexpected subtask format
+          }).filter(st => st !== null) as SubTask[] : [],
+          category: backendTask.category,
+          tags: backendTask.tags || [], // Ensure tags is an array
+          // Initialize other fields from Task interface if not present in backendTask
+          urgency: { level: 'medium', color: '#FBBF24' }, // Default or map from backend
+          estimatedTime: backendTask.estimatedTime,
+          actualTime: backendTask.actualTime,
+          dependencies: backendTask.dependencies || [],
+          recurring: backendTask.recurring,
+          completedAt: taskStatusType === 'completed' ? (backendTask.completedAt ? new Date(backendTask.completedAt) : new Date()) : undefined,
+        };
+      });
 
       setTasks(prevTasks => {
+        // More robust merging: prioritize new server data but keep local status if server doesn't specify
         return transformedTasks.map(newTask => {
           const oldTask = prevTasks.find(t => t.id === newTask.id);
-          return oldTask ? { ...newTask, status: oldTask.status } : newTask;
+          if (oldTask) {
+            // If the new task status from server is 'todo' (our default if not specified),
+            // and old task had a more specific status ('inProgress', 'blocked'), keep old status.
+            // This handles cases where server only sends 'completed' or nothing for status.
+            if (newTask.status.type === 'todo' && (oldTask.status.type === 'inProgress' || oldTask.status.type === 'blocked')) {
+              return { ...newTask, status: oldTask.status, subtasks: newTask.subtasks.length ? newTask.subtasks : oldTask.subtasks };
+            }
+          }
+          return newTask;
         });
       });
 
@@ -646,6 +778,12 @@ export const Tasks: React.FC = () => {
                           onEdit={() => openEditModal(task)}
                           onDelete={() => handleDeleteTask(task.id)}
                           onStatusToggle={() => toggleTaskStatus(task)}
+                          onUpdateTask={(updatedTask) => {
+                            setTasks(currentTasks => currentTasks.map(t => t.id === updatedTask.id ? updatedTask : t));
+                            // Potentially dispatch to global state or make API call if subtask changes need to be persisted
+                            // For now, this matches TaskCard's local update behavior for subtasks.
+                            // dispatch({ type: 'UPDATE_TASK', payload: updatedTask });
+                          }}
                         />
                       ))}
                     </tbody>
