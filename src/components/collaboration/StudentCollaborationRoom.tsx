@@ -45,20 +45,19 @@ import {
   Minimize2,
   Play
 } from 'lucide-react';
-import { Button } from "../ui/button";
-import { Input } from "../ui/input";
-import { Textarea } from "../ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Button } from "../common/Button";
+import { Input } from "../common/Input";
+import { Card, CardContent, CardHeader, CardTitle } from "../common/Card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Badge } from "../ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { Switch } from "../ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../common/Select";
+import { Switch } from "../common/Switch";
 import { Progress } from "../ui/progress";
 import { Separator } from "../ui/separator";
 import { ScrollArea } from "../ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../common/Tooltip";
 import { useCollaboration } from '../../contexts/CollaborationContext';
 
 interface User {
@@ -69,11 +68,33 @@ interface User {
   isTyping?: boolean;
 }
 
+interface Participant {
+  id: string;
+  name: string;
+  avatar?: string;
+  status: 'online' | 'offline' | 'away';
+  isTyping?: boolean;
+  isSpeaking?: boolean;
+  handRaised?: boolean;
+}
+
 interface Message {
   id: string;
   userId: string;
   content: string;
   timestamp: Date;
+  type: 'user' | 'ai';
+}
+
+interface ChatMessage {
+  id: string;
+  userId: string;
+  avatar: string;
+  name: string;
+  message: string;
+  timestamp: string;
+  reactions: { [emoji: string]: string[] };
+  replyTo?: string;
   type: 'user' | 'ai';
 }
 
@@ -167,6 +188,37 @@ const StudentCollaborationRoom: React.FC = () => {
     // ...add more as needed
   } = useCollaboration();
 
+  // Sample library items for the Library tab
+  const libraryItems: LibraryItem[] = [
+    {
+      id: '1',
+      title: 'Introduction to React',
+      type: 'pdf',
+      author: 'John Doe',
+      tags: ['react', 'frontend'],
+      rating: 4.5,
+      description: 'A comprehensive introduction to React.js for beginners'
+    },
+    {
+      id: '2',
+      title: 'Advanced TypeScript Patterns',
+      type: 'video',
+      author: 'Jane Smith',
+      tags: ['typescript', 'advanced'],
+      rating: 4.8,
+      description: 'Learn advanced TypeScript patterns and techniques'
+    },
+    {
+      id: '3',
+      title: 'CSS Grid Layout',
+      type: 'article',
+      author: 'Mike Johnson',
+      tags: ['css', 'layout'],
+      rating: 4.2,
+      description: 'Master CSS Grid Layout for modern web design'
+    }
+  ];
+
   // --- DRAWING FUNCTIONS ---
   const startDrawing = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     setIsDrawing(true);
@@ -241,9 +293,6 @@ const StudentCollaborationRoom: React.FC = () => {
 
   const toggleCall = () => {
     setIsInCall(!isInCall);
-    if (!isInCall) {
-      setIsMuted(false);
-    }
   };
 
   const updateTaskStatus = (taskId: string, newStatus: Task['status']) => {
@@ -275,6 +324,13 @@ const StudentCollaborationRoom: React.FC = () => {
     }
   };
 
+  const formatTimestamp = (timestamp: string | Date) => {
+    if (typeof timestamp === 'string') {
+      return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    return timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
   // --- RENDER ---
   return (
     <TooltipProvider>
@@ -300,7 +356,7 @@ const StudentCollaborationRoom: React.FC = () => {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant={isMuted ? "destructive" : "outline"}
+                    variant={isMuted ? "danger" : "outline"}
                     size="sm"
                     onClick={() => setIsMuted(!isMuted)}
                     disabled={!isInCall}
@@ -315,7 +371,7 @@ const StudentCollaborationRoom: React.FC = () => {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant={isInCall ? "destructive" : "default"}
+                    variant={isInCall ? "danger" : "secondary"}
                     size="sm"
                     onClick={toggleCall}
                   >
@@ -441,7 +497,7 @@ const StudentCollaborationRoom: React.FC = () => {
                                       {message.type === 'ai' ? 'AI Assistant' : participants.find(u => u.id === message.userId)?.name}
                                     </span>
                                     <span className="text-xs text-muted-foreground">
-                                      {message.timestamp.toLocaleTimeString()}
+                                      {formatTimestamp(message.timestamp)}
                                     </span>
                                   </div>
                                   <div className={`p-3 rounded-lg ${
