@@ -218,6 +218,46 @@ const StudentCollaborationRoom: React.FC = () => {
       description: 'Master CSS Grid Layout for modern web design'
     }
   ];
+  
+  // Sample projects data
+  const projects: Project[] = [
+    {
+      id: '1',
+      name: 'Study Group Project',
+      description: 'Collaborative research on machine learning algorithms',
+      createdAt: new Date(),
+      lastModified: new Date(),
+      files: [
+        {
+          id: 'f1',
+          name: 'Research Notes.pdf',
+          type: 'pdf',
+          size: 2500000,
+          version: 2,
+          uploadedBy: 'Jane Smith',
+          uploadedAt: new Date()
+        },
+        {
+          id: 'f2',
+          name: 'Data Analysis.xlsx',
+          type: 'excel',
+          size: 1800000,
+          version: 1,
+          uploadedBy: 'John Doe',
+          uploadedAt: new Date()
+        },
+        {
+          id: 'f3',
+          name: 'Presentation.pptx',
+          type: 'powerpoint',
+          size: 3200000,
+          version: 3,
+          uploadedBy: 'Mike Johnson',
+          uploadedAt: new Date()
+        }
+      ]
+    }
+  ];
 
   // --- DRAWING FUNCTIONS ---
   const startDrawing = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -570,7 +610,7 @@ const StudentCollaborationRoom: React.FC = () => {
                           {['pen', 'highlighter', 'eraser'].map((tool) => (
                             <Button
                               key={tool}
-                              variant={currentTool === tool ? "default" : "outline"}
+                              variant={currentTool === tool ? "primary" : "outline"}
                               size="sm"
                               onClick={() => setCurrentTool(tool as any)}
                             >
@@ -748,10 +788,13 @@ const StudentCollaborationRoom: React.FC = () => {
                               <div className="flex space-x-2 mt-3">
                                 <Select
                                   value={task.status}
-                                  onValueChange={(value) => updateTaskStatus(task.id, value as Task['status'])}
+                                  onValueChange={(value: string) => updateTaskStatus(task.id, value as Task['status'])}
                                 >
                                   <SelectTrigger className="flex-1">
-                                    <SelectValue />
+                                    <SelectValue>
+                                      {task.status === 'todo' ? 'To Do' : 
+                                       task.status === 'in-progress' ? 'In Progress' : 'Completed'}
+                                    </SelectValue>
                                   </SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="todo">To Do</SelectItem>
@@ -854,9 +897,12 @@ const StudentCollaborationRoom: React.FC = () => {
                         className="pl-10 w-64 bg-muted border-border"
                       />
                     </div>
-                    <Select value={selectedFilter} onValueChange={setSelectedFilter}>
+                    <Select value={selectedFilter} onValueChange={(value: string) => setSelectedFilter(value)}>
                       <SelectTrigger className="w-32">
-                        <SelectValue />
+                        <SelectValue>
+                          {selectedFilter === 'all' ? 'All Types' :
+                           selectedFilter.charAt(0).toUpperCase() + selectedFilter.slice(1) + 's'}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Types</SelectItem>
