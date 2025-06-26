@@ -14,12 +14,16 @@ export interface TimerState {
 
 export interface Task {
     id: string;
-    text: string;
-    completed: boolean;
-    currentRoomCode: string;
-    tldrawStore: TLStore;
-    tasks: Task[];
-    timer: TimerState;
+    title: string;
+    description: string;
+    assignee: string;
+    status: 'todo' | 'in-progress' | 'completed';
+    priority: 'low' | 'medium' | 'high';
+    dueDate: Date;
+    tags: string[];
+    completed?: boolean;
+    text?: string;
+    currentRoomCode?: string;
 }
 
 export interface Participant { // Exporting for use in components
@@ -29,6 +33,7 @@ export interface Participant { // Exporting for use in components
     isSpeaking: boolean;
     isTyping: boolean;
     handRaised: boolean;
+    status: 'online' | 'offline' | 'away';
 }
 
 export interface SharedFile { // Exporting for use in components
@@ -47,9 +52,11 @@ export interface ChatMessage { // Exporting for use in components
     avatar: string;
     name: string;
     message: string;
+    content?: string; // For compatibility with StudentCollaborationRoom
     timestamp: string;
     reactions: { [emoji: string]: string[] }; // Users who reacted
     replyTo?: string;
+    type: 'user' | 'ai';
 }
 
 export interface AiInteraction { // For the AI assistant panel
@@ -150,7 +157,8 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
                 avatar: participantAvatar,
                 isSpeaking: false,
                 isTyping: false,
-                handRaised: false
+                handRaised: false,
+                status: 'online' as const
             };
             const userWithId = { ...user, id: socket.id! };
             setCurrentUser(userWithId);
@@ -253,20 +261,27 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
 
     // --- REAL-TIME FUNCTIONS ---
 
-    const sendMessage = useCallback((message: string, replyTo: string | null = null) => {
-        if (!message.trim() || !socketRef.current || !currentUser) return;
+    const sendMessage = useCallback((message: string, replyTo?: string | null) => {
+        if (!socketRef.current || !currentUser) return;
+
         const newMessage: ChatMessage = {
-            id: `msg-${Date.now()}`, // Ensure unique message ID
+            id: Date.now().toString(),
             userId: currentUser.id,
             name: currentUser.name,
             avatar: currentUser.avatar,
             message,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            content: message, // Add content field for compatibility
+            timestamp: new Date().toISOString(),
             reactions: {},
-            ...(replyTo && { replyTo }),
+            type: 'user', // Add type field
+            ...(replyTo ? { replyTo } : {})
         };
-        socketRef.current.emit('sendMessage', newMessage);
-    }, [currentUser]);
+
+        socketRef.current.emit('sendMessage', { roomCode: currentRoomCode, message: newMessage });
+        
+        // Optimistically add the message to our local state
+        setMessages(prev => [...prev, newMessage]);
+    }, [socketRef, currentUser, currentRoomCode]);
 
     const addReaction = useCallback((messageId: string, emoji: string) => {
         if (!socketRef.current || !currentUser) return;
