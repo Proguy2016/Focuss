@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Github, Twitter } from 'lucide-react';
+import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
+import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 // Input component
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
@@ -112,144 +114,156 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
         </motion.div>
       )}
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={isLogin ? 'login' : 'signup'}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.3 }}
-          className="space-y-4"
-        >
-          {!isLogin && (
-            <>
-              <motion.div
-                className={`relative ${focusedInput === "firstName" ? 'z-10' : ''}`}
-              >
-                <div className="relative flex items-center overflow-hidden rounded-lg">
-                  <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "firstName" ? 'text-white' : 'text-white/40'}`} />
-                  <Input
-                    type="text"
-                    placeholder="First Name"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    onFocus={() => setFocusedInput("firstName")}
-                    onBlur={() => setFocusedInput(null)}
-                    className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-3 focus:bg-white/10"
-                  />
-                  {focusedInput === "firstName" && (
-                    <motion.div
-                      layoutId="input-highlight"
-                      className="absolute inset-0 bg-white/5 -z-10"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                    />
-                  )}
-                </div>
-              </motion.div>
+      <motion.div className="space-y-3">
+        {!isLogin && (
+          <>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className={`relative ${focusedInput === "firstName" ? 'z-10' : ''}`}
+            >
+              <div className="relative flex items-center overflow-hidden rounded-lg">
+                <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "firstName" ? 'text-white' : 'text-white/40'
+                  }`} />
 
-              <motion.div
-                className={`relative ${focusedInput === "lastName" ? 'z-10' : ''}`}
-              >
-                <div className="relative flex items-center overflow-hidden rounded-lg">
-                  <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "lastName" ? 'text-white' : 'text-white/40'}`} />
-                  <Input
-                    type="text"
-                    placeholder="Last Name"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    onFocus={() => setFocusedInput("lastName")}
-                    onBlur={() => setFocusedInput(null)}
-                    className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-3 focus:bg-white/10"
-                  />
-                  {focusedInput === "lastName" && (
-                    <motion.div
-                      layoutId="input-highlight"
-                      className="absolute inset-0 bg-white/5 -z-10"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                    />
-                  )}
-                </div>
-              </motion.div>
-            </>
-          )}
-
-          <motion.div
-            className={`relative ${focusedInput === "email" ? 'z-10' : ''}`}
-            whileFocus={{ scale: 1.02 }}
-            whileHover={{ scale: 1.01 }}
-            transition={{ type: "spring", stiffness: 400, damping: 25 }}
-          >
-            <div className="relative flex items-center overflow-hidden rounded-lg">
-              <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "email" ? 'text-white' : 'text-white/40'}`} />
-              <Input
-                type="email"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onFocus={() => setFocusedInput("email")}
-                onBlur={() => setFocusedInput(null)}
-                className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-3 focus:bg-white/10"
-              />
-              {focusedInput === "email" && (
-                <motion.div
-                  layoutId="input-highlight"
-                  className="absolute inset-0 bg-white/5 -z-10"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
+                <Input
+                  type="text"
+                  placeholder="First Name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  onFocus={() => setFocusedInput("firstName")}
+                  onBlur={() => setFocusedInput(null)}
+                  className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-3 focus:bg-white/10"
                 />
-              )}
-            </div>
-          </motion.div>
 
-          <motion.div
-            className={`relative ${focusedInput === "password" ? 'z-10' : ''}`}
-            whileFocus={{ scale: 1.02 }}
-            whileHover={{ scale: 1.01 }}
-            transition={{ type: "spring", stiffness: 400, damping: 25 }}
-          >
-            <div className="relative flex items-center overflow-hidden rounded-lg">
-              <Lock className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "password" ? 'text-white' : 'text-white/40'}`} />
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onFocus={() => setFocusedInput("password")}
-                onBlur={() => setFocusedInput(null)}
-                className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-10 focus:bg-white/10"
-              />
-              <div
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 cursor-pointer"
-              >
-                {showPassword ? (
-                  <Eye className="w-4 h-4 text-white/40 hover:text-white transition-colors duration-300" />
-                ) : (
-                  <EyeOff className="w-4 h-4 text-white/40 hover:text-white transition-colors duration-300" />
+                {focusedInput === "firstName" && (
+                  <motion.div
+                    layoutId="input-highlight"
+                    className="absolute inset-0 bg-white/5 -z-10"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  />
                 )}
               </div>
-              {focusedInput === "password" && (
-                <motion.div
-                  layoutId="input-highlight"
-                  className="absolute inset-0 bg-white/5 -z-10"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+              className={`relative ${focusedInput === "lastName" ? 'z-10' : ''}`}
+            >
+              <div className="relative flex items-center overflow-hidden rounded-lg">
+                <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "lastName" ? 'text-white' : 'text-white/40'
+                  }`} />
+
+                <Input
+                  type="text"
+                  placeholder="Last Name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  onFocus={() => setFocusedInput("lastName")}
+                  onBlur={() => setFocusedInput(null)}
+                  className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-3 focus:bg-white/10"
                 />
+
+                {focusedInput === "lastName" && (
+                  <motion.div
+                    layoutId="input-highlight"
+                    className="absolute inset-0 bg-white/5 -z-10"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  />
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+
+        <motion.div
+          className={`relative ${focusedInput === "email" ? 'z-10' : ''}`}
+          whileFocus={{ scale: 1.02 }}
+          whileHover={{ scale: 1.01 }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+        >
+          <div className="relative flex items-center overflow-hidden rounded-lg">
+            <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "email" ? 'text-white' : 'text-white/40'
+              }`} />
+
+            <Input
+              type="email"
+              placeholder="Email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onFocus={() => setFocusedInput("email")}
+              onBlur={() => setFocusedInput(null)}
+              className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-3 focus:bg-white/10"
+            />
+
+            {focusedInput === "email" && (
+              <motion.div
+                layoutId="input-highlight"
+                className="absolute inset-0 bg-white/5 -z-10"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              />
+            )}
+          </div>
+        </motion.div>
+
+        <motion.div
+          className={`relative ${focusedInput === "password" ? 'z-10' : ''}`}
+          whileFocus={{ scale: 1.02 }}
+          whileHover={{ scale: 1.01 }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+        >
+          <div className="relative flex items-center overflow-hidden rounded-lg">
+            <Lock className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "password" ? 'text-white' : 'text-white/40'
+              }`} />
+
+            <Input
+              type={showPassword ? "text" : "password"}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onFocus={() => setFocusedInput("password")}
+              onBlur={() => setFocusedInput(null)}
+              className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-10 focus:bg-white/10"
+            />
+
+            <div
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 cursor-pointer"
+            >
+              {showPassword ? (
+                <Eye className="w-4 h-4 text-white/40 hover:text-white transition-colors duration-300" />
+              ) : (
+                <EyeOff className="w-4 h-4 text-white/40 hover:text-white transition-colors duration-300" />
               )}
             </div>
-          </motion.div>
+
+            {focusedInput === "password" && (
+              <motion.div
+                layoutId="input-highlight"
+                className="absolute inset-0 bg-white/5 -z-10"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              />
+            )}
+          </div>
         </motion.div>
-      </AnimatePresence>
+      </motion.div>
 
       <div className="flex items-center justify-between pt-1">
         <div className="flex items-center space-x-2">
@@ -278,15 +292,17 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
             Remember me
           </label>
         </div>
+
         {isLogin && (
           <div className="text-xs relative group/link">
-            <Link to="/reset-password" className="text-white/60 hover:text-white transition-colors duration-200">
+            <a href="#" className="text-white/60 hover:text-white transition-colors duration-200">
               Forgot password?
-            </Link>
+            </a>
           </div>
         )}
       </div>
 
+      {/* Standalone button instead of submit button */}
       <Button
         variant="primary"
         fullWidth
@@ -551,6 +567,54 @@ const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView }) => {
                 }
               }}
             />
+
+            <motion.div
+              className="absolute top-0 left-0 h-[5px] w-[5px] rounded-full bg-white/40 blur-[1px]"
+              animate={{
+                opacity: [0.2, 0.4, 0.2]
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                repeatType: "mirror"
+              }}
+            />
+            <motion.div
+              className="absolute top-0 right-0 h-[8px] w-[8px] rounded-full bg-white/60 blur-[2px]"
+              animate={{
+                opacity: [0.2, 0.4, 0.2]
+              }}
+              transition={{
+                duration: 2.4,
+                repeat: Infinity,
+                repeatType: "mirror",
+                delay: 0.5
+              }}
+            />
+            <motion.div
+              className="absolute bottom-0 right-0 h-[8px] w-[8px] rounded-full bg-white/60 blur-[2px]"
+              animate={{
+                opacity: [0.2, 0.4, 0.2]
+              }}
+              transition={{
+                duration: 2.2,
+                repeat: Infinity,
+                repeatType: "mirror",
+                delay: 1
+              }}
+            />
+            <motion.div
+              className="absolute bottom-0 left-0 h-[5px] w-[5px] rounded-full bg-white/40 blur-[1px]"
+              animate={{
+                opacity: [0.2, 0.4, 0.2]
+              }}
+              transition={{
+                duration: 2.3,
+                repeat: Infinity,
+                repeatType: "mirror",
+                delay: 1.5
+              }}
+            />
           </div>
 
           <div className="absolute -inset-[0.5px] rounded-2xl bg-gradient-to-r from-white/3 via-white/7 to-white/3 opacity-0 group-hover:opacity-70 transition-opacity duration-500 pointer-events-none" />
@@ -601,8 +665,12 @@ const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView }) => {
   );
 };
 
-export const AuthUI: React.FC<{ initialView?: 'login' | 'signup' | 'reset' }> = ({ initialView = 'login' }) => {
-  const [view, setView] = useState<'login' | 'signup' | 'reset'>(initialView);
+interface AuthUIProps {
+  initialView?: 'login' | 'signup';
+}
+
+export const AuthUI: React.FC<AuthUIProps> = ({ initialView = 'login' }) => {
+  const [view, setView] = useState<'login' | 'signup'>(initialView);
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -614,136 +682,8 @@ export const AuthUI: React.FC<{ initialView?: 'login' | 'signup' | 'reset' }> = 
   }, [isAuthenticated, navigate]);
 
   const toggleView = () => {
-    if (view === 'reset') {
-      setView('login');
-    } else {
-      setView(view === 'login' ? 'signup' : 'login');
-    }
+    setView(view === 'login' ? 'signup' : 'login');
   };
-
-  // If we're in reset password mode, show that UI instead
-  if (view === 'reset') {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center p-4 relative overflow-hidden">
-        {/* Background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-dark via-darker to-black" />
-
-        {/* Noise texture */}
-        <div className="absolute inset-0 opacity-[0.03] mix-blend-soft-light"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-            backgroundSize: '200px 200px'
-          }}
-        />
-
-        {/* Glowing orbs */}
-        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[120vh] h-[60vh] rounded-b-[50%] bg-primary/10 blur-[80px]" />
-        <motion.div
-          className="absolute top-0 left-1/2 transform -translate-x-1/2 w-[100vh] h-[60vh] rounded-b-full bg-secondary/10 blur-[60px]"
-          animate={{
-            opacity: [0.1, 0.2, 0.1],
-            scale: [0.98, 1.02, 0.98]
-          }}
-          transition={{
-            duration: 8,
-            repeat: Infinity,
-            repeatType: "mirror"
-          }}
-        />
-        <motion.div
-          className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-[90vh] h-[90vh] rounded-t-full bg-primary/10 blur-[60px]"
-          animate={{
-            opacity: [0.2, 0.3, 0.2],
-            scale: [1, 1.1, 1]
-          }}
-          transition={{
-            duration: 6,
-            repeat: Infinity,
-            repeatType: "mirror",
-            delay: 1
-          }}
-        />
-
-        <div className="absolute left-1/4 top-1/4 w-96 h-96 bg-white/5 rounded-full blur-[100px] animate-pulse opacity-40" />
-        <div className="absolute right-1/4 bottom-1/4 w-96 h-96 bg-white/5 rounded-full blur-[100px] animate-pulse delay-1000 opacity-40" />
-
-        {/* Reset password form */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="w-full max-w-md relative z-10 pointer-events-auto"
-          style={{ perspective: 1500 }}
-        >
-          <div className="relative bg-black/40 backdrop-blur-xl rounded-2xl p-6 border border-white/[0.05] shadow-2xl overflow-hidden">
-            <div className="text-center space-y-1 mb-5">
-              <motion.h1
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-white to-white/80"
-              >
-                Reset Password
-              </motion.h1>
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3 }}
-                className="text-white/60 text-xs"
-              >
-                Enter your email to receive a reset link
-              </motion.p>
-            </div>
-
-            <form className="space-y-4">
-              <motion.div
-                className="relative"
-                whileFocus={{ scale: 1.02 }}
-                whileHover={{ scale: 1.01 }}
-              >
-                <div className="relative flex items-center overflow-hidden rounded-lg">
-                  <Mail className="absolute left-3 w-4 h-4 text-white/40" />
-                  <Input
-                    type="email"
-                    placeholder="Email address"
-                    className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-3 focus:bg-white/10"
-                  />
-                </div>
-              </motion.div>
-
-              <Button
-                variant="primary"
-                fullWidth
-                className="mt-5 h-10 cursor-pointer"
-                icon={ArrowRight}
-              >
-                Send Reset Link
-              </Button>
-
-              <motion.p
-                className="text-center text-xs text-white/60 mt-4"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.5 }}
-              >
-                Remember your password?{' '}
-                <button
-                  type="button"
-                  onClick={toggleView}
-                  className="relative inline-block group/signup"
-                >
-                  <span className="relative z-10 text-white group-hover/signup:text-white/70 transition-colors duration-300 font-medium">
-                    Sign in
-                  </span>
-                  <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-white group-hover/signup:w-full transition-all duration-300" />
-                </button>
-              </motion.p>
-            </form>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen w-screen bg-dark relative overflow-hidden flex items-center justify-center">
@@ -797,4 +737,6 @@ export const AuthUI: React.FC<{ initialView?: 'login' | 'signup' | 'reset' }> = 
   );
 };
 
-export default AuthUI; 
+export default function Auth({ initialView = 'login' }: AuthUIProps) {
+  return <AuthUI initialView={initialView} />;
+} 

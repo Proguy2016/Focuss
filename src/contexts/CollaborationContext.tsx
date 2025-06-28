@@ -2,29 +2,8 @@ import React, { createContext, useContext, useState, ReactNode, useCallback, use
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext'; // Import the useAuth hook
 import axios from 'axios';
-import { TLStore, createTLStore } from '@tldraw/tldraw';
 
 // --- TYPE DEFINITIONS ---
-
-export interface TimerState {
-    mode: 'work' | 'break';
-    timeRemaining: number;
-    isRunning: boolean;
-}
-
-export interface Task {
-    id: string;
-    title: string;
-    description: string;
-    assignee: string;
-    status: 'todo' | 'in-progress' | 'completed';
-    priority: 'low' | 'medium' | 'high';
-    dueDate: Date;
-    tags: string[];
-    completed?: boolean;
-    text?: string;
-    currentRoomCode?: string;
-}
 
 export interface Participant { // Exporting for use in components
     id: string;
@@ -33,7 +12,6 @@ export interface Participant { // Exporting for use in components
     isSpeaking: boolean;
     isTyping: boolean;
     handRaised: boolean;
-    status: 'online' | 'offline' | 'away';
 }
 
 export interface SharedFile { // Exporting for use in components
@@ -52,11 +30,9 @@ export interface ChatMessage { // Exporting for use in components
     avatar: string;
     name: string;
     message: string;
-    content?: string; // For compatibility with StudentCollaborationRoom
     timestamp: string;
     reactions: { [emoji: string]: string[] }; // Users who reacted
     replyTo?: string;
-    type: 'user' | 'ai';
 }
 
 export interface AiInteraction { // For the AI assistant panel
@@ -73,29 +49,17 @@ interface CollaborationState {
     aiInteractions: AiInteraction[];
     isConnected: boolean;
     socketRef: React.RefObject<Socket | null>; // Expose socketRef for direct access
-    currentRoomCode: string;
-    tldrawStore: TLStore;
-    tasks: Task[];
-    timer: TimerState;
 }
 
 interface CollaborationContextType extends CollaborationState {
     joinRoom: (roomCode: string) => void;
     leaveRoom: () => void;
-    sendMessage: (message: string, replyTo?: string | null) => void;
+    sendMessage: (message: string) => void;
     addReaction: (messageId: string, emoji: string) => void;
     setTyping: (isTyping: boolean) => void;
-    toggleHandRaised: () => void;
     summarizeChat: () => void;
     askAi: (query: string) => void;
     uploadFile: (file: File) => Promise<void>;
-    handleTldrawMount: (tldraw: any) => void;
-    addTask: (text: string) => void;
-    toggleTask: (id: string) => void;
-    deleteTask: (id: string) => void;
-    startTimer: () => void;
-    pauseTimer: () => void;
-    resetTimer: () => void;
 }
 
 // A mock current user. In a real app, this would come from an auth context.
@@ -116,109 +80,50 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
     const [currentUser, setCurrentUser] = useState<Participant | null>(null);
     const [isConnected, setIsConnected] = useState(false);
     const [currentRoomCode, setCurrentRoomCode] = useState<string>('');
-    const [tldrawStore] = useState(() => createTLStore());
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [timer, setTimer] = useState<TimerState>({ mode: 'work', timeRemaining: 25 * 60, isRunning: false });
-
+    
     const socketRef = useRef<Socket | null>(null);
 
     const joinRoom = useCallback((roomCode: string) => {
-        // If already connected to this room, don't reconnect
-        if (socketRef.current && currentRoomCode === roomCode) {
-            console.log(`[Client] Already connected to room ${roomCode}`);
-            return;
-        }
+        if (socketRef.current) return;
         
-        // If connected to a different room, disconnect first
-        if (socketRef.current) {
-            console.log(`[Client] Disconnecting from current room to join ${roomCode}`);
-            socketRef.current.disconnect();
-            socketRef.current = null;
-        }
-
-        console.log(`[Client] Attempting to join room: ${roomCode}`);
         setCurrentRoomCode(roomCode);
 
-        // Get auth token from localStorage
-        const token = localStorage.getItem('token') || 'guest-token';
-
-        // Create a new socket connection
         const socket = io('http://localhost:4000', {
             withCredentials: true,
             transports: ['websocket', 'polling'],
             extraHeaders: {
-                "Access-Control-Allow-Origin": "*"
-            },
-            auth: {
-                token: token // Pass token in auth object
-            },
-            reconnectionAttempts: 5,
-            reconnectionDelay: 1000,
-            timeout: 10000
+                "Access-Control-Allow-Origin": "http://localhost:5173"
+            }
         });
-        
-        console.log(`[Client] Attempting to connect to socket server at http://localhost:4000`);
-        
         socketRef.current = socket;
-
-        // Listen for connection event
+        
         socket.on('connect', () => {
             console.log('[Client] Connected to socket server with ID:', socket.id);
-
+            
             // Use authenticated user data or fallback to a default
-            const participantName = authUser ? `${authUser.firstName} ${authUser.lastName}` : 'Anonymous User';
+            const participantName = authUser ? `${authUser.firstName} ${authUser.lastName}` : 'Anonymous';
             const participantAvatar = authUser?.profilePicture || `https://i.pravatar.cc/40?u=${socket.id}`;
 
-            const user = {
+            const user = { 
                 name: participantName,
-                avatar: participantAvatar,
-                isSpeaking: false,
-                isTyping: false,
-                handRaised: false,
-                status: 'online' as const
+                avatar: participantAvatar, 
+                isSpeaking: false, 
+                isTyping: false, 
+                handRaised: false 
             };
             const userWithId = { ...user, id: socket.id! };
             setCurrentUser(userWithId);
-
+            
             console.log(`[Client] Emitting 'joinRoom' for room '${roomCode}' with user:`, userWithId);
             socket.emit('joinRoom', { roomCode, user: userWithId });
             setIsConnected(true);
         });
 
-        // Handle reconnection
-        socket.io.on("reconnect", () => {
-            console.log('[Client] Reconnected to socket server');
-            if (currentUser && roomCode) {
-                console.log(`[Client] Rejoining room ${roomCode} after reconnection`);
-                socket.emit('joinRoom', { 
-                    roomCode, 
-                    user: currentUser 
-                });
-            }
-        });
-
-        // Log connection attempts
-        socket.io.on("reconnect_attempt", (attempt) => {
-            console.log(`[Client] Reconnection attempt ${attempt}`);
-        });
-
-        socket.on('roomState', (state: { participants: Participant[], messages: ChatMessage[], files: SharedFile[], tasks: Task[] }) => {
+        socket.on('roomState', (state: { participants: Participant[], messages: ChatMessage[], files: SharedFile[] }) => {
             console.log('[Client] Received roomState:', state);
             setParticipants(state.participants);
             setMessages(state.messages);
             if (state.files) setFiles(state.files);
-            if (state.tasks) setTasks(state.tasks);
-        });
-
-        socket.on('userJoined', ({ user }: { user: Participant }) => {
-            console.log('[Client] New user joined:', user);
-            setParticipants(prev => {
-                // Avoid adding duplicates on reconnect or if user is already present
-                if (prev.some(p => p.id === user.id)) {
-                    return prev;
-                }
-                return [...prev, user];
-            });
         });
 
         socket.on('fileAdded', (file: SharedFile) => {
@@ -237,22 +142,13 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
             // Could show a notification here
         });
 
-        socket.on('disconnect', (reason) => {
-            console.log('[Client] Disconnected from socket server. Reason:', reason);
+        socket.on('disconnect', () => {
+            console.log('[Client] Disconnected from socket server.');
             setIsConnected(false)
         });
-
+        
         socket.on('connect_error', (err) => {
-            console.error('[Client] Connection Error:', err.message);
-            // Provide more detailed error information
-            if (err.message.includes('Authentication')) {
-                console.log('[Client] Authentication error - using fallback anonymous connection');
-                // You could implement a fallback connection strategy here
-            }
-        });
-
-        socket.on('error', (error) => {
-            console.error('[Client] Socket error:', error);
+            console.error('[Client] Connection Error:', err);
         });
 
         socket.on('userLeft', ({ userId }: { userId: string }) => setParticipants(prev => prev.filter(p => p.id !== userId)));
@@ -263,7 +159,7 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
                     const newReactions = { ...msg.reactions };
                     if (!newReactions[emoji]) newReactions[emoji] = [];
                     if (!newReactions[emoji].includes(userId)) {
-                        newReactions[emoji].push(userId);
+                         newReactions[emoji].push(userId);
                     } else {
                         // Allow toggling reaction off
                         newReactions[emoji] = newReactions[emoji].filter(id => id !== userId);
@@ -276,24 +172,8 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
         socket.on('typingStatusChanged', ({ userId, isTyping }) => {
             setParticipants(prev => prev.map(p => p.id === userId ? { ...p, isTyping } : p));
         });
-
-        socket.on('handRaisedToggled', ({ userId, handRaised }) => {
-            setParticipants(prev => prev.map(p => p.id === userId ? { ...p, handRaised } : p));
-        });
-
-        socket.on('tldrawUpdate', (data) => {
-            tldrawStore.loadSnapshot(data.snapshot);
-        });
-
-        socket.on('tasksUpdate', (newTasks: Task[]) => {
-            setTasks(newTasks);
-        });
-
-        socket.on('timerUpdate', (newTimerState: TimerState) => {
-            setTimer(newTimerState);
-        });
-    }, [authUser, tldrawStore]);
-
+    }, [authUser]);
+    
     const leaveRoom = useCallback(() => {
         if (socketRef.current) {
             socketRef.current.disconnect();
@@ -304,33 +184,23 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
         setParticipants([]);
         setMessages([]);
         setCurrentUser(null);
-        setTasks([]);
-        setTimer({ mode: 'work', timeRemaining: 25 * 60, isRunning: false });
     }, []);
 
     // --- REAL-TIME FUNCTIONS ---
 
-    const sendMessage = useCallback((message: string, replyTo?: string | null) => {
-        if (!socketRef.current || !currentUser) return;
-
-        const newMessage: ChatMessage = {
-            id: Date.now().toString(),
+    const sendMessage = useCallback((message: string) => {
+        if (!message.trim() || !socketRef.current || !currentUser) return;
+        const newMessage = {
+            id: `msg-${Date.now()}`, // Ensure unique message ID
             userId: currentUser.id,
             name: currentUser.name,
             avatar: currentUser.avatar,
             message,
-            content: message, // Add content field for compatibility
-            timestamp: new Date().toISOString(),
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             reactions: {},
-            type: 'user', // Add type field
-            ...(replyTo ? { replyTo } : {})
         };
-
-        socketRef.current.emit('sendMessage', { roomCode: currentRoomCode, message: newMessage });
-        
-        // Optimistically add the message to our local state
-        setMessages(prev => [...prev, newMessage]);
-    }, [socketRef, currentUser, currentRoomCode]);
+        socketRef.current.emit('sendMessage', newMessage);
+    }, [currentUser]);
 
     const addReaction = useCallback((messageId: string, emoji: string) => {
         if (!socketRef.current || !currentUser) return;
@@ -340,11 +210,6 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
     const setTyping = useCallback((isTyping: boolean) => {
         if (!socketRef.current || !currentUser) return;
         socketRef.current.emit('setTyping', { userId: currentUser.id, isTyping });
-    }, [currentUser]);
-
-    const toggleHandRaised = useCallback(() => {
-        if (!socketRef.current || !currentUser) return;
-        socketRef.current.emit('toggleHandRaised', { userId: currentUser.id });
     }, [currentUser]);
 
     const summarizeChat = useCallback(() => {
@@ -362,21 +227,12 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
         if (!query.trim()) return;
 
         const userQuery: AiInteraction = { id: `ai${Date.now()}`, type: 'user_query', text: query };
-
+        
         // Mock AI Response
         const aiResponseText = `Based on your query about "${query}", I suggest focusing on the key deliverables outlined in the project brief.`;
         const aiResponse: AiInteraction = { id: `ai${Date.now() + 1}`, type: 'ai_response', text: aiResponseText };
 
         setAiInteractions(prev => [...prev, userQuery, aiResponse]);
-    }, []);
-
-    const handleTldrawMount = useCallback((tldraw: any) => {
-        tldraw.on('change', (event: any) => {
-            if (event.source !== 'user' || !socketRef.current) return;
-            socketRef.current.emit('tldrawUpdate', {
-                snapshot: tldraw.store.getSnapshot(),
-            });
-        });
     }, []);
 
     // File upload function
@@ -388,21 +244,21 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
 
         try {
             console.log('[Client] Uploading file:', file.name);
-
+            
             // Create form data for the file upload
             const formData = new FormData();
             formData.append('file', file);
             formData.append('roomCode', currentRoomCode);
-
+            
             // Get the auth token from localStorage
             const token = localStorage.getItem('token');
             if (!token) {
                 throw new Error('Authentication token not found');
             }
-
+            
             // Upload the file to the backend
             const response = await axios.post(
-                'http://localhost:4000/api/up/collaboration-upload',
+                'http://localhost:5001/api/up/collaboration-upload', 
                 formData,
                 {
                     headers: {
@@ -411,9 +267,9 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
                     }
                 }
             );
-
+            
             console.log('[Client] File upload response:', response.data);
-
+            
             if (response.data && response.data.success) {
                 // Notify the collaboration server about the new file
                 socketRef.current.emit('fileShared', response.data);
@@ -426,36 +282,6 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
         }
     }, [currentUser, currentRoomCode, authUser]);
 
-    const addTask = useCallback((text: string) => {
-        if (!socketRef.current) return;
-        socketRef.current.emit('addTask', { text });
-    }, []);
-
-    const toggleTask = useCallback((id: string) => {
-        if (!socketRef.current) return;
-        socketRef.current.emit('toggleTask', { id });
-    }, []);
-
-    const deleteTask = useCallback((id: string) => {
-        if (!socketRef.current) return;
-        socketRef.current.emit('deleteTask', { id });
-    }, []);
-
-    const startTimer = useCallback(() => {
-        if (!socketRef.current) return;
-        socketRef.current.emit('startTimer');
-    }, []);
-
-    const pauseTimer = useCallback(() => {
-        if (!socketRef.current) return;
-        socketRef.current.emit('pauseTimer');
-    }, []);
-
-    const resetTimer = useCallback(() => {
-        if (!socketRef.current) return;
-        socketRef.current.emit('resetTimer');
-    }, []);
-
     const value = {
         participants,
         files,
@@ -464,26 +290,14 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
         aiInteractions,
         isConnected,
         socketRef,
-        currentRoomCode,
-        tldrawStore,
-        tasks,
-        timer,
         joinRoom,
         leaveRoom,
         sendMessage,
         addReaction,
         setTyping,
-        toggleHandRaised,
         summarizeChat,
         askAi,
         uploadFile,
-        handleTldrawMount,
-        addTask,
-        toggleTask,
-        deleteTask,
-        startTimer,
-        pauseTimer,
-        resetTimer,
     };
 
     return (

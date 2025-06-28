@@ -1,27 +1,15 @@
 import React, { useState } from 'react';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
-import { ChevronLeft, ChevronRight, FileText, Maximize2, Minimize2, SplitSquareHorizontal, Loader2, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Maximize2, Minimize2, SplitSquareHorizontal } from 'lucide-react';
+import { IntegratedFileViewer } from './IntegratedFileViewer';
 import { useCollaboration } from '../../contexts/CollaborationContext';
-import { Tldraw } from '@tldraw/tldraw';
-import '@tldraw/tldraw/tldraw.css';
-import { Document, Page, pdfjs } from 'react-pdf';
-import 'react-pdf/dist/Page/AnnotationLayer.css';
-import 'react-pdf/dist/Page/TextLayer.css';
-
-// Configure PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.js',
-  import.meta.url,
-).toString();
 
 export const WhiteboardWithPDF: React.FC = () => {
-  const { files, tldrawStore, handleTldrawMount } = useCollaboration();
+  const { files } = useCollaboration();
   const [selectedFile, setSelectedFile] = useState<typeof files[0] | null>(null);
   const [viewMode, setViewMode] = useState<'split' | 'pdf-only' | 'whiteboard-only'>('split');
   const [showFileSelector, setShowFileSelector] = useState(false);
-  const [numPages, setNumPages] = useState<number | null>(null);
-  const [pageNumber, setPageNumber] = useState(1);
   const [splitRatio, setSplitRatio] = useState(50); // 50% for each side in split mode
 
   const handleCloseViewer = () => {
@@ -40,19 +28,6 @@ export const WhiteboardWithPDF: React.FC = () => {
 
   const toggleFileSelector = () => {
     setShowFileSelector(!showFileSelector);
-  };
-
-  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-    setNumPages(numPages);
-    setPageNumber(1);
-  };
-
-  const handlePreviousPage = () => {
-    setPageNumber(prev => Math.max(prev - 1, 1));
-  };
-
-  const handleNextPage = () => {
-    setPageNumber(prev => Math.min(prev + 1, numPages || 1));
   };
 
   // Calculate classes based on view mode
@@ -107,36 +82,19 @@ export const WhiteboardWithPDF: React.FC = () => {
 
       <div className="flex flex-1 gap-2 overflow-hidden">
         {/* Whiteboard area */}
-        <div 
-          className={`${viewMode === 'whiteboard-only' ? 'flex-1' : viewMode === 'pdf-only' ? 'hidden' : 'w-[70%]'}`}
+        <Card 
+          variant="glass" 
+          className={`${viewMode === 'whiteboard-only' ? 'flex-1' : viewMode === 'pdf-only' ? 'hidden' : 'w-[30%]'} p-2`}
         >
-          <Tldraw store={tldrawStore} onMount={handleTldrawMount} />
-        </div>
+          <div className="h-full bg-black/20 rounded-lg flex items-center justify-center">
+            <p className="text-white/60">Whiteboard content goes here</p>
+          </div>
+        </Card>
 
         {/* PDF viewer */}
         {selectedFile ? (
-          <div className={`${viewMode === 'pdf-only' ? 'flex-1' : viewMode === 'whiteboard-only' ? 'hidden' : 'w-[30%]'} bg-gray-900 rounded-lg overflow-hidden flex flex-col`}>
-            <div className="flex-1 overflow-auto flex items-center justify-center p-4">
-              <Document
-                file={selectedFile.downloadUrl}
-                onLoadSuccess={onDocumentLoadSuccess}
-                loading={<div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin" /> <span className="ml-2">Loading PDF...</span></div>}
-                error={<div className="flex items-center justify-center h-64 text-red-500"><AlertTriangle className="h-8 w-8 mr-2" /> Error loading PDF.</div>}
-              >
-                <Page pageNumber={pageNumber} />
-              </Document>
-            </div>
-            {numPages && (
-              <div className="flex items-center justify-center gap-4 p-4 border-t border-gray-800">
-                <Button variant="outline" size="sm" onClick={handlePreviousPage} disabled={pageNumber <= 1}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <p>Page {pageNumber} of {numPages}</p>
-                <Button variant="outline" size="sm" onClick={handleNextPage} disabled={pageNumber >= numPages}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
+          <div className={`${viewMode === 'pdf-only' ? 'flex-1' : viewMode === 'whiteboard-only' ? 'hidden' : 'w-[70%]'}`}>
+            <IntegratedFileViewer file={selectedFile} onClose={handleCloseViewer} />
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center">
