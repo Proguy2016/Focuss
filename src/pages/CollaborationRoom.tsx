@@ -17,11 +17,29 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { Timer } from "../components/collaboration/Timer";
 import { SidebarTabs } from "../components/collaboration/SidebarTabs";
 import StudentCollaborationRoom from '../components/collaboration/StudentCollaborationRoom';
-import { ScrollArea } from "../components/common/ScrollArea";
-import { Avatar, AvatarImage, AvatarFallback } from "../components/common/Avatar";
-import { Separator } from "../components/common/Separator";
+import { ScrollArea } from "../components/ui/scroll-area";
+import { Avatar, AvatarImage, AvatarFallback } from "../components/ui/avatar";
+import { Separator } from "../components/ui/separator";
 
-function ActiveRoom() {
+function ActiveRoom({ roomCode }: { roomCode: string }) {
+    const { joinRoom, leaveRoom } = useCollaboration();
+    
+    // Explicitly join the room when this component mounts
+    useEffect(() => {
+        console.log(`[ActiveRoom] Joining room with code: ${roomCode}`);
+        
+        // Join the room
+        joinRoom(roomCode);
+        
+        // Store the room code for future sessions
+        localStorage.setItem('lastRoomCode', roomCode);
+        
+        return () => {
+            console.log(`[ActiveRoom] Leaving room ${roomCode}`);
+            leaveRoom();
+        };
+    }, [roomCode, joinRoom, leaveRoom]);
+    
     // Instead of the old UI, render the new StudentCollaborationRoom
     return <StudentCollaborationRoom />;
 }
@@ -32,8 +50,18 @@ function CollaborationRoom({ onJoinRoom, onCreateRoom }: { onJoinRoom: (code: st
     const [showCreateDialog, setShowCreateDialog] = useState(false);
     const [showJoinDialog, setShowJoinDialog] = useState(false);
 
-    const handleJoinSubmit = (e: FormEvent) => { e.preventDefault(); if (joinCode.length === 6) onJoinRoom(joinCode); };
-    const handleCreate = () => onCreateRoom();
+    const handleJoinSubmit = (e: FormEvent) => { 
+        e.preventDefault(); 
+        if (joinCode.length === 6) {
+            console.log(`[CollaborationRoom] Joining room with code: ${joinCode}`);
+            onJoinRoom(joinCode);
+        }
+    };
+    
+    const handleCreate = () => {
+        console.log(`[CollaborationRoom] Creating and joining room with code: ${roomCode}`);
+        onCreateRoom();
+    };
 
     return (
         <div className="flex flex-col items-center justify-center w-full max-w-xl mx-auto p-4 min-h-[70vh]">
@@ -79,15 +107,51 @@ function CollaborationRoom({ onJoinRoom, onCreateRoom }: { onJoinRoom: (code: st
 export default function CollaborationRoomApp() {
     const [activeRoom, setActiveRoom] = useState<string | null>(null);
 
-    const handleJoinRoom = (code: string) => setActiveRoom(code);
-    const handleCreateRoom = () => setActiveRoom(Math.floor(100000 + Math.random() * 900000).toString());
-    const handleLeaveRoom = () => setActiveRoom(null);
+    // Check if we have a stored room code on page load
+    useEffect(() => {
+        const storedRoomCode = localStorage.getItem('lastRoomCode');
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlRoomCode = urlParams.get('room');
+        
+        // Use URL parameter first, then stored room code
+        if (urlRoomCode) {
+            console.log(`[CollaborationRoomApp] Found room code in URL: ${urlRoomCode}`);
+            setActiveRoom(urlRoomCode);
+        } else if (storedRoomCode) {
+            console.log(`[CollaborationRoomApp] Found stored room code: ${storedRoomCode}`);
+            setActiveRoom(storedRoomCode);
+        }
+    }, []);
+
+    const handleJoinRoom = (code: string) => {
+        console.log(`[CollaborationRoomApp] Setting active room to: ${code}`);
+        setActiveRoom(code);
+        // Update URL with room code for sharing
+        const url = new URL(window.location.href);
+        url.searchParams.set('room', code);
+        window.history.pushState({}, '', url);
+    };
+    
+    const handleCreateRoom = () => {
+        const newRoomCode = Math.floor(100000 + Math.random() * 900000).toString();
+        console.log(`[CollaborationRoomApp] Created new room with code: ${newRoomCode}`);
+        handleJoinRoom(newRoomCode);
+    };
+    
+    const handleLeaveRoom = () => {
+        console.log(`[CollaborationRoomApp] Leaving room`);
+        setActiveRoom(null);
+        // Remove room code from URL
+        const url = new URL(window.location.href);
+        url.searchParams.delete('room');
+        window.history.pushState({}, '', url);
+    };
 
     return (
         <CollaborationProvider>
             <div className="w-full h-full">
                 {activeRoom ? (
-                    <ActiveRoom />
+                    <ActiveRoom roomCode={activeRoom} />
                 ) : (
                     <CollaborationRoom onJoinRoom={handleJoinRoom} onCreateRoom={handleCreateRoom} />
                 )}
