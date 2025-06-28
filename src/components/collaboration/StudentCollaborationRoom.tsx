@@ -494,11 +494,17 @@ const StudentCollaborationRoom: React.FC = () => {
   };
 
   // Utility functions
-  const formatTimestamp = (timestamp: string | Date) => {
+  const formatTimestamp = (timestamp: string | Date | undefined) => {
+    if (!timestamp) return '';
     if (typeof timestamp === 'string') {
-      return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return '';
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
-    return timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (timestamp instanceof Date && !isNaN(timestamp.getTime())) {
+      return timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    return '';
   };
 
   const getPriorityColor = (priority: string) => {

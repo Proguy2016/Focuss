@@ -157,6 +157,8 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
             timeout: 10000
         });
         
+        console.log(`[Client] Attempting to connect to socket server at http://localhost:4000`);
+        
         socketRef.current = socket;
 
         // Listen for connection event
@@ -208,6 +210,17 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
             if (state.tasks) setTasks(state.tasks);
         });
 
+        socket.on('userJoined', ({ user }: { user: Participant }) => {
+            console.log('[Client] New user joined:', user);
+            setParticipants(prev => {
+                // Avoid adding duplicates on reconnect or if user is already present
+                if (prev.some(p => p.id === user.id)) {
+                    return prev;
+                }
+                return [...prev, user];
+            });
+        });
+
         socket.on('fileAdded', (file: SharedFile) => {
             console.log('[Client] File added:', file);
             setFiles(prev => [...prev, file]);
@@ -224,18 +237,22 @@ export const CollaborationProvider = ({ children }: { children: ReactNode }) => 
             // Could show a notification here
         });
 
-        socket.on('disconnect', () => {
-            console.log('[Client] Disconnected from socket server.');
+        socket.on('disconnect', (reason) => {
+            console.log('[Client] Disconnected from socket server. Reason:', reason);
             setIsConnected(false)
         });
 
         socket.on('connect_error', (err) => {
-            console.error('[Client] Connection Error:', err);
+            console.error('[Client] Connection Error:', err.message);
             // Provide more detailed error information
             if (err.message.includes('Authentication')) {
                 console.log('[Client] Authentication error - using fallback anonymous connection');
                 // You could implement a fallback connection strategy here
             }
+        });
+
+        socket.on('error', (error) => {
+            console.error('[Client] Socket error:', error);
         });
 
         socket.on('userLeft', ({ userId }: { userId: string }) => setParticipants(prev => prev.filter(p => p.id !== userId)));
