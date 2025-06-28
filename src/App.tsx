@@ -20,6 +20,7 @@ import PDFViewer from './pages/PDFViewer';
 import Library from './pages/Library';
 import CollaborationRoomApp from './pages/CollaborationRoom';
 import SearchResults from './pages/SearchResults';
+import LandingPage from './pages/LandingPage'; // Import the new LandingPage component
 
 // Layout components
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
@@ -73,6 +74,9 @@ function AppContent() {
 
         <AnimatePresence mode="wait">
           <Routes>
+            {/* Landing Page Route - accessible to everyone, but redirects if authenticated */}
+            <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LandingPage />} />
+
             <Route path="/auth" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth />} />
             <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth initialView="login" />} />
             <Route path="/signup" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth initialView="signup" />} />
@@ -107,11 +111,22 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppProvider>
-        <AppContent />
-      </AppProvider>
-    </AuthProvider>
+    <>
+      {/* Candle element - positioned at bottom right, fixed to viewport */}
+      <div className="holder" style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999 }}>
+        <div className="candle">
+          <div className="blinking-glow"></div>
+          <div className="thread"></div>
+          <div className="glow"></div>
+          <div className="flame"></div>
+        </div>
+      </div>
+      <AuthProvider>
+        <AppProvider>
+          <AppContent />
+        </AppProvider>
+      </AuthProvider>
+    </>
   );
 }
 

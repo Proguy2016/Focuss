@@ -3,7 +3,8 @@
 import React, { useState, FormEvent, useEffect } from "react";
 import { Users, Copy, X, Bot, Send, Upload, Share2, Calendar } from "lucide-react";
 import { Button } from "../components/common/Button";
-import { Card, CardHeader, CardTitle, CardContent } from "../components/common/Card";
+import { Card, CardTitle, CardContent } from "../components/common/Card";
+import { CardHeader } from "../components/ui/card";
 import { Modal } from "../components/common/Modal";
 import { Input } from "../components/collaboration/Input";
 import { useRoomCode } from "../components/collaboration/useRoomCode";

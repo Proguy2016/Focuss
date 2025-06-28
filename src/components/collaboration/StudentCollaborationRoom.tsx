@@ -1,22 +1,22 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { 
-  MessageCircle, 
-  Mic, 
-  MicOff, 
-  Phone, 
-  PhoneOff, 
-  Upload, 
-  Download, 
-  Search, 
-  Filter, 
-  Plus, 
-  Edit3, 
-  Trash2, 
-  FileText, 
-  Users, 
-  Clock, 
-  CheckCircle, 
-  Circle, 
+import {
+  MessageCircle,
+  Mic,
+  MicOff,
+  Phone,
+  PhoneOff,
+  Upload,
+  Download,
+  Search,
+  Filter,
+  Plus,
+  Edit3,
+  Trash2,
+  FileText,
+  Users,
+  Clock,
+  CheckCircle,
+  Circle,
   MoreHorizontal,
   Send,
   Bot,
@@ -49,7 +49,8 @@ import {
 } from 'lucide-react';
 import { Button } from "../common/Button";
 import { Input } from "../common/Input";
-import { Card, CardContent, CardHeader, CardTitle } from "../common/Card";
+import { Card } from "../common/Card";
+import { CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Badge } from "../ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
@@ -220,7 +221,7 @@ const StudentCollaborationRoom: React.FC = () => {
       description: 'Master CSS Grid Layout for modern web design'
     }
   ];
-  
+
   // Sample projects data
   const projects: Project[] = [
     {
@@ -343,8 +344,8 @@ const StudentCollaborationRoom: React.FC = () => {
 
   const filteredLibraryItems = libraryItems.filter(item => {
     const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         item.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         item.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+      item.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesFilter = selectedFilter === 'all' || item.type === selectedFilter;
     return matchesSearch && matchesFilter;
   });
@@ -446,7 +447,7 @@ const StudentCollaborationRoom: React.FC = () => {
                   </TooltipContent>
                 </Tooltip>
               </div>
-              
+
               {/* Notifications */}
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -461,7 +462,7 @@ const StudentCollaborationRoom: React.FC = () => {
                 </TooltipTrigger>
                 <TooltipContent>Notifications</TooltipContent>
               </Tooltip>
-              
+
               {/* Fullscreen Toggle */}
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -483,14 +484,14 @@ const StudentCollaborationRoom: React.FC = () => {
         </div>
 
         <div className="p-4 bg-background flex-grow">
-          <Tabs 
-            value={activeTab} 
-            onValueChange={setActiveTab} 
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
             className="w-full"
           >
             <TabsList className="grid w-full grid-cols-6 gap-2 p-2 bg-black/20 backdrop-blur-md rounded-xl mb-6">
-              <TabsTrigger 
-                value="chat" 
+              <TabsTrigger
+                value="chat"
                 className="relative text-muted-foreground border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-lg h-10 transition-all duration-200"
               >
                 <MessageCircle className="h-4 w-4 mr-2" />
@@ -501,43 +502,43 @@ const StudentCollaborationRoom: React.FC = () => {
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger 
-                value="whiteboard" 
+              <TabsTrigger
+                value="whiteboard"
                 className="text-muted-foreground border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-lg h-10 transition-all duration-200"
               >
                 <Edit3 className="h-4 w-4 mr-2" />
                 Whiteboard
               </TabsTrigger>
-              <TabsTrigger 
-                value="documents" 
+              <TabsTrigger
+                value="documents"
                 className="text-muted-foreground border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-lg h-10 transition-all duration-200"
               >
                 <FileText className="h-4 w-4 mr-2" />
                 Documents
               </TabsTrigger>
-              <TabsTrigger 
-                value="tasks" 
+              <TabsTrigger
+                value="tasks"
                 className="text-muted-foreground border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-lg h-10 transition-all duration-200"
               >
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Tasks
               </TabsTrigger>
-              <TabsTrigger 
-                value="projects" 
+              <TabsTrigger
+                value="projects"
                 className="text-muted-foreground border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-lg h-10 transition-all duration-200"
               >
                 <Folder className="h-4 w-4 mr-2" />
                 Projects
               </TabsTrigger>
-              <TabsTrigger 
-                value="library" 
+              <TabsTrigger
+                value="library"
                 className="text-muted-foreground border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-lg h-10 transition-all duration-200"
               >
                 <BookOpen className="h-4 w-4 mr-2" />
                 Library
               </TabsTrigger>
             </TabsList>
-            
+
             {/* Chat Tab Content */}
             <TabsContent value="chat" className="mt-4 space-y-4">
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-250px)]">
@@ -583,11 +584,10 @@ const StudentCollaborationRoom: React.FC = () => {
                                     {formatTimestamp(message.timestamp)}
                                   </span>
                                 </div>
-                                <div className={`p-4 rounded-2xl ${
-                                  message.type === 'ai' 
-                                    ? 'bg-primary/10 text-primary border border-primary/20' 
-                                    : 'bg-black/30 text-foreground border border-white/5'
-                                }`}>
+                                <div className={`p-4 rounded-2xl ${message.type === 'ai'
+                                  ? 'bg-primary/10 text-primary border border-primary/20'
+                                  : 'bg-black/30 text-foreground border border-white/5'
+                                  }`}>
                                   {message.content}
                                 </div>
                                 <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">

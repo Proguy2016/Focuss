@@ -186,5 +186,21 @@ export default {
 			}
 		}
 	},
-	plugins: [require("tailwindcss-animate")],
+	plugins: [
+    require("tailwindcss-animate"),
+    function ({ addUtilities }) {
+      const newUtilities = {
+        '.animation-delay-500': {
+          'animation-delay': '0.5s',
+        },
+        '.animation-delay-1000': {
+          'animation-delay': '1s',
+        },
+        '.animation-delay-1500': {
+          'animation-delay': '1.5s',
+        },
+      }
+      addUtilities(newUtilities, ['responsive', 'hover'])
+    }
+  ],
 };
