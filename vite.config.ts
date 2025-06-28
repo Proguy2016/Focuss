@@ -6,6 +6,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   optimizeDeps: {
+    include: ['jspdf'],
     exclude: ['lucide-react'],
   },
   assetsInclude: ['**/*.pdf'], // Allow PDF files to be imported as assets

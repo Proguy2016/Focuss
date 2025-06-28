@@ -23,7 +23,7 @@ import SearchResults from './pages/SearchResults';
 import LandingPage from './pages/LandingPage'; // Import the new LandingPage component
 
 // Layout components
-const AppLayout = ({ children }: { children: React.ReactNode }) => {
+const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { logout } = useAuth();
 
   return (
@@ -40,7 +40,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 };
 
 // Loading component
-const LoadingScreen = () => (
+const LoadingScreen: React.FC = () => (
   <div className="flex h-screen items-center justify-center bg-dark">
     <div className="space-y-4 text-center">
       <div className="w-12 h-12 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto"></div>
@@ -50,7 +50,7 @@ const LoadingScreen = () => (
 );
 
 // Route Guard component
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
@@ -112,15 +112,6 @@ function AppContent() {
 function App() {
   return (
     <>
-      {/* Candle element - positioned at bottom right, fixed to viewport */}
-      <div className="holder" style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999 }}>
-        <div className="candle">
-          <div className="blinking-glow"></div>
-          <div className="thread"></div>
-          <div className="glow"></div>
-          <div className="flame"></div>
-        </div>
-      </div>
       <AuthProvider>
         <AppProvider>
           <AppContent />

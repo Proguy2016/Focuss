@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
+import jsPDF from 'jspdf';
+import {
   ZoomIn, ZoomOut, ChevronLeft, ChevronRight, Download,
-  Highlighter, Pen, StickyNote, Eraser, Hand, RotateCw, 
+  Highlighter, Pen, StickyNote, Eraser, Hand, RotateCw,
   PanelLeft, File, BookOpen, Bookmark, Settings, ArrowLeft
 } from 'lucide-react';
 import { Button } from '../components/common/Button';
@@ -38,7 +39,7 @@ interface DrawingPath {
 interface Highlight {
   id: string;
   page: number;
-  position: { 
+  position: {
     boundingRect: {
       x1: number;
       y1: number;
@@ -77,7 +78,7 @@ interface Bookmark {
 interface TextAnnotation {
   id: string;
   page: number;
-  position: { 
+  position: {
     boundingRect: {
       x1: number;
       y1: number;
@@ -114,7 +115,7 @@ interface Annotation {
 // Add the component
 const PDFViewer: React.FC = () => {
   // Get file ID from URL params if available
-  const { fileId } = useParams<{fileId?: string}>();
+  const { fileId } = useParams<{ fileId?: string }>();
   const navigate = useNavigate();
 
   // Create a fallback PDF
@@ -157,7 +158,7 @@ startxref
 420
 %%EOF
     `.trim();
-    
+
     const blob = new Blob([pdfContent], { type: 'application/pdf' });
     return URL.createObjectURL(blob);
   };
@@ -168,33 +169,33 @@ startxref
   const [currentPage, setCurrentPage] = useState(1);
   const [scale, setScale] = useState(0.6); // Lower initial zoom level to show full page
   const [rotation, setRotation] = useState(0);
-  
+
   // Add state for the file metadata from Library
-  const [pdfInfo, setPdfInfo] = useState<{name: string, url: string} | null>(null);
-  
+  const [pdfInfo, setPdfInfo] = useState<{ name: string, url: string } | null>(null);
+
   // UI state
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<'thumbnails' | 'annotations' | 'bookmarks'>('thumbnails');
   const [activeTool, setActiveTool] = useState<'select' | 'highlight' | 'pen' | 'note' | 'eraser' | 'bookmark'>('select');
-  
+
   // Highlighting state
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [selectedText, setSelectedText] = useState('');
   const [showTextSelector, setShowTextSelector] = useState(false);
   const [textPosition, setTextPosition] = useState({ x: 0, y: 0 });
-  
+
   // Drawing state
   const [drawings, setDrawings] = useState<DrawingPath[]>([]);
   const [currentDrawing, setCurrentDrawing] = useState<DrawingPath | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [penColor, setPenColor] = useState('#ff5722');
   const [penWidth, setPenWidth] = useState(3);
-  
+
   // Eraser state
   const [eraserPosition, setEraserPosition] = useState({ x: 0, y: 0 });
   const [showEraserCursor, setShowEraserCursor] = useState(false);
   const [isErasing, setIsErasing] = useState(false);
-  
+
   // Notes state
   const [notes, setNotes] = useState<Annotation[]>([]);
   const [activeNote, setActiveNote] = useState<string | null>(null);
@@ -202,12 +203,12 @@ startxref
   const [notePosition, setNotePosition] = useState({ x: 0, y: 0 });
   const [noteText, setNoteText] = useState('');
   const [noteColor, setNoteColor] = useState('#4caf50');
-  
+
   // Bookmark state
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [showBookmarkDialog, setShowBookmarkDialog] = useState(false);
   const [bookmarkTitle, setBookmarkTitle] = useState('');
-  
+
   // Text annotation state
   const [textAnnotations, setTextAnnotations] = useState<TextAnnotation[]>([]);
   const [showTextAnnotationEditor, setShowTextAnnotationEditor] = useState(false);
@@ -224,7 +225,7 @@ startxref
     width: number;
     height: number;
   } | null>(null);
-  
+
   // Refs
   const pdfContainerRef = useRef<HTMLDivElement>(null);
   const textSelectorRef = useRef<HTMLDivElement>(null);
@@ -235,7 +236,7 @@ startxref
   const textAnnotationEditorRef = useRef<HTMLDivElement>(null);
 
   // Add a new state to store the PDF dimensions
-  const [pdfDimensions, setPdfDimensions] = useState<{width: number, height: number} | null>(null);
+  const [pdfDimensions, setPdfDimensions] = useState<{ width: number, height: number } | null>(null);
 
   // Add a useEffect to update PDF dimensions on resize
   useEffect(() => {
@@ -247,10 +248,10 @@ startxref
         });
       }
     };
-    
+
     // Set initial dimensions
     updateDimensions();
-    
+
     // Update dimensions on resize
     window.addEventListener('resize', updateDimensions);
     return () => {
@@ -265,7 +266,7 @@ startxref
     // Start with the fallback PDF
     const fallbackPdfUrl = createFallbackPdf();
     setPdfFile(fallbackPdfUrl);
-    
+
     return () => {
       // Clean up blob URLs
       if (typeof pdfFile === 'string' && pdfFile.startsWith('blob:')) {
@@ -280,7 +281,7 @@ startxref
     if (fileId) {
       const pdfUrl = localStorage.getItem('currentPdfUrl');
       const pdfName = localStorage.getItem('currentPdfName');
-      
+
       if (pdfUrl && pdfName) {
         // We have a file from the library
         console.log(`Opening library file: ${pdfName}`);
@@ -288,7 +289,7 @@ startxref
           name: pdfName,
           url: pdfUrl
         });
-        
+
         // Use the provided API endpoint to fetch the PDF
         fetch(pdfUrl)
           .then(response => {
@@ -327,15 +328,15 @@ startxref
     if (showNoteEditor || showTextAnnotationEditor) {
       return; // Don't open bookmark dialog if another dialog is open
     }
-    
+
     setBookmarkTitle(`Page ${currentPage}`);
     setShowBookmarkDialog(true);
   };
-  
+
   const jumpToBookmark = (page: number) => {
     setCurrentPage(page);
   };
-  
+
   const addBookmark = () => {
     // Create a new bookmark for the current page
     const newBookmark: Bookmark = {
@@ -345,22 +346,22 @@ startxref
       timestamp: Date.now(),
       color: '#f44336' // Default color for bookmarks
     };
-    
+
     setBookmarks([...bookmarks, newBookmark]);
     setShowBookmarkDialog(false);
     setBookmarkTitle('');
-    
+
     // Optionally switch to bookmarks tab in sidebar
     setActiveTab('bookmarks');
     setSidebarOpen(true);
   };
-  
+
   const editBookmark = (id: string, newTitle: string) => {
-    setBookmarks(bookmarks.map(bookmark => 
+    setBookmarks(bookmarks.map(bookmark =>
       bookmark.id === id ? { ...bookmark, title: newTitle } : bookmark
     ));
   };
-  
+
   const deleteBookmark = (id: string) => {
     setBookmarks(bookmarks.filter(bookmark => bookmark.id !== id));
   };
@@ -376,13 +377,13 @@ startxref
   // Add a state to track mouse position
   const [lastMousePosition, setLastMousePosition] = useState({ x: 0, y: 0 });
   const [isMouseOverPdf, setIsMouseOverPdf] = useState(false);
-  
+
   // Add a handler to update mouse position
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       setLastMousePosition({ x: e.clientX, y: e.clientY });
     };
-    
+
     document.addEventListener('mousemove', handleMouseMove);
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
@@ -392,28 +393,28 @@ startxref
   const handleTextAnnotationSelection = () => {
     // Only handle selections when the note tool is active
     if (activeTool !== 'note') return;
-    
+
     // Don't do anything if mouse is not over PDF
     if (!isMouseOverPdf) return;
-    
+
     // Close any existing text annotation editor
     if (showTextAnnotationEditor) {
       setShowTextAnnotationEditor(false);
       resetTextAnnotationState();
     }
-    
+
     // Get the current selection
     const selection = window.getSelection();
     if (!selection) return;
-    
+
     // Get selected text if any
     const selectedText = selection.toString().trim();
-    
+
     try {
       // Use absolute screen coordinates for the annotation rectangle
       const mouseX = lastMousePosition.x;
       const mouseY = lastMousePosition.y;
-      
+
       // Create a fixed size rectangle (100x20 pixels) at cursor position
       const boundingRect = {
         x1: mouseX,
@@ -423,19 +424,19 @@ startxref
         width: 100,
         height: 20
       };
-      
+
       // Store the selected text and its position
       setTextAnnotationSelectedText(selectedText);
       setTextAnnotationBoundingRect(boundingRect);
-      
+
       // Position the editor at the center top of the viewport
       const viewportWidth = window.innerWidth;
-      
+
       setTextAnnotationPosition({
         x: viewportWidth / 2 - 150, // Center the 300px dialog
         y: 100 // Fixed position from top
       });
-      
+
       // Show the editor
       setShowTextAnnotationEditor(true);
       setActiveTextAnnotation(null); // We're creating a new annotation
@@ -444,10 +445,10 @@ startxref
       console.error('Error creating text annotation:', error);
     }
   };
-  
+
   const addTextAnnotation = () => {
     if (!textAnnotationBoundingRect) return;
-    
+
     // Create a simple annotation with a fixed rectangle
     const newTextAnnotation: TextAnnotation = {
       id: `text_annotation_${Date.now()}`,
@@ -475,58 +476,58 @@ startxref
       color: textAnnotationColor,
       timestamp: Date.now()
     };
-    
+
     setTextAnnotations([...textAnnotations, newTextAnnotation]);
     setShowTextAnnotationEditor(false);
     resetTextAnnotationState();
-    
+
     // Clear selection after creating the annotation
     const selection = window.getSelection();
     if (selection) selection.removeAllRanges();
   };
-  
+
   const updateTextAnnotation = () => {
     if (!activeTextAnnotation) return;
-    
-    setTextAnnotations(textAnnotations.map(annotation => 
-      annotation.id === activeTextAnnotation 
-        ? { 
-            ...annotation, 
-            comment: textAnnotationText,
-            color: textAnnotationColor 
-          } 
+
+    setTextAnnotations(textAnnotations.map(annotation =>
+      annotation.id === activeTextAnnotation
+        ? {
+          ...annotation,
+          comment: textAnnotationText,
+          color: textAnnotationColor
+        }
         : annotation
     ));
-    
+
     setShowTextAnnotationEditor(false);
     resetTextAnnotationState();
-    
+
     // Clear selection after updating the annotation
     const selection = window.getSelection();
     if (selection) selection.removeAllRanges();
   };
-  
+
   const deleteTextAnnotation = (id: string) => {
     setTextAnnotations(textAnnotations.filter(annotation => annotation.id !== id));
-    
+
     if (activeTextAnnotation === id) {
       setShowTextAnnotationEditor(false);
       resetTextAnnotationState();
     }
   };
-  
+
   const editTextAnnotation = (id: string) => {
     const annotation = textAnnotations.find(a => a.id === id);
     if (!annotation) return;
-    
+
     // Position the editor at the center top of the viewport
     const viewportWidth = window.innerWidth;
-    
+
     setTextAnnotationPosition({
       x: viewportWidth / 2 - 150, // Center the 300px dialog
       y: 100 // Fixed position from top
     });
-    
+
     setActiveTextAnnotation(id);
     setTextAnnotationText(annotation.comment);
     setTextAnnotationColor(annotation.color);
@@ -543,12 +544,12 @@ startxref
         if (selection) selection.removeAllRanges();
         return;
       }
-      
+
       // For bookmark tool, handle it in the main container click handler
       if (activeTool === 'bookmark') {
         return;
       }
-      
+
       // For text annotation tool, handle the selection
       if (activeTool === 'note') {
         // Only handle text annotation when no dialog is open
@@ -557,14 +558,14 @@ startxref
         }
         return;
       }
-      
+
       if (activeTool !== 'highlight') return;
-      
+
       // Don't process highlights if any dialog is open
       if (showTextAnnotationEditor || showNoteEditor || showBookmarkDialog) {
         return;
       }
-      
+
       // Use setTimeout to handle selection after the browser has finished processing the mouseup
       setTimeout(() => {
         const selection = window.getSelection();
@@ -574,18 +575,18 @@ startxref
               // Get the PDF container and page element
               const containerRect = pdfContainerRef.current.getBoundingClientRect();
               const pageElement = pdfContainerRef.current.querySelector('.react-pdf__Page');
-              
+
               if (!pageElement) return;
-              
+
               const pageRect = pageElement.getBoundingClientRect();
-              
+
               // Get the selected text and range
-            const range = selection.getRangeAt(0);
+              const range = selection.getRangeAt(0);
               const selectedText = selection.toString().trim();
-              
+
               // Get the position of the selection relative to the PDF page, not the container
               const clientRects = Array.from(range.getClientRects());
-              
+
               // Adjust positions relative to the PDF page and account for scale
               const rects = clientRects.map(rect => {
                 // Calculate position relative to the page
@@ -593,7 +594,7 @@ startxref
                 const y1 = (rect.top - pageRect.top) / scale;
                 const x2 = (rect.right - pageRect.left) / scale;
                 const y2 = (rect.bottom - pageRect.top) / scale;
-                
+
                 return {
                   x1,
                   y1,
@@ -603,9 +604,9 @@ startxref
                   height: rect.height / scale,
                 };
               });
-              
+
               if (rects.length === 0) return;
-              
+
               // Get the bounding rect of the selection
               const boundingRect = {
                 x1: Math.min(...rects.map(r => r.x1)),
@@ -615,10 +616,10 @@ startxref
                 width: 0,
                 height: 0,
               };
-              
+
               boundingRect.width = boundingRect.x2 - boundingRect.x1;
               boundingRect.height = boundingRect.y2 - boundingRect.y1;
-              
+
               // Create highlight object
               const newHighlight: Highlight = {
                 id: `highlight_${Date.now()}`,
@@ -640,10 +641,10 @@ startxref
                 color: '#ffeb3b', // Default highlight color
                 timestamp: Date.now(),
               };
-              
+
               // Add highlight to state
               setHighlights(prev => [...prev, newHighlight]);
-              
+
               // Clear the selection
               selection.removeAllRanges();
             } catch (error) {
@@ -678,16 +679,16 @@ startxref
   const addHighlight = useCallback((color = '#ffeb3b') => {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed || !selection.toString().trim()) return;
-    
+
     try {
       if (selection.rangeCount > 0 && pdfContainerRef.current) {
         // Get the container position for relative positioning
         const containerRect = pdfContainerRef.current.getBoundingClientRect();
-        
+
         // Get the selected text and range
         const range = selection.getRangeAt(0);
         const selectedText = selection.toString().trim();
-        
+
         // Get the position of the selection
         const rects = Array.from(range.getClientRects()).map(rect => ({
           x1: rect.left - containerRect.left,
@@ -697,9 +698,9 @@ startxref
           width: rect.width,
           height: rect.height,
         }));
-        
+
         if (rects.length === 0) return;
-        
+
         // Get the bounding rect of the selection
         const boundingRect = {
           x1: Math.min(...rects.map(r => r.x1)),
@@ -709,10 +710,10 @@ startxref
           width: 0,
           height: 0,
         };
-        
+
         boundingRect.width = boundingRect.x2 - boundingRect.x1;
         boundingRect.height = boundingRect.y2 - boundingRect.y1;
-        
+
         // Create highlight object
         const newHighlight: Highlight = {
           id: `highlight_${Date.now()}`,
@@ -734,14 +735,14 @@ startxref
           color,
           timestamp: Date.now(),
         };
-        
+
         // Add highlight to state
         setHighlights(prev => [...prev, newHighlight]);
-        
+
         // Clear the text selector and selection
         setShowTextSelector(false);
         selection.removeAllRanges();
-        
+
         console.log("Added highlight:", newHighlight);
       }
     } catch (error) {
@@ -750,28 +751,28 @@ startxref
   }, [currentPage]);
 
   // Update the drawing canvas and rendering logic
-    
+
   // First, let's add a useEffect to re-render drawings when the page changes
   useEffect(() => {
     // Render existing drawings for the current page
     if (canvasRef.current && pdfContainerRef.current) {
-    const canvas = canvasRef.current;
+      const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
-      
+
       if (ctx) {
         // Get the PDF page element to properly size the canvas
         const pageElement = pdfContainerRef.current.querySelector('.react-pdf__Page');
         if (!pageElement) return;
-        
+
         const pageRect = pageElement.getBoundingClientRect();
-        
+
         // Set canvas dimensions to match PDF page size exactly
         canvas.width = pageRect.width;
         canvas.height = pageRect.height;
-        
+
         // Clear canvas completely
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
+
         // Draw existing drawings for current page only
         renderDrawings(ctx);
       }
@@ -809,24 +810,24 @@ startxref
   // Update the effect that handles drawing canvas
   useEffect(() => {
     const updateCanvas = () => {
-    const canvas = canvasRef.current;
+      const canvas = canvasRef.current;
       const container = pdfContainerRef.current;
       if (!canvas || !container) return;
-      
+
       const pdfPage = container.querySelector('.react-pdf__Page');
       if (!pdfPage) return;
-      
+
       const rect = pdfPage.getBoundingClientRect();
-      
+
       // Set canvas size to match PDF page size exactly
       canvas.width = rect.width;
       canvas.height = rect.height;
-      
+
       // Position the canvas exactly over the PDF page
       canvas.style.position = 'absolute';
       canvas.style.top = `${rect.top - container.getBoundingClientRect().top}px`;
       canvas.style.left = `${rect.left - container.getBoundingClientRect().left}px`;
-      
+
       // Clear canvas
       const ctx = canvas.getContext('2d');
       if (ctx) {
@@ -834,23 +835,23 @@ startxref
         renderDrawings(ctx);
       }
     };
-    
+
     // Initialize canvas
     updateCanvas();
-    
+
     // Update canvas on window resize
     window.addEventListener('resize', updateCanvas);
-    
+
     return () => {
       window.removeEventListener('resize', updateCanvas);
     };
   }, [renderDrawings, scale, rotation, currentPage]);
-  
+
   // Ensure canvas is updated when the PDF page changes or scale/rotation changes
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
+
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -865,7 +866,7 @@ startxref
         setShowEraserCursor(false);
         return;
       }
-      
+
       // Use client coordinates for cursor positioning
       // This ensures the cursor follows the mouse exactly
       setEraserPosition({
@@ -874,99 +875,99 @@ startxref
       });
       setShowEraserCursor(true);
     };
-    
+
     const handleMouseLeave = () => {
       setShowEraserCursor(false);
     };
-    
+
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseleave', handleMouseLeave);
-    
+
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseleave', handleMouseLeave);
     };
   }, [activeTool]);
-  
+
   // Add improved eraser functionality - only erase on click and drag
   const handleErase = useCallback((e: React.MouseEvent) => {
     // Only perform erasing if the mouse button is pressed (click or drag)
     if (activeTool !== 'eraser' || !isErasing) return;
-    
+
     const container = pdfContainerRef.current;
     if (!container) return;
-    
+
     // Get the PDF page element for correct coordinates
     const pdfPage = container.querySelector('.react-pdf__Page');
     if (!pdfPage) return;
-    
+
     const pageRect = pdfPage.getBoundingClientRect();
-    
+
     // Client coordinates for cursor display
     const clientX = e.clientX;
     const clientY = e.clientY;
-    
+
     // Page-relative coordinates for erasing
     // These coordinates are relative to the PDF page element
     const pageX = clientX - pageRect.left;
     const pageY = clientY - pageRect.top;
-    
+
     // Update eraser cursor position using client coordinates
     setEraserPosition({
       x: clientX,
       y: clientY
     });
     setShowEraserCursor(true);
-    
+
     // Define eraser radius - bigger for easier erasing
     const eraserRadius = 20; // Match to the visual cursor size (40px/2)
-    
+
     // 1. Find and filter drawings within the eraser radius
     const updatedDrawings = drawings.filter(drawing => {
       if (drawing.page !== currentPage) return true;
-      
+
       // Check if any point is within the eraser radius
       const pointInEraser = drawing.points.some(point => {
         // Need to convert the stored normalized points to screen coordinates
         const screenX = point.x * scale;
         const screenY = point.y * scale;
-        
+
         const distance = Math.sqrt(
           Math.pow(screenX - pageX, 2) + Math.pow(screenY - pageY, 2)
         );
-        
+
         return distance < eraserRadius;
       });
-      
+
       // Keep the drawing if no points are within the eraser radius
       return !pointInEraser;
     });
-    
+
     // 2. Find and filter highlights within the eraser radius
     const updatedHighlights = highlights.filter(highlight => {
       if (highlight.page !== currentPage) return true;
-      
+
       // Check if any rect of the highlight is within the eraser radius
       const highlightInEraser = highlight.position.rects.some(rect => {
         // Calculate the center point of the highlight rectangle in screen coordinates
         const rectCenterX = ((rect.x1 + rect.x2) / 2) * scale;
         const rectCenterY = ((rect.y1 + rect.y2) / 2) * scale;
-        
+
         const distance = Math.sqrt(
           Math.pow(rectCenterX - pageX, 2) + Math.pow(rectCenterY - pageY, 2)
         );
-        
+
         return distance < eraserRadius;
       });
-      
+
       // Keep the highlight if it's not within the eraser radius
       return !highlightInEraser;
     });
-    
+
     // 3. Find and filter text annotations within the eraser radius
     const updatedTextAnnotations = textAnnotations.filter(annotation => {
       if (annotation.page !== currentPage) return true;
-      
+
       // First check if annotation has rects
       if (annotation.position.rects && annotation.position.rects.length > 0) {
         // Check if any rect of the annotation is within the eraser radius
@@ -974,37 +975,37 @@ startxref
           // Calculate the center point of the annotation rectangle in screen coordinates
           const rectCenterX = ((rect.x1 + rect.x2) / 2) * scale;
           const rectCenterY = ((rect.y1 + rect.y2) / 2) * scale;
-          
+
           const distance = Math.sqrt(
             Math.pow(rectCenterX - pageX, 2) + Math.pow(rectCenterY - pageY, 2)
           );
-          
+
           return distance < eraserRadius;
         });
-        
+
         // Keep the annotation if it's not within the eraser radius
         return !annotationInEraser;
       } else {
         // Fallback to bounding rect if no rects available
         const { boundingRect } = annotation.position;
-        
+
         // Calculate the center point of the annotation rectangle in screen coordinates
         const rectCenterX = ((boundingRect.x1 + boundingRect.x2) / 2) * scale;
         const rectCenterY = ((boundingRect.y1 + boundingRect.y2) / 2) * scale;
-        
+
         const distance = Math.sqrt(
           Math.pow(rectCenterX - pageX, 2) + Math.pow(rectCenterY - pageY, 2)
         );
-        
+
         // Keep the annotation if it's not within the eraser radius
         return distance >= eraserRadius;
       }
     });
-    
+
     // 4. Update drawings if any were erased
     if (updatedDrawings.length !== drawings.length) {
       setDrawings(updatedDrawings);
-      
+
       // Force re-render the canvas with updated drawings
       if (canvasRef.current) {
         const ctx = canvasRef.current.getContext('2d');
@@ -1014,32 +1015,32 @@ startxref
         }
       }
     }
-    
+
     // 5. Update highlights if any were erased
     if (updatedHighlights.length !== highlights.length) {
       setHighlights(updatedHighlights);
     }
-    
+
     // 6. Update text annotations if any were erased
     if (updatedTextAnnotations.length !== textAnnotations.length) {
       setTextAnnotations(updatedTextAnnotations);
     }
-    
+
   }, [activeTool, currentPage, drawings, renderDrawings, isErasing, scale, highlights, textAnnotations]);
 
   // Define eraser action handlers
   const startErasing = useCallback((e: React.MouseEvent) => {
     // Prevent default to disable text selection
     e.preventDefault();
-    
+
     // Clear any existing selection
     const selection = window.getSelection();
     if (selection) selection.removeAllRanges();
-    
+
     setIsErasing(true);
     handleErase(e); // Start erasing immediately on click
   }, [handleErase]);
-  
+
   const stopErasing = useCallback(() => {
     setIsErasing(false);
   }, []);
@@ -1047,25 +1048,25 @@ startxref
   // Add note functionality
   const handleNoteClick = (e: React.MouseEvent) => {
     if (activeTool !== 'note') return;
-    
+
     // Don't process note click if we're in text selection mode or any dialog is open
     if (showTextAnnotationEditor || showNoteEditor || showBookmarkDialog) {
       return;
     }
-    
+
     // Get position relative to the PDF container
     const container = pdfContainerRef.current;
     if (!container) return;
-    
+
     const rect = container.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    
+
     // Set up the note editor
     setNotePosition({ x, y });
     setNoteText('');
     setShowNoteEditor(true);
-    
+
     // Prevent default to avoid text selection
     e.preventDefault();
   };
@@ -1075,7 +1076,7 @@ startxref
       setShowNoteEditor(false);
       return;
     }
-    
+
     const newNote: Annotation = {
       id: `note_${Date.now()}`,
       type: 'note',
@@ -1085,7 +1086,7 @@ startxref
       color: noteColor,
       timestamp: Date.now()
     };
-    
+
     setNotes([...notes, newNote]);
     setShowNoteEditor(false);
     setNoteText('');
@@ -1094,7 +1095,7 @@ startxref
   const editNote = (id: string) => {
     const note = notes.find(n => n.id === id);
     if (!note) return;
-    
+
     setActiveNote(id);
     setNotePosition(note.position);
     setNoteText(note.content);
@@ -1104,13 +1105,13 @@ startxref
 
   const updateNote = () => {
     if (!activeNote) return;
-    
-    const updatedNotes = notes.map(note => 
-      note.id === activeNote 
-        ? { ...note, content: noteText, color: noteColor } 
+
+    const updatedNotes = notes.map(note =>
+      note.id === activeNote
+        ? { ...note, content: noteText, color: noteColor }
         : note
     );
-    
+
     setNotes(updatedNotes);
     setShowNoteEditor(false);
     setActiveNote(null);
@@ -1128,66 +1129,66 @@ startxref
   // Update the save functionality to save PDF with annotations
   const handleSave = async () => {
     if (!pdfFile) return;
-    
+
     try {
       // Get PDF document
       const loadingTask = pdfjs.getDocument(pdfFile);
       const pdf = await loadingTask.promise;
-      
+
       // Create a canvas for each page
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         throw new Error('Could not get canvas context');
       }
-      
+
       // Create a new PDF document
-      const mergedPdf = await import('jspdf').then(module => new module.default('portrait', 'pt'));
-      
+      const mergedPdf = new jsPDF('portrait', 'pt');
+
       // Loop through pages
       for (let i = 1; i <= pdf.numPages; i++) {
         // Get the page
         const page = await pdf.getPage(i);
-        
+
         // Set canvas dimensions to match page size
         const viewport = page.getViewport({ scale: 1.5 }); // Higher scale for better quality
         canvas.width = viewport.width;
         canvas.height = viewport.height;
-        
+
         // Render page to canvas
         await page.render({
           canvasContext: ctx,
           viewport
         }).promise;
-        
+
         // Draw highlights for this page
         const pageHighlights = highlights.filter(h => h.page === i);
         pageHighlights.forEach(highlight => {
           ctx.fillStyle = `${highlight.color}80`;
           highlight.position.rects.forEach(rect => {
             ctx.fillRect(
-              rect.x1 * 1.5, 
-              rect.y1 * 1.5, 
-              rect.width * 1.5, 
+              rect.x1 * 1.5,
+              rect.y1 * 1.5,
+              rect.width * 1.5,
               rect.height * 1.5
             );
           });
         });
-        
+
         // Draw text annotations for this page
         const pageTextAnnotations = textAnnotations.filter(a => a.page === i);
         pageTextAnnotations.forEach(annotation => {
           // Set the fill style with transparency
           ctx.fillStyle = `${annotation.color}40`;
-          
+
           // If the annotation has rects, use them for more accurate rendering
           if (annotation.position.rects && annotation.position.rects.length > 0) {
             // Draw each rect in the annotation
             annotation.position.rects.forEach(rect => {
               ctx.fillRect(
-                rect.x1 * 1.5, 
-                rect.y1 * 1.5, 
-                rect.width * 1.5, 
+                rect.x1 * 1.5,
+                rect.y1 * 1.5,
+                rect.width * 1.5,
                 rect.height * 1.5
               );
             });
@@ -1196,85 +1197,85 @@ startxref
             const { boundingRect } = annotation.position;
             const width = (boundingRect.x2 - boundingRect.x1) * 1.5;
             const height = (boundingRect.y2 - boundingRect.y1) * 1.5;
-            
+
             ctx.fillRect(
-              boundingRect.x1 * 1.5, 
-              boundingRect.y1 * 1.5, 
-              width, 
+              boundingRect.x1 * 1.5,
+              boundingRect.y1 * 1.5,
+              width,
               height
             );
           }
         });
-        
+
         // Draw drawings for this page
         const pageDrawings = drawings.filter(d => d.page === i);
         pageDrawings.forEach(drawing => {
           if (drawing.points.length < 2) return;
-          
+
           ctx.strokeStyle = drawing.color;
           ctx.lineWidth = drawing.width * 1.5;
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
-          
+
           ctx.beginPath();
           ctx.moveTo(drawing.points[0].x * 1.5, drawing.points[0].y * 1.5);
-          
+
           for (let j = 1; j < drawing.points.length; j++) {
             ctx.lineTo(drawing.points[j].x * 1.5, drawing.points[j].y * 1.5);
           }
           ctx.stroke();
         });
-        
+
         // Add the page to the PDF (except for the last page)
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
         const imgWidth = mergedPdf.internal.pageSize.getWidth();
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        
+
         // Add page to PDF
         if (i > 1) {
           mergedPdf.addPage();
         }
         mergedPdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
-        
+
         // Clear canvas for next page
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       }
-      
+
       // Save PDF
       mergedPdf.save(`annotated_document_${new Date().toISOString().slice(0, 10)}.pdf`);
-      
+
       // Also save the annotations data as JSON
-    const annotationsData = {
-      highlights,
-      notes,
-      drawings,
+      const annotationsData = {
+        highlights,
+        notes,
+        drawings,
         bookmarks,
         textAnnotations,
-      timestamp: new Date().toISOString(),
-      documentInfo: {
-        numPages,
-        title: 'Document Annotations'
-      }
-    };
-    
-    // Convert to JSON
-    const jsonString = JSON.stringify(annotationsData, null, 2);
-    
+        timestamp: new Date().toISOString(),
+        documentInfo: {
+          numPages,
+          title: 'Document Annotations'
+        }
+      };
+
+      // Convert to JSON
+      const jsonString = JSON.stringify(annotationsData, null, 2);
+
       // Create a blob and download link for annotations JSON
       const jsonBlob = new Blob([jsonString], { type: 'application/json' });
       const jsonUrl = URL.createObjectURL(jsonBlob);
-      
+
       // Create download link and trigger it for JSON
       const jsonLink = document.createElement('a');
       jsonLink.href = jsonUrl;
       jsonLink.download = `annotations_${new Date().toISOString().slice(0, 10)}.json`;
       document.body.appendChild(jsonLink);
       jsonLink.click();
-    
-    // Clean up
+
+      // Clean up
       document.body.removeChild(jsonLink);
       URL.revokeObjectURL(jsonUrl);
-      
+
     } catch (error) {
       console.error('Error saving PDF:', error);
       alert('Failed to save PDF with annotations. Please try again.');
@@ -1288,7 +1289,7 @@ startxref
     // Create a style element to disable text selection
     const styleId = 'disable-text-selection-style';
     let styleElement = document.getElementById(styleId) as HTMLStyleElement;
-    
+
     if (activeTool === 'eraser') {
       // If eraser is active, add or update style to disable text selection
       if (!styleElement) {
@@ -1296,7 +1297,7 @@ startxref
         styleElement.id = styleId;
         document.head.appendChild(styleElement);
       }
-      
+
       // Add CSS to disable text selection everywhere in the document
       styleElement.textContent = `
         * {
@@ -1309,7 +1310,7 @@ startxref
           background: transparent !important;
         }
       `;
-      
+
       // Also immediately clear any existing selection
       const selection = window.getSelection();
       if (selection) selection.removeAllRanges();
@@ -1319,7 +1320,7 @@ startxref
         document.head.removeChild(styleElement);
       }
     }
-    
+
     // Cleanup
     return () => {
       const el = document.getElementById(styleId);
@@ -1371,7 +1372,7 @@ startxref
       if (typeof pdfFile === 'string' && pdfFile.startsWith('blob:')) {
         URL.revokeObjectURL(pdfFile);
       }
-      
+
       // Use FileReader to load the PDF
       const fileReader = new FileReader();
       fileReader.onload = () => {
@@ -1390,7 +1391,7 @@ startxref
   // Drawing functionality
   const startDrawing = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (activeTool !== 'pen') return;
-    
+
     setIsDrawing(true);
 
     const canvas = canvasRef.current;
@@ -1398,7 +1399,7 @@ startxref
 
     // Get canvas rect
     const rect = canvas.getBoundingClientRect();
-    
+
     // Get the exact position relative to the canvas
     const x = (e.clientX - rect.left) / scale;
     const y = (e.clientY - rect.top) / scale;
@@ -1423,7 +1424,7 @@ startxref
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    
+
     // Get position relative to canvas
     const x = (e.clientX - rect.left) / scale;
     const y = (e.clientY - rect.top) / scale;
@@ -1467,10 +1468,10 @@ startxref
   // Render text annotations with absolute positioning
   const renderTextAnnotation = (annotation: TextAnnotation) => {
     if (annotation.page !== currentPage) return null;
-    
+
     // Get position data
     const { boundingRect } = annotation.position;
-    
+
     return (
       <div key={annotation.id} className="group">
         <div
@@ -1519,14 +1520,14 @@ startxref
               Back to Library
             </Button>
           )}
-          
+
           <h1 className="text-lg font-semibold text-white">
             {pdfInfo ? pdfInfo.name : 'PDF Viewer'}
           </h1>
-                  </div>
-              
+        </div>
+
         {/* ... existing toolbar buttons ... */}
-            </div>
+      </div>
 
       {/* ... the rest of the component ... */}
     </div>
