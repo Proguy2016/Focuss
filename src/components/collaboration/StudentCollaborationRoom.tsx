@@ -1,22 +1,22 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import {
-  MessageCircle,
-  Mic,
-  MicOff,
-  Phone,
-  PhoneOff,
-  Upload,
-  Download,
-  Search,
-  Filter,
-  Plus,
-  Edit3,
-  Trash2,
-  FileText,
-  Users,
-  Clock,
-  CheckCircle,
-  Circle,
+import { 
+  MessageCircle, 
+  Mic, 
+  MicOff, 
+  Phone, 
+  PhoneOff, 
+  Upload, 
+  Download, 
+  Search, 
+  Filter, 
+  Plus, 
+  Edit3, 
+  Trash2, 
+  FileText, 
+  Users, 
+  Clock, 
+  CheckCircle, 
+  Circle, 
   MoreHorizontal,
   Send,
   Bot,
@@ -49,8 +49,7 @@ import {
 } from 'lucide-react';
 import { Button } from "../common/Button";
 import { Input } from "../common/Input";
-import { Card } from "../common/Card";
-import { CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "../common/Card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Badge } from "../ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
@@ -268,7 +267,7 @@ const StudentCollaborationRoom: React.FC = () => {
       url: 'https://example.com/videos/python-course'
     }
   ];
-
+  
   // Sample projects data
   const projects: Project[] = [
     {
@@ -442,15 +441,6 @@ const StudentCollaborationRoom: React.FC = () => {
     }
   };
 
-<<<<<<< HEAD
-  const filteredLibraryItems = libraryItems.filter(item => {
-    const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesFilter = selectedFilter === 'all' || item.type === selectedFilter;
-    return matchesSearch && matchesFilter;
-  });
-=======
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files || event.target.files.length === 0) return;
     
@@ -516,7 +506,6 @@ const StudentCollaborationRoom: React.FC = () => {
     }
     return '';
   };
->>>>>>> bcdd10dba35ba7a0ae42bd2f3ab51647844d3c63
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -609,29 +598,9 @@ const StudentCollaborationRoom: React.FC = () => {
             </div>
                 </div>
               </div>
-<<<<<<< HEAD
-
-              {/* Notifications */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" size="sm" className="relative rounded-full w-9 h-9 p-0">
-                    <Bell className="h-4 w-4" />
-                    {notifications > 0 && (
-                      <span className="absolute -top-1 -right-1 h-5 w-5 bg-primary rounded-full flex items-center justify-center text-xs text-white">
-                        {notifications}
-                      </span>
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Notifications</TooltipContent>
-              </Tooltip>
-
-              {/* Fullscreen Toggle */}
-=======
               <div className="flex items-center space-x-3">
                 {/* Voice Controls with improved styling */}
                 <div className="bg-black/30 backdrop-blur-md rounded-full p-1 flex items-center space-x-1 border border-white/10">
->>>>>>> bcdd10dba35ba7a0ae42bd2f3ab51647844d3c63
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -699,124 +668,6 @@ const StudentCollaborationRoom: React.FC = () => {
           </div>
                   </div>
 
-<<<<<<< HEAD
-        <div className="p-4 bg-background flex-grow">
-          <Tabs
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className="w-full"
-          >
-            <TabsList className="grid w-full grid-cols-6 gap-2 p-2 bg-black/20 backdrop-blur-md rounded-xl mb-6">
-              <TabsTrigger
-                value="chat"
-                className="relative text-muted-foreground border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-lg h-10 transition-all duration-200"
-              >
-                <MessageCircle className="h-4 w-4 mr-2" />
-                Chat
-                {notifications > 0 && (
-                  <Badge className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
-                    {notifications}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger
-                value="whiteboard"
-                className="text-muted-foreground border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-lg h-10 transition-all duration-200"
-              >
-                <Edit3 className="h-4 w-4 mr-2" />
-                Whiteboard
-              </TabsTrigger>
-              <TabsTrigger
-                value="documents"
-                className="text-muted-foreground border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-lg h-10 transition-all duration-200"
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Documents
-              </TabsTrigger>
-              <TabsTrigger
-                value="tasks"
-                className="text-muted-foreground border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-lg h-10 transition-all duration-200"
-              >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Tasks
-              </TabsTrigger>
-              <TabsTrigger
-                value="projects"
-                className="text-muted-foreground border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-lg h-10 transition-all duration-200"
-              >
-                <Folder className="h-4 w-4 mr-2" />
-                Projects
-              </TabsTrigger>
-              <TabsTrigger
-                value="library"
-                className="text-muted-foreground border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary rounded-lg h-10 transition-all duration-200"
-              >
-                <BookOpen className="h-4 w-4 mr-2" />
-                Library
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Chat Tab Content */}
-            <TabsContent value="chat" className="mt-4 space-y-4">
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-250px)]">
-                <Card className="lg:col-span-3 bg-black/20 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden shadow-xl">
-                  <CardHeader className="border-b border-white/10 bg-black/30 p-4">
-                    <CardTitle className="flex items-center justify-between text-base font-semibold text-foreground">
-                      <div className="flex items-center space-x-2">
-                        <MessageCircle className="h-5 w-5 text-primary" />
-                        <span>Team Chat</span>
-                      </div>
-                      <Button variant="ghost" size="sm" className="rounded-full">
-                        <Bot className="h-4 w-4 mr-2" />
-                        AI Assistant
-                      </Button>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex flex-col h-[calc(100%-60px)] p-0">
-                    <ScrollArea className="flex-1 p-6">
-                      <div className="space-y-6">
-                        {messages.map(message => (
-                          <div key={message.id} className={`flex ${message.type === 'ai' ? 'justify-start' : 'justify-start'}`}>
-                            <div className="flex space-x-3 max-w-[80%] group">
-                              <Avatar className="h-9 w-9 mt-1">
-                                {message.type === 'ai' ? (
-                                  <div className="bg-gradient-to-br from-primary-400 to-primary-600 text-primary-foreground rounded-full flex items-center justify-center h-full">
-                                    <Bot className="h-5 w-5" />
-                                  </div>
-                                ) : (
-                                  <>
-                                    <AvatarImage src={participants.find(u => u.id === message.userId)?.avatar} />
-                                    <AvatarFallback className="bg-gradient-to-br from-gray-600 to-gray-800">
-                                      {participants.find(u => u.id === message.userId)?.name.split(' ').map(n => n[0]).join('') || 'U'}
-                                    </AvatarFallback>
-                                  </>
-                                )}
-                              </Avatar>
-                              <div className="space-y-1 flex-1">
-                                <div className="flex items-center space-x-2">
-                                  <span className="text-sm font-medium text-foreground">
-                                    {message.type === 'ai' ? 'AI Assistant' : participants.find(u => u.id === message.userId)?.name}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {formatTimestamp(message.timestamp)}
-                                  </span>
-                                </div>
-                                <div className={`p-4 rounded-2xl ${message.type === 'ai'
-                                  ? 'bg-primary/10 text-primary border border-primary/20'
-                                  : 'bg-black/30 text-foreground border border-white/5'
-                                  }`}>
-                                  {message.content}
-                                </div>
-                                <div className="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-                                    <Reply className="h-3 w-3 mr-1" />
-                                    Reply
-                                  </Button>
-                                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-                                    <Smile className="h-3 w-3 mr-1" />
-                                    React
-                                  </Button>
-=======
           <div className="p-4 bg-transparent flex-grow">
             <Tabs 
               value={activeTab} 
@@ -935,7 +786,6 @@ const StudentCollaborationRoom: React.FC = () => {
                                       React
                                     </Button>
                                   </div>
->>>>>>> bcdd10dba35ba7a0ae42bd2f3ab51647844d3c63
                                 </div>
                               </div>
                             </div>
