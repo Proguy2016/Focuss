@@ -1,33 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Github, Twitter } from 'lucide-react';
-import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { useNavigate } from 'react-router-dom';
-
-// Input component
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
-  return (
-    <input
-      type={type}
-      className={`file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-all outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm
-        focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]
-        aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive
-        ${className}`}
-      {...props}
-    />
-  );
-}
+import { Input } from '../components/common/Input';
 
 interface AuthFormProps {
   onToggleView: () => void;
   isLogin: boolean;
+  initialView?: 'login' | 'signup' | 'forgot-password';
 }
 
-const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
-  const { login, register, loading, error, clearError } = useAuth();
+const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin, initialView }) => {
+  const { login, register, loading, error, clearError, forgotPassword } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
@@ -38,12 +25,20 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const [rememberMe, setRememberMe] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(initialView === 'forgot-password');
+  const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState<string | null>(null);
 
-  // Clear form error when switching views
+  // Clear form error when switching views or entering forgot password flow
   useEffect(() => {
     setFormError(null);
     clearError();
-  }, [isLogin, clearError]);
+    setForgotPasswordSuccess(null);
+    if (initialView === 'forgot-password') {
+      setShowForgotPassword(true);
+    } else {
+      setShowForgotPassword(false);
+    }
+  }, [isLogin, clearError, initialView]);
 
   // Update form error when auth error changes
   useEffect(() => {
@@ -68,41 +63,67 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    setFormError(null);
+    clearError();
 
-    const validationError = validateForm();
-    if (validationError) {
-      setFormError(validationError);
+    if (isLogin) {
+      if (!email || !password) {
+        setFormError("Please fill in all fields.");
+        return;
+      }
+      try {
+        await login({ email, password });
+        navigate('/dashboard');
+      } catch (err) {
+        // Error handled by useAuth hook, state updated
+      }
+    } else {
+      if (!firstName || !lastName || !email || !password) {
+        setFormError("Please fill in all fields.");
+        return;
+      }
+      try {
+        await register({ firstName, lastName, email, password });
+        navigate('/dashboard');
+      } catch (err) {
+        // Error handled by useAuth hook, state updated
+      }
+    }
+  };
+
+  const handleForgotPasswordSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!email) {
+      setFormError("Please enter your email address.");
       return;
     }
-
+    setFormError(null);
+    setForgotPasswordSuccess(null);
     try {
-      if (isLogin) {
-        await login({ email, password });
-      } else {
-        await register({ firstName, lastName, email, password });
-      }
-      navigate('/dashboard');
+      await forgotPassword(email);
+      setForgotPasswordSuccess("A password reset link has been sent to your email.");
+      navigate('/email-sent'); // Navigate to confirmation page
     } catch (err) {
-      // Error is handled by the useAuth hook
+      setFormError(err instanceof Error ? err.message : 'Failed to send reset email.');
     }
   };
 
   const handleFormClick = () => {
-    console.log('Form clicked');
+    // This can be used for general form interactions if needed
   };
 
-  const handleSignInButtonClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    handleSubmit(e);
+  const handleSignInButtonClick = () => {
+    // This will be the main submit handler for login/signup
+    handleSubmit(new Event('submit') as unknown as React.FormEvent);
   };
 
-  const handleSocialLogin = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setFormError("Social login is not implemented yet");
+  const handleSocialLogin = () => {
+    // Implement social login logic here
+    setFormError("Social login not yet implemented.");
   };
 
   return (
-    <form onSubmit={handleSubmit} onClick={handleFormClick} className="space-y-4">
+    <form onSubmit={showForgotPassword ? handleForgotPasswordSubmit : handleSubmit} onClick={handleFormClick} className="space-y-4">
       {formError && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -114,278 +135,278 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
         </motion.div>
       )}
 
-      <motion.div className="space-y-3">
-        {!isLogin && (
-          <>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className={`relative ${focusedInput === "firstName" ? 'z-10' : ''}`}
-            >
-              <div className="relative flex items-center overflow-hidden rounded-lg">
-                <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "firstName" ? 'text-white' : 'text-white/40'
-                  }`} />
-
-                <Input
-                  type="text"
-                  placeholder="First Name"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  onFocus={() => setFocusedInput("firstName")}
-                  onBlur={() => setFocusedInput(null)}
-                  className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-3 focus:bg-white/10"
-                />
-
-                {focusedInput === "firstName" && (
-                  <motion.div
-                    layoutId="input-highlight"
-                    className="absolute inset-0 bg-white/5 -z-10"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                  />
-                )}
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-              className={`relative ${focusedInput === "lastName" ? 'z-10' : ''}`}
-            >
-              <div className="relative flex items-center overflow-hidden rounded-lg">
-                <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "lastName" ? 'text-white' : 'text-white/40'
-                  }`} />
-
-                <Input
-                  type="text"
-                  placeholder="Last Name"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  onFocus={() => setFocusedInput("lastName")}
-                  onBlur={() => setFocusedInput(null)}
-                  className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-3 focus:bg-white/10"
-                />
-
-                {focusedInput === "lastName" && (
-                  <motion.div
-                    layoutId="input-highlight"
-                    className="absolute inset-0 bg-white/5 -z-10"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                  />
-                )}
-              </div>
-            </motion.div>
-          </>
-        )}
-
+      {forgotPasswordSuccess && (
         <motion.div
-          className={`relative ${focusedInput === "email" ? 'z-10' : ''}`}
-          whileFocus={{ scale: 1.02 }}
-          whileHover={{ scale: 1.01 }}
-          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          className="bg-green-500/20 border border-green-500/30 text-white text-xs p-2 rounded-md"
         >
-          <div className="relative flex items-center overflow-hidden rounded-lg">
-            <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "email" ? 'text-white' : 'text-white/40'
-              }`} />
-
-            <Input
-              type="email"
-              placeholder="Email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onFocus={() => setFocusedInput("email")}
-              onBlur={() => setFocusedInput(null)}
-              className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-3 focus:bg-white/10"
-            />
-
-            {focusedInput === "email" && (
-              <motion.div
-                layoutId="input-highlight"
-                className="absolute inset-0 bg-white/5 -z-10"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-              />
-            )}
-          </div>
+          {forgotPasswordSuccess}
         </motion.div>
+      )}
 
-        <motion.div
-          className={`relative ${focusedInput === "password" ? 'z-10' : ''}`}
-          whileFocus={{ scale: 1.02 }}
-          whileHover={{ scale: 1.01 }}
-          transition={{ type: "spring", stiffness: 400, damping: 25 }}
-        >
-          <div className="relative flex items-center overflow-hidden rounded-lg">
-            <Lock className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "password" ? 'text-white' : 'text-white/40'
-              }`} />
-
-            <Input
-              type={showPassword ? "text" : "password"}
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onFocus={() => setFocusedInput("password")}
-              onBlur={() => setFocusedInput(null)}
-              className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-10 focus:bg-white/10"
-            />
-
-            <div
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 cursor-pointer"
+      <AnimatePresence mode="wait">
+        {showForgotPassword ? (
+          <motion.div
+            key="forgot-password"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-4"
+          >
+            <h3 className="text-xl font-bold text-white text-center">Forgot Password?</h3>
+            <p className="text-white/70 text-sm text-center">Enter your email address to receive a password reset link.</p>
+            <motion.div
+              className={`relative ${focusedInput === "email" ? 'z-10' : ''}`}
+              whileFocus={{ scale: 1.02 }}
+              whileHover={{ scale: 1.01 }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
             >
-              {showPassword ? (
-                <Eye className="w-4 h-4 text-white/40 hover:text-white transition-colors duration-300" />
-              ) : (
-                <EyeOff className="w-4 h-4 text-white/40 hover:text-white transition-colors duration-300" />
-              )}
+              <div className="relative flex items-center overflow-hidden rounded-lg">
+                <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "email" ? 'text-white' : 'text-white/40'}`} />
+                <Input
+                  type="email"
+                  placeholder="Email address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onFocus={() => setFocusedInput("email")}
+                  onBlur={() => setFocusedInput(null)}
+                  className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-3 focus:bg-white/10"
+                />
+                {focusedInput === "email" && (
+                  <motion.div
+                    layoutId="input-highlight"
+                    className="absolute inset-0 bg-white/5 -z-10"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  />
+                )}
+              </div>
+            </motion.div>
+            <Button
+              type="submit"
+              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold py-2 rounded-lg shadow-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-300 transform hover:scale-105"
+              disabled={loading}
+            >
+              {loading ? 'Sending...' : 'Send Reset Email'}
+              <ArrowRight className="ml-2 w-4 h-4" />
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setShowForgotPassword(false);
+                setFormError(null);
+                setForgotPasswordSuccess(null);
+              }}
+              className="w-full text-white/70 bg-transparent hover:bg-white/10"
+            >
+              Back to Login
+            </Button>
+          </motion.div>
+        ) : (
+          <motion.div
+            key={isLogin ? 'login' : 'signup'}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-4"
+          >
+            {!isLogin && (
+              <>
+                <motion.div
+                  className={`relative ${focusedInput === "firstName" ? 'z-10' : ''}`}
+                >
+                  <div className="relative flex items-center overflow-hidden rounded-lg">
+                    <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "firstName" ? 'text-white' : 'text-white/40'}`} />
+                    <Input
+                      type="text"
+                      placeholder="First Name"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      onFocus={() => setFocusedInput("firstName")}
+                      onBlur={() => setFocusedInput(null)}
+                      className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-3 focus:bg-white/10"
+                    />
+                    {focusedInput === "firstName" && (
+                      <motion.div
+                        layoutId="input-highlight"
+                        className="absolute inset-0 bg-white/5 -z-10"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                      />
+                    )}
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  className={`relative ${focusedInput === "lastName" ? 'z-10' : ''}`}
+                >
+                  <div className="relative flex items-center overflow-hidden rounded-lg">
+                    <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "lastName" ? 'text-white' : 'text-white/40'}`} />
+                    <Input
+                      type="text"
+                      placeholder="Last Name"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      onFocus={() => setFocusedInput("lastName")}
+                      onBlur={() => setFocusedInput(null)}
+                      className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-3 focus:bg-white/10"
+                    />
+                    {focusedInput === "lastName" && (
+                      <motion.div
+                        layoutId="input-highlight"
+                        className="absolute inset-0 bg-white/5 -z-10"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                      />
+                    )}
+                  </div>
+                </motion.div>
+              </>
+            )}
+
+            <motion.div
+              className={`relative ${focusedInput === "email" ? 'z-10' : ''}`}
+            >
+              <div className="relative flex items-center overflow-hidden rounded-lg">
+                <Mail className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "email" ? 'text-white' : 'text-white/40'}`} />
+                <Input
+                  type="email"
+                  placeholder="Email address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onFocus={() => setFocusedInput("email")}
+                  onBlur={() => setFocusedInput(null)}
+                  className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-3 focus:bg-white/10"
+                />
+                {focusedInput === "email" && (
+                  <motion.div
+                    layoutId="input-highlight"
+                    className="absolute inset-0 bg-white/5 -z-10"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  />
+                )}
+              </div>
+            </motion.div>
+
+            <motion.div
+              className={`relative ${focusedInput === "password" ? 'z-10' : ''}`}
+            >
+              <div className="relative flex items-center overflow-hidden rounded-lg">
+                <Lock className={`absolute left-3 w-4 h-4 transition-all duration-300 ${focusedInput === "password" ? 'text-white' : 'text-white/40'}`} />
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setFocusedInput("password")}
+                  onBlur={() => setFocusedInput(null)}
+                  className="w-full bg-white/5 border-transparent focus:border-white/20 text-white placeholder:text-white/30 h-10 transition-all duration-300 pl-10 pr-3 focus:bg-white/10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 text-white/40 hover:text-white transition-colors duration-200"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+                {focusedInput === "password" && (
+                  <motion.div
+                    layoutId="input-highlight"
+                    className="absolute inset-0 bg-white/5 -z-10"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  />
+                )}
+              </div>
+            </motion.div>
+
+            <div className="flex items-center justify-between text-white/70">
+              <label htmlFor="remember-me" className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  id="remember-me"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="form-checkbox h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                />
+                <span>Remember me</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-xs hover:underline hover:text-white transition-colors duration-200"
+              >
+                Forgot password?
+              </button>
             </div>
 
-            {focusedInput === "password" && (
-              <motion.div
-                layoutId="input-highlight"
-                className="absolute inset-0 bg-white/5 -z-10"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-              />
-            )}
-          </div>
-        </motion.div>
-      </motion.div>
+            <Button
+              type="submit"
+              className="w-full bg-gradient-to-r from-purple-600 to-indigo-700 text-white font-semibold py-2 rounded-lg shadow-lg hover:from-purple-700 hover:to-indigo-800 transition-all duration-300 transform hover:scale-105"
+              disabled={loading}
+            >
+              {isLogin ? 'Sign In' : 'Sign Up'}
+              <ArrowRight className="ml-2 w-4 h-4" />
+            </Button>
 
-      <div className="flex items-center justify-between pt-1">
-        <div className="flex items-center space-x-2">
-          <div className="relative">
-            <input
-              id="remember-me"
-              name="remember-me"
-              type="checkbox"
-              checked={rememberMe}
-              onChange={() => setRememberMe(!rememberMe)}
-              className="appearance-none h-4 w-4 rounded border border-white/20 bg-white/5 checked:bg-white checked:border-white focus:outline-none focus:ring-1 focus:ring-white/30 transition-all duration-200"
-            />
-            {rememberMe && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.5 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="absolute inset-0 flex items-center justify-center text-black pointer-events-none"
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-white/20" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-transparent px-2 text-white/70">Or continue with</span>
+              </div>
+            </div>
+
+            <div className="flex space-x-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSocialLogin}
+                className="flex-1 flex items-center justify-center space-x-2 text-white/70 border-white/20 hover:bg-white/10"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-              </motion.div>
-            )}
-          </div>
-          <label htmlFor="remember-me" className="text-xs text-white/60 hover:text-white/80 transition-colors duration-200">
-            Remember me
-          </label>
-        </div>
+                <Github className="w-4 h-4" />
+                <span>GitHub</span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSocialLogin}
+                className="flex-1 flex items-center justify-center space-x-2 text-white/70 border-white/20 hover:bg-white/10"
+              >
+                <Twitter className="w-4 h-4" />
+                <span>Twitter</span>
+              </Button>
+            </div>
 
-        {isLogin && (
-          <div className="text-xs relative group/link">
-            <a href="#" className="text-white/60 hover:text-white transition-colors duration-200">
-              Forgot password?
-            </a>
-          </div>
+            <p className="mt-4 text-center text-sm text-white/70">
+              {isLogin ? "Don't have an account?" : "Already have an account?"}{' '}
+              <button
+                type="button"
+                onClick={onToggleView}
+                className="font-medium text-purple-400 hover:text-purple-300 hover:underline transition-colors duration-200"
+              >
+                {isLogin ? 'Sign up' : 'Sign in'}
+              </button>
+            </p>
+          </motion.div>
         )}
-      </div>
-
-      {/* Standalone button instead of submit button */}
-      <Button
-        variant="primary"
-        fullWidth
-        className="mt-5 h-10 cursor-pointer"
-        icon={loading ? undefined : ArrowRight}
-        loading={loading}
-        onClick={handleSignInButtonClick}
-      >
-        {isLogin ? "Sign In" : "Sign Up"}
-      </Button>
-
-      <div className="relative mt-2 mb-5 flex items-center">
-        <div className="flex-grow border-t border-white/5"></div>
-        <motion.span
-          className="mx-3 text-xs text-white/40"
-          initial={{ opacity: 0.7 }}
-          animate={{ opacity: [0.7, 0.9, 0.7] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-        >
-          or
-        </motion.span>
-        <div className="flex-grow border-t border-white/5"></div>
-      </div>
-
-      <div className="flex gap-3 justify-center">
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          type="button"
-          onClick={handleSocialLogin}
-          className="relative group/social"
-        >
-          <div className="absolute inset-0 bg-white/5 rounded-full blur opacity-0 group-hover/social:opacity-70 transition-opacity duration-300" />
-          <div className="relative overflow-hidden bg-white/5 text-white h-10 w-10 rounded-full border border-white/10 hover:border-white/20 transition-all duration-300 flex items-center justify-center">
-            <Github className="w-5 h-5 text-white/80 group-hover/social:text-white transition-colors duration-300" />
-          </div>
-        </motion.button>
-
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          type="button"
-          onClick={handleSocialLogin}
-          className="relative group/social"
-        >
-          <div className="absolute inset-0 bg-white/5 rounded-full blur opacity-0 group-hover/social:opacity-70 transition-opacity duration-300" />
-          <div className="relative overflow-hidden bg-white/5 text-white h-10 w-10 rounded-full border border-white/10 hover:border-white/20 transition-all duration-300 flex items-center justify-center">
-            <Twitter className="w-5 h-5 text-white/80 group-hover/social:text-white transition-colors duration-300" />
-          </div>
-        </motion.button>
-
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          type="button"
-          onClick={handleSocialLogin}
-          className="relative group/social"
-        >
-          <div className="absolute inset-0 bg-white/5 rounded-full blur opacity-0 group-hover/social:opacity-70 transition-opacity duration-300" />
-          <div className="relative overflow-hidden bg-white/5 text-white h-10 w-10 rounded-full border border-white/10 hover:border-white/20 transition-all duration-300 flex items-center justify-center">
-            <div className="w-5 h-5 flex items-center justify-center text-white/80 group-hover/social:text-white transition-colors duration-300">G</div>
-          </div>
-        </motion.button>
-      </div>
-
-      <motion.p
-        className="text-center text-xs text-white/60 mt-4"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-      >
-        {isLogin ? "Don't have an account?" : "Already have an account?"}{' '}
-        <button
-          type="button"
-          onClick={onToggleView}
-          className="relative inline-block group/signup"
-        >
-          <span className="relative z-10 text-white group-hover/signup:text-white/70 transition-colors duration-300 font-medium">
-            {isLogin ? "Sign up" : "Sign in"}
-          </span>
-          <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-white group-hover/signup:w-full transition-all duration-300" />
-        </button>
-      </motion.p>
+      </AnimatePresence>
     </form>
   );
 };
@@ -393,9 +414,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onToggleView, isLogin }) => {
 interface AuthCardProps {
   isLogin: boolean;
   onToggleView: () => void;
+  initialView?: 'login' | 'signup' | 'forgot-password';
 }
 
-const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView }) => {
+const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView, initialView }) => {
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
   const rotateX = useTransform(mouseY, [-300, 300], [10, -10]);
@@ -657,7 +679,7 @@ const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView }) => {
               </motion.p>
             </div>
 
-            <AuthForm onToggleView={onToggleView} isLogin={isLogin} />
+            <AuthForm onToggleView={onToggleView} isLogin={isLogin} initialView={initialView} />
           </div>
         </div>
       </motion.div>
@@ -666,11 +688,11 @@ const AuthCard: React.FC<AuthCardProps> = ({ isLogin, onToggleView }) => {
 };
 
 interface AuthUIProps {
-  initialView?: 'login' | 'signup';
+  initialView?: 'login' | 'signup' | 'forgot-password';
 }
 
 export const AuthUI: React.FC<AuthUIProps> = ({ initialView = 'login' }) => {
-  const [view, setView] = useState<'login' | 'signup'>(initialView);
+  const [view, setView] = useState<'login' | 'signup' | 'forgot-password'>(initialView);
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -682,7 +704,7 @@ export const AuthUI: React.FC<AuthUIProps> = ({ initialView = 'login' }) => {
   }, [isAuthenticated, navigate]);
 
   const toggleView = () => {
-    setView(view === 'login' ? 'signup' : 'login');
+    setView(view === 'login' ? 'signup' : view === 'signup' ? 'forgot-password' : 'login');
   };
 
   return (
@@ -731,6 +753,7 @@ export const AuthUI: React.FC<AuthUIProps> = ({ initialView = 'login' }) => {
           key={view}
           isLogin={view === 'login'}
           onToggleView={toggleView}
+          initialView={view}
         />
       </AnimatePresence>
     </div>

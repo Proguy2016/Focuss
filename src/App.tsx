@@ -21,6 +21,8 @@ import Library from './pages/Library';
 import CollaborationRoomApp from './pages/CollaborationRoom';
 import SearchResults from './pages/SearchResults';
 import LandingPage from './pages/LandingPage'; // Import the new LandingPage component
+import ResetPassword from './pages/ResetPassword'; // Import the new ResetPassword component
+import EmailSentConfirmation from './pages/EmailSentConfirmation'; // Import EmailSentConfirmation
 
 // Layout components
 const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -80,7 +82,8 @@ function AppContent() {
             <Route path="/auth" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth />} />
             <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth initialView="login" />} />
             <Route path="/signup" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth initialView="signup" />} />
-            <Route path="/reset-password" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth initialView="reset" />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/email-sent" element={<EmailSentConfirmation />} />
 
             {/* App routes */}
             <Route path="/dashboard" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />

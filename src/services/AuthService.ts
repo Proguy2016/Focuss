@@ -92,6 +92,16 @@ class AuthService {
         return response.data.user;
     }
 
+    // Forgot password
+    async forgotPassword(email: string): Promise<void> {
+        await api.post('/api/auth/forgot-password', { email });
+    }
+
+    // Reset password
+    async resetPassword(data: { token: string; newPassword: string }): Promise<void> {
+        await api.post('/api/auth/reset-password', data);
+    }
+
     // Logout a user
     logout() {
         localStorage.removeItem('token');

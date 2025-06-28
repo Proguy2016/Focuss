@@ -18,6 +18,8 @@ interface AuthContextType {
   updatePfp: (formData: FormData) => Promise<void>;
   setUser: React.Dispatch<React.SetStateAction<UserProfile | null>>;
   clearError: () => void;
+  forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (data: { token: string; newPassword: string }) => Promise<void>;
 }
 
 // Create the AuthContext
@@ -152,6 +154,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Forgot password
+  const forgotPassword = async (email: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await AuthService.forgotPassword(email);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send reset email.');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Reset password
+  const resetPassword = async (data: { token: string; newPassword: string }) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await AuthService.resetPassword(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reset password.');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Clear error
   const clearError = () => {
     setError(null);
@@ -171,7 +201,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     updatePrivacy,
     updatePfp,
     setUser,
-    clearError
+    clearError,
+    forgotPassword,
+    resetPassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
