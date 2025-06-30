@@ -536,7 +536,6 @@ startxref
   };
 
   // Update the mouse up handler for text selection - now auto-highlights without showing the selector
-  const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
   useEffect(() => {
     const handleMouseUp = (e: MouseEvent) => {
       // Clear selection when using eraser to prevent weird text selection behavior
@@ -568,7 +567,7 @@ startxref
       }
 
       // Use setTimeout to handle selection after the browser has finished processing the mouseup
-      const timeoutId = setTimeout(() => {
+      setTimeout(() => {
         const selection = window.getSelection();
         if (selection && selection.toString().trim()) {
           if (selection.rangeCount > 0 && pdfContainerRef.current) {
@@ -654,18 +653,11 @@ startxref
           }
         }
       }, 0);
-      
-      // Store timeout ID for cleanup
-      timeoutsRef.current.push(timeoutId);
     };
 
     document.addEventListener('mouseup', handleMouseUp);
     return () => {
       document.removeEventListener('mouseup', handleMouseUp);
-      
-      // Clean up all timeouts
-      timeoutsRef.current.forEach(clearTimeout);
-      timeoutsRef.current = [];
     };
   }, [activeTool, currentPage, scale, showTextAnnotationEditor, showNoteEditor, showBookmarkDialog]);
 

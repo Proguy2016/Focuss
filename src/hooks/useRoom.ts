@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { io, Socket } from 'socket.io-client';
+import io, { Socket } from 'socket.io-client';
+import { useCollaboration } from '@/contexts/CollaborationContext';
+
+const COLLABORATION_SERVER_URL = 'http://localhost:4001';
 
 export interface Participant {
   id: string;
@@ -39,280 +42,130 @@ export interface RoomFile {
 }
 
 export interface Room {
-  id: string;
+  _id: string;
+  id?: string;
   name: string;
+  description?: string;
+  type: 'public' | 'private' | 'team';
   participants: Participant[];
   messages: Message[];
   tasks: Task[];
   files: RoomFile[];
   isRecording: boolean;
   sessionTimer: number;
-  whiteboard?: {
+  whiteboard: {
     elements: any[];
   };
+  createdAt: Date;
 }
 
-const COLLABORATION_SERVER_URL = 'http://localhost:4001';
-
-export function useRoom(roomId: string | null) {
-  const [socket, setSocket] = useState<Socket | null>(null);
+export function useRoom(roomId?: string) {
   const [room, setRoom] = useState<Room | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const { joinRoom: joinCollabRoom, leaveRoom: leaveCollabRoom } = useCollaboration();
 
   // Initialize socket connection
   useEffect(() => {
-    if (!roomId) {
-      setIsLoading(false);
-      return;
-    }
-
-    // Get auth token from localStorage
-    const token = localStorage.getItem('authToken');
-    
-    // Create socket with auth
-    const newSocket = io(COLLABORATION_SERVER_URL, {
-      auth: {
-        token: token || undefined
-      }
-    });
-    
-    newSocket.on('connect', () => {
-      console.log('Connected to collaboration server');
-      
-      // Get user info from localStorage or context
-      const userId = localStorage.getItem('userId') || `user-${Date.now()}`;
-      const userName = localStorage.getItem('userName') || 'Anonymous User';
-      const userAvatar = localStorage.getItem('userAvatar');
-      
-      // Join the room
-      newSocket.emit('join-room', {
-        roomId,
-        user: {
-          id: userId,
-          name: userName,
-          avatar: userAvatar
-        }
+    if (roomId) {
+      const token = localStorage.getItem('token');
+      const newSocket = io(COLLABORATION_SERVER_URL, {
+        auth: { token },
+        query: { roomId }
       });
-    });
-    
-    newSocket.on('connect_error', (err) => {
-      console.error('Connection error:', err);
-      setError('Failed to connect to collaboration server');
-      setIsLoading(false);
-    });
-    
-    newSocket.on('error', (message) => {
-      console.error('Server error:', message);
-      setError(message);
-    });
-    
-    setSocket(newSocket);
-    
-    return () => {
-      if (newSocket) {
-        newSocket.emit('leave-room', {
-          roomId,
-          userId: localStorage.getItem('userId') || `user-${Date.now()}`
-        });
+
+      newSocket.on('connect', () => {
+        console.log('Connected to collaboration server');
+        // Join collaboration room after socket connection
+        joinCollabRoom(roomId);
+      });
+
+      newSocket.on('disconnect', () => {
+        console.log('Disconnected from collaboration server');
+        leaveCollabRoom();
+      });
+
+      newSocket.on('room:update', (updatedRoom: Room) => {
+        setRoom(updatedRoom);
+      });
+
+      newSocket.on('error', (err: string) => {
+        setError(err);
+      });
+
+      setSocket(newSocket);
+
+      return () => {
+        leaveCollabRoom();
         newSocket.disconnect();
+      };
+    }
+  }, [roomId, joinCollabRoom, leaveCollabRoom]);
+
+  // Fetch room data
+  useEffect(() => {
+    const fetchRoom = async () => {
+      if (!roomId) {
+        setRoom(null);
+        setIsLoading(false);
+        return;
       }
-    };
-  }, [roomId]);
-  
-  // Handle room data updates
-  useEffect(() => {
-    if (!socket) return;
-    
-    // Initial room data
-    socket.on('room-data', (data) => {
-      setRoom(data);
-      setIsLoading(false);
-    });
-    
-    // New message
-    socket.on('new-message', ({ message, room: updatedRoom }) => {
-      setRoom(updatedRoom);
-    });
-    
-    // Task updates
-    socket.on('task-updated', ({ task, room: updatedRoom }) => {
-      setRoom(updatedRoom);
-    });
-    
-    // Task deletion
-    socket.on('task-deleted', ({ taskId, room: updatedRoom }) => {
-      setRoom(updatedRoom);
-    });
-    
-    // Participant joined
-    socket.on('participant-joined', ({ userId, userName, room: updatedRoom }) => {
-      setRoom(updatedRoom);
-    });
-    
-    // Participant left
-    socket.on('participant-left', ({ userId, room: updatedRoom }) => {
-      setRoom(updatedRoom);
-    });
-    
-    // Recording toggled
-    socket.on('recording-toggled', ({ isRecording, room: updatedRoom }) => {
-      setRoom(updatedRoom);
-    });
-    
-    // Whiteboard updates
-    socket.on('whiteboard-updated', ({ elements, room: updatedRoom }) => {
-      setRoom(updatedRoom);
-    });
-    
-    // Typing status updates
-    socket.on('typing-status-updated', ({ userId, isTyping, location, room: updatedRoom }) => {
-      setRoom(updatedRoom);
-    });
 
-    // File uploaded
-    socket.on('file-uploaded', ({ file, message, room: updatedRoom }) => {
-      setRoom(updatedRoom);
-    });
-    
-    return () => {
-      socket.off('room-data');
-      socket.off('new-message');
-      socket.off('task-updated');
-      socket.off('task-deleted');
-      socket.off('participant-joined');
-      socket.off('participant-left');
-      socket.off('recording-toggled');
-      socket.off('whiteboard-updated');
-      socket.off('typing-status-updated');
-      socket.off('file-uploaded');
-    };
-  }, [socket]);
-  
-  // Update session timer locally
-  useEffect(() => {
-    if (!room) return;
-    const interval = setInterval(() => {
-      setRoom(prev => prev ? ({
-        ...prev,
-        sessionTimer: prev.sessionTimer + 1,
-      }) : null);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [room]);
-
-  // API functions
-  const sendMessage = useCallback((content: string) => {
-    if (!socket) return;
-    
-    const message: Message = {
-      id: Date.now().toString(),
-      userId: localStorage.getItem('userId') || `user-${Date.now()}`,
-      content,
-      timestamp: new Date(),
-      type: 'text',
-    };
-    
-    socket.emit('send-message', {
-      roomId,
-      message
-    });
-  }, [socket, roomId]);
-
-  const updateTask = useCallback((taskId: string, updates: Partial<Task>) => {
-    if (!socket) return;
-    
-    socket.emit('update-task', {
-      roomId,
-      taskId,
-      updates
-    });
-  }, [socket, roomId]);
-  
-  const addTask = useCallback((task: Omit<Task, 'id' | 'createdAt'>) => {
-    if (!socket) return;
-    
-    const newTask = {
-      ...task,
-      id: Date.now().toString(),
-      createdAt: new Date()
-    };
-    
-    socket.emit('update-task', {
-      roomId,
-      taskId: newTask.id,
-      updates: newTask
-    });
-  }, [socket, roomId]);
-  
-  const deleteTask = useCallback((taskId: string) => {
-    if (!socket) return;
-    
-    socket.emit('delete-task', {
-      roomId,
-      taskId
-    });
-  }, [socket, roomId]);
-
-  const toggleRecording = useCallback(() => {
-    if (!socket) return;
-    
-    socket.emit('toggle-recording', {
-      roomId
-    });
-  }, [socket, roomId]);
-  
-  const updateWhiteboard = useCallback((elements: any[]) => {
-    if (!socket) return;
-    
-    socket.emit('update-whiteboard', {
-      roomId,
-      elements
-    });
-  }, [socket, roomId]);
-  
-  const setTypingStatus = useCallback((isTyping: boolean, location: string) => {
-    if (!socket) return;
-    
-    socket.emit('typing-status', {
-      roomId,
-      userId: localStorage.getItem('userId') || `user-${Date.now()}`,
-      isTyping,
-      location
-    });
-  }, [socket, roomId]);
-
-  const uploadFile = useCallback((file: File) => {
-    if (!socket) return;
-    
-    // Create a FileReader to read the file as an ArrayBuffer
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      const buffer = e.target?.result;
-      
-      if (buffer) {
-        socket.emit('upload-file', {
-          roomId,
-          userId: localStorage.getItem('userId') || `user-${Date.now()}`,
-          file: {
-            originalname: file.name,
-            mimetype: file.type,
-            size: file.size,
-            buffer
+      try {
+        setIsLoading(true);
+        const token = localStorage.getItem('token');
+        
+        const response = await fetch(`${COLLABORATION_SERVER_URL}/api/rooms/${roomId}`, {
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
           }
         });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch room');
+        }
+
+        const data = await response.json();
+        setRoom(data);
+        setError(null);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
       }
     };
-    
-    reader.readAsArrayBuffer(file);
-  }, [socket, roomId]);
 
+    fetchRoom();
+  }, [roomId]);
+
+  // Get available rooms
+  const getRooms = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${COLLABORATION_SERVER_URL}/api/rooms`, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch rooms');
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    }
+  }, []);
+
+  // Create a new room
   const createRoom = useCallback(async (roomDetails: { name: string; description: string; type: string; members: any[]; userId: string; userName: string; }) => {
     try {
       // Get auth token from localStorage
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem('token');
       
       const response = await fetch(`${COLLABORATION_SERVER_URL}/api/rooms`, {
         method: 'POST',
@@ -335,6 +188,76 @@ export function useRoom(roomId: string | null) {
     }
   }, []);
 
+  // Send a message
+  const sendMessage = useCallback((content: string) => {
+    if (!socket || !room) return;
+    socket.emit('message:send', { content });
+  }, [socket, room]);
+
+  // Update a task
+  const updateTask = useCallback((taskId: string, updates: Partial<Task>) => {
+    if (!socket || !room) return;
+    socket.emit('task:update', { taskId, updates });
+  }, [socket, room]);
+
+  // Add a task
+  const addTask = useCallback((task: Omit<Task, 'id' | 'createdAt'>) => {
+    if (!socket || !room) return;
+    socket.emit('task:add', task);
+  }, [socket, room]);
+
+  // Delete a task
+  const deleteTask = useCallback((taskId: string) => {
+    if (!socket || !room) return;
+    socket.emit('task:delete', { taskId });
+  }, [socket, room]);
+
+  // Toggle recording
+  const toggleRecording = useCallback(() => {
+    if (!socket || !room) return;
+    socket.emit('room:toggleRecording');
+  }, [socket, room]);
+
+  // Update whiteboard
+  const updateWhiteboard = useCallback((elements: any[]) => {
+    if (!socket || !room) return;
+    socket.emit('whiteboard:update', { elements });
+  }, [socket, room]);
+
+  // Set typing status
+  const setTypingStatus = useCallback((isTyping: boolean, location: string) => {
+    if (!socket || !room) return;
+    socket.emit('user:typing', { isTyping, location });
+  }, [socket, room]);
+
+  // Upload file
+  const uploadFile = useCallback(async (file: File) => {
+    if (!roomId) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${COLLABORATION_SERVER_URL}/api/rooms/${roomId}/files`, {
+        method: 'POST',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload file');
+      }
+
+      return await response.json();
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    }
+  }, [roomId]);
+
   return {
     room,
     isLoading,
@@ -348,5 +271,6 @@ export function useRoom(roomId: string | null) {
     setTypingStatus,
     uploadFile,
     createRoom,
+    getRooms,
   };
 }
