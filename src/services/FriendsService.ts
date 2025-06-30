@@ -1,12 +1,17 @@
 import api from './api';
 
 export interface FriendProfile {
-    id: string;
-    name: string;
+    _id: string;
+    firstName: string;
+    lastName: string;
     email: string;
-    avatar?: string;
+    profilePicture?: string;
+    bio?: string;
     level: number;
-    streak: number;
+    xp: number;
+    achievements: any[];
+    posts: any[];
+    streak?: number;
     status?: string;
     productivityScore?: number;
     lastActive?: Date;
@@ -15,10 +20,11 @@ export interface FriendProfile {
 export interface FriendRequest {
     id: string;
     sender: {
-        id: string;
-        name: string;
+        _id: string;
+        firstName: string;
+        lastName: string;
         email: string;
-        avatar?: string;
+        profilePicture?: string;
     };
     createdAt: Date;
 }
@@ -27,7 +33,22 @@ class FriendsService {
     async getFriendList(): Promise<FriendProfile[]> {
         try {
             const response = await api.get('/api/friends/list');
-            return response.data.friends;
+            return response.data.friends.map((friend: any) => ({
+                _id: friend._id,
+                firstName: friend.firstName,
+                lastName: friend.lastName,
+                email: friend.email,
+                profilePicture: friend.profilePicture,
+                bio: friend.bio,
+                level: friend.level,
+                xp: friend.xp,
+                achievements: friend.achievements,
+                posts: friend.posts,
+                streak: friend.streak,
+                status: friend.status,
+                productivityScore: friend.productivityScore,
+                lastActive: friend.lastActive ? new Date(friend.lastActive) : undefined,
+            }));
         } catch (error) {
             console.error("Error fetching friends list:", error);
             return [];
@@ -37,7 +58,17 @@ class FriendsService {
     async getFriendRequests(): Promise<FriendRequest[]> {
         try {
             const response = await api.get('/api/friends/requests');
-            return response.data.requests;
+            return response.data.requests.map((req: any) => ({
+                id: req.id,
+                sender: {
+                    _id: req.sender._id,
+                    firstName: req.sender.firstName,
+                    lastName: req.sender.lastName,
+                    email: req.sender.email,
+                    profilePicture: req.sender.profilePicture,
+                },
+                createdAt: new Date(req.createdAt),
+            }));
         } catch (error) {
             console.error("Error fetching friend requests:", error);
             return [];
@@ -47,7 +78,23 @@ class FriendsService {
     async getFriendDetails(friendId: string): Promise<FriendProfile | null> {
         try {
             const response = await api.get(`/api/friends/info/${friendId}`);
-            return response.data.friend;
+            const friendData = response.data.friend;
+            return {
+                _id: friendData._id,
+                firstName: friendData.friendFirstName,
+                lastName: friendData.friendLastName,
+                email: friendData.email,
+                profilePicture: friendData.friendPfp,
+                bio: friendData.friendBio,
+                level: friendData.friendLevel,
+                xp: friendData.friendXP,
+                achievements: friendData.friendAchievements || [],
+                posts: friendData.friendPosts || [],
+                streak: friendData.streak,
+                status: friendData.status,
+                productivityScore: friendData.productivityScore,
+                lastActive: friendData.lastActive ? new Date(friendData.lastActive) : undefined,
+            };
         } catch (error) {
             console.error("Error fetching friend details:", error);
             return null;
@@ -56,7 +103,7 @@ class FriendsService {
 
     async sendFriendRequest(email: string): Promise<boolean> {
         try {
-            await api.post('/api/friends/request', { email });
+            await api.put('/api/friends/request', { email });
             return true;
         } catch (error) {
             console.error("Error sending friend request:", error);
@@ -66,7 +113,7 @@ class FriendsService {
 
     async acceptFriendRequest(requestId: string): Promise<boolean> {
         try {
-            await api.post('/api/friends/accept', { requestId });
+            await api.put('/api/friends/accept', { requestId });
             return true;
         } catch (error) {
             console.error("Error accepting friend request:", error);
@@ -76,7 +123,7 @@ class FriendsService {
 
     async declineFriendRequest(requestId: string): Promise<boolean> {
         try {
-            await api.post('/api/friends/decline', { requestId });
+            await api.put('/api/friends/decline', { requestId });
             return true;
         } catch (error) {
             console.error("Error declining friend request:", error);
@@ -86,7 +133,7 @@ class FriendsService {
 
     async unfriend(friendId: string): Promise<boolean> {
         try {
-            await api.post('/api/friends/unfriend', { friendId });
+            await api.put('/api/friends/unfriend', { friendId });
             return true;
         } catch (error) {
             console.error("Error unfriending user:", error);

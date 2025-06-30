@@ -350,7 +350,11 @@ export const Social: React.FC = () => {
                 firstName: friendData.friendFirstName,
                 lastName: friendData.friendLastName,
                 profilePicture: friendData.friendPfp,
-                bio: friendData.friendBio
+                bio: friendData.friendBio,
+                level: friendData.friendLevel,
+                xp: friendData.friendXP,
+                achievements: friendData.friendAchievements || [],
+                posts: friendData.friendPosts || [],
               }
             };
           } catch (error) {
@@ -411,19 +415,14 @@ export const Social: React.FC = () => {
   const viewFriendDetails = async (friendId: string) => {
     try {
       setFriendDetailLoading(true);
-      const response = await api.get(`/api/friends/info/${friendId}`);
-      const friendData = response.data;
+      const friendData = await FriendsService.getFriendDetails(friendId);
 
-      setSelectedFriend({
-        _id: friendId,
-        firstName: friendData.friendFirstName,
-        lastName: friendData.friendLastName,
-        profilePicture: friendData.friendPfp,
-        bio: friendData.friendBio,
-        email: '' // Backend doesn't return email for privacy reasons
-      });
-
-      setShowFriendDetails(true);
+      if (friendData) {
+        setSelectedFriend(friendData);
+        setShowFriendDetails(true);
+      } else {
+        console.error('Friend data not found or failed to fetch.');
+      }
     } catch (error) {
       console.error('Failed to fetch friend details:', error);
     } finally {
@@ -457,7 +456,7 @@ export const Social: React.FC = () => {
 
             <div className="flex-1">
               <h3 className="font-semibold text-white">{friend.firstName} {friend.lastName}</h3>
-              {friend.level && <p className="text-xs text-white/60">Level {friend.level}</p>}
+              {friend.level && <p className="text-xs text-white/60">Level {friend.level} | XP {friend.xp}</p>}
               {friend.bio && <p className="text-sm text-white/60 line-clamp-1">{friend.bio}</p>}
             </div>
           </div>
@@ -503,34 +502,98 @@ export const Social: React.FC = () => {
             </div>
 
             <div className="flex-1">
-              {request.sender ? (
-                <h3 className="font-semibold text-white">{request.sender.firstName} {request.sender.lastName}</h3>
-              ) : (
-                <h3 className="font-semibold text-white italic">Loading...</h3>
-              )}
-              <p className="text-xs text-white/60">Sent you a friend request</p>
+              <h3 className="font-semibold text-white">{request.sender.firstName} {request.sender.lastName}</h3>
+              {request.sender.level && <p className="text-xs text-white/60">Level {request.sender.level} | XP {request.sender.xp}</p>}
+              {request.sender.bio && <p className="text-sm text-white/60 line-clamp-1">{request.sender.bio}</p>}
             </div>
           </div>
 
           <div className="flex gap-2">
-            <Button
-              variant="primary"
-              size="sm"
-              icon={Check}
-              onClick={() => acceptFriendRequest(request.friendId)}
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={X}
-              onClick={() => declineFriendRequest(request.friendId)}
-              className="text-error-400 hover:bg-error-500/20"
-            />
+            <Button variant="ghost" size="sm" icon={Check} onClick={() => acceptFriendRequest(request.id)} />
+            <Button variant="ghost" size="sm" icon={X} onClick={() => declineFriendRequest(request.id)} className="text-error-400 hover:bg-error-500/20" />
           </div>
         </div>
       </Card>
     </motion.div>
   );
+
+  const FriendDetailsModal: React.FC<{
+    friend: FriendProfile | null;
+    isOpen: boolean;
+    onClose: () => void;
+  }> = ({ friend, isOpen, onClose }) => {
+    if (!friend) return null;
+
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} title={`${friend.firstName} ${friend.lastName}'s Profile`}>
+        <div className="p-4 space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-4xl overflow-hidden">
+              {friend.profilePicture ? (
+                <img
+                  src={friend.profilePicture}
+                  alt={`${friend.firstName} ${friend.lastName}`}
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : (
+                <User className="w-12 h-12 text-white" />
+              )}
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-white">{friend.firstName} {friend.lastName}</h2>
+              <p className="text-white/70">Level {friend.level} | XP {friend.xp}</p>
+              {friend.bio && <p className="text-white/80 mt-2">{friend.bio}</p>}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card variant="glass" className="p-4">
+              <h3 className="text-lg font-semibold text-white mb-2 flex items-center"><Award className="w-5 h-5 mr-2" /> Achievements</h3>
+              {friend.achievements && friend.achievements.length > 0 ? (
+                <ul className="list-disc list-inside text-white/80 space-y-1">
+                  {friend.achievements.map((achievement: any, index: number) => (
+                    <li key={index}>{achievement.name || achievement.title}</li> // Adjust based on actual achievement structure
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-white/60">No achievements yet.</p>
+              )}
+            </Card>
+
+            <Card variant="glass" className="p-4">
+              <h3 className="text-lg font-semibold text-white mb-2 flex items-center"><TrendingUp className="w-5 h-5 mr-2" /> Activity Stats</h3>
+              <p className="text-white/80">Streak: {friend.streak || 0} days</p>
+              <p className="text-white/80">Productivity Score: {friend.productivityScore || 0}</p>
+              {friend.lastActive && <p className="text-white/80">Last Active: {new Date(friend.lastActive).toLocaleDateString()}</p>}
+            </Card>
+          </div>
+
+          <Card variant="glass" className="p-4">
+            <h3 className="text-lg font-semibold text-white mb-2 flex items-center"><MessageCircle className="w-5 h-5 mr-2" /> Recent Posts</h3>
+            {friend.posts && friend.posts.length > 0 ? (
+              <div className="space-y-3">
+                {friend.posts.map((post: SocialPost, index: number) => (
+                  <div key={index} className="bg-white/5 p-3 rounded-lg">
+                    <div className="flex items-center gap-2 text-sm text-white/70 mb-1">
+                      <PostIcon className="w-4 h-4 text-primary-400" /> {/* Assuming PostIcon is available or define it */}
+                      <span>{post.content.substring(0, 70)}...</span>
+                      <span className="ml-auto text-white/50">{formatTimestamp(new Date(post.timestamp))}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-white/60">No recent posts.</p>
+            )}
+          </Card>
+
+          <div className="flex justify-end mt-4">
+            <Button onClick={onClose}>Close</Button>
+          </div>
+        </div>
+      </Modal>
+    );
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -1100,72 +1163,12 @@ export const Social: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Friend Details Modal */}
-      <Modal
+      {/* Friend Detail Modal */}
+      <FriendDetailsModal
+        friend={selectedFriend}
         isOpen={showFriendDetails}
         onClose={() => setShowFriendDetails(false)}
-        title="Friend Profile"
-        size="md"
-      >
-        {friendDetailLoading ? (
-          <div className="flex justify-center py-8">
-            <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        ) : selectedFriend ? (
-          <div className="space-y-6">
-            <div className="flex flex-col items-center">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-4xl mb-4">
-                {selectedFriend.profilePicture ? (
-                  <img
-                    src={selectedFriend.profilePicture}
-                    alt={`${selectedFriend.firstName} ${selectedFriend.lastName}`}
-                    className="w-full h-full rounded-full object-cover"
-                  />
-                ) : (
-                  <User className="w-12 h-12 text-white" />
-                )}
-              </div>
-
-              <h2 className="text-2xl font-bold text-white">{selectedFriend.firstName} {selectedFriend.lastName}</h2>
-              {selectedFriend.level && (
-                <p className="text-sm text-white/60">Level {selectedFriend.level}</p>
-              )}
-            </div>
-
-            <div className="glass p-4 rounded-lg">
-              <h3 className="text-white/80 text-sm mb-2">Bio</h3>
-              <p className="text-white/60">
-                {selectedFriend.bio || "No bio available."}
-              </p>
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <Button
-                variant="primary"
-                icon={MessageCircle}
-                fullWidth
-              >
-                Message
-              </Button>
-              <Button
-                variant="danger"
-                icon={UserMinus}
-                onClick={() => {
-                  unfriendUser(selectedFriend._id);
-                  setShowFriendDetails(false);
-                }}
-                fullWidth
-              >
-                Unfriend
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <p className="text-white/60">Friend information not available.</p>
-          </div>
-        )}
-      </Modal>
+      />
     </div>
   );
 };

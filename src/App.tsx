@@ -25,21 +25,7 @@ import ResetPassword from './pages/ResetPassword'; // Import the new ResetPasswo
 import EmailSentConfirmation from './pages/EmailSentConfirmation'; // Import EmailSentConfirmation
 
 // Layout components
-const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { logout } = useAuth();
-
-  return (
-    <div className="flex h-screen">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header onLogout={logout} />
-        <main className="flex-1 overflow-y-auto">
-          {children}
-        </main>
-      </div>
-    </div>
-  );
-};
+// Moved inside AppContent to ensure useAuth is within AuthProvider
 
 // Loading component
 const LoadingScreen: React.FC = () => (
@@ -64,6 +50,23 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 function AppContent() {
   const { isAuthenticated, loading } = useAuth();
+
+  // Layout components
+  const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { logout } = useAuth();
+
+    return (
+      <div className="flex h-screen">
+        <Sidebar />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header onLogout={logout} />
+          <main className="flex-1 overflow-y-auto">
+            {children}
+          </main>
+        </div>
+      </div>
+    );
+  };
 
   if (loading) {
     return <LoadingScreen />;
