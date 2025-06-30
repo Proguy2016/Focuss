@@ -1,502 +1,175 @@
-import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect, useRef } from 'react';
-import { io, Socket } from 'socket.io-client';
-import { useAuth } from './AuthContext'; // Import the useAuth hook
-import axios from 'axios';
-import { TLStore, createTLStore } from '@tldraw/tldraw';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { io, Socket } from "socket.io-client";
 
-// --- TYPE DEFINITIONS ---
-
-export interface TimerState {
-    mode: 'work' | 'break';
-    timeRemaining: number;
-    isRunning: boolean;
+// Types ---------------------------------------------------
+export interface Participant {
+  id: string;
+  name: string;
+  avatar?: string;
+  status: "online" | "offline" | "away";
+  isTyping?: boolean;
 }
 
-export interface Task {
-    id: string;
-    title: string;
-    description: string;
-    assignee: string;
-    status: 'todo' | 'in-progress' | 'completed';
-    priority: 'low' | 'medium' | 'high';
-    dueDate: Date;
-    tags: string[];
-    completed?: boolean;
-    text?: string;
-    currentRoomCode?: string;
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  timestamp: number;
+  reactions?: Record<string, string[]>; // emoji -> array of userIds
 }
 
-export interface Participant { // Exporting for use in components
-    id: string;
-    name: string;
-    avatar: string;
-    isSpeaking: boolean;
-    isTyping: boolean;
-    handRaised: boolean;
-    status: 'online' | 'offline' | 'away';
-}
-
-export interface SharedFile { // Exporting for use in components
-    id: string;
-    name: string;
-    type: 'pdf' | 'link' | 'image' | 'video' | 'other';
-    size: string;
-    user: { id: string; name: string; avatar: string };
-    date: string;
-    downloadUrl?: string; // URL to download the file
-}
-
-export interface ChatMessage { // Exporting for use in components
-    id: string;
-    userId: string;
-    avatar: string;
-    name: string;
-    message: string;
-    content?: string; // For compatibility with StudentCollaborationRoom
-    timestamp: string;
-    reactions: { [emoji: string]: string[] }; // Users who reacted
-    replyTo?: string;
-    type: 'user' | 'ai';
-}
-
-export interface AiInteraction { // For the AI assistant panel
-    id: string;
-    type: 'summary' | 'idea' | 'user_query' | 'ai_response';
-    text: string;
-}
-
-interface CollaborationState {
-    participants: Participant[];
-    files: SharedFile[];
-    messages: ChatMessage[];
-    currentUser: Participant | null; // Can be null initially
-    aiInteractions: AiInteraction[];
-    isConnected: boolean;
-    socketRef: React.RefObject<Socket | null>; // Expose socketRef for direct access
-    currentRoomCode: string;
-    tldrawStore: TLStore;
-    tasks: Task[];
-    timer: TimerState;
+export interface CollaborationState {
+  participants: Participant[];
+  messages: ChatMessage[];
+  isConnected: boolean;
 }
 
 interface CollaborationContextType extends CollaborationState {
-    joinRoom: (roomCode: string) => void;
-    leaveRoom: () => void;
-    sendMessage: (message: string, replyTo?: string | null) => void;
-    addReaction: (messageId: string, emoji: string) => void;
-    setTyping: (isTyping: boolean) => void;
-    toggleHandRaised: () => void;
-    summarizeChat: () => void;
-    askAi: (query: string) => void;
-    uploadFile: (file: File) => Promise<void>;
-    handleTldrawMount: (tldraw: any) => void;
-    addTask: (text: string) => void;
-    toggleTask: (id: string) => void;
-    deleteTask: (id: string) => void;
-    startTimer: () => void;
-    pauseTimer: () => void;
-    resetTimer: () => void;
+  joinRoom: (roomCode: string) => void;
+  leaveRoom: () => void;
+  sendMessage: (text: string) => void;
+  addReaction: (messageId: string, emoji: string) => void;
+  setTyping: (isTyping: boolean) => void;
 }
 
-// A mock current user. In a real app, this would come from an auth context.
-const mockUser = { name: 'User' + Math.round(Math.random() * 100), avatar: 'https://i.pravatar.cc/40?u=user' + Date.now(), isSpeaking: false, isTyping: false, handRaised: false };
+const CollaborationContext = createContext<CollaborationContextType | null>(null);
 
-// --- CONTEXT CREATION ---
+// Provider ------------------------------------------------
+export const CollaborationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const socketRef = useRef<Socket | null>(null);
+  const [state, setState] = useState<CollaborationState>({
+    participants: [],
+    messages: [],
+    isConnected: false,
+  });
+  const roomCodeRef = useRef<string | null>(null);
 
-export const CollaborationContext = createContext<CollaborationContextType | undefined>(undefined);
+  // Helpers ----------------------------------------------
+  const safeEmit = useCallback((event: string, payload: any) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit(event, payload);
+    }
+  }, []);
 
-// --- PROVIDER COMPONENT ---
+  // Core API ---------------------------------------------
+  const joinRoom = useCallback((roomCode: string) => {
+    roomCodeRef.current = roomCode;
 
-export const CollaborationProvider = ({ children }: { children: ReactNode }) => {
-    const { user: authUser } = useAuth(); // Get the authenticated user
-    const [participants, setParticipants] = useState<Participant[]>([]);
-    const [files, setFiles] = useState<SharedFile[]>([]);
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [aiInteractions, setAiInteractions] = useState<AiInteraction[]>([]);
-    const [currentUser, setCurrentUser] = useState<Participant | null>(null);
-    const [isConnected, setIsConnected] = useState(false);
-    const [currentRoomCode, setCurrentRoomCode] = useState<string>('');
-    const [tldrawStore] = useState(() => createTLStore());
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [timer, setTimer] = useState<TimerState>({ mode: 'work', timeRemaining: 25 * 60, isRunning: false });
+    // If already connected to this room, skip
+    if (socketRef.current && socketRef.current.connected) {
+      safeEmit("joinRoom", { roomCode, user: { id: socketRef.current.id!, name: "Anonymous" } });
+      return;
+    }
 
-    const socketRef = useRef<Socket | null>(null);
+    // Init socket ---------------------------------------
+    const socket = io("http://localhost:5001", {
+      withCredentials: true,
+      transports: ["websocket"],
+    });
 
-    const joinRoom = useCallback((roomCode: string) => {
-        // If already connected to this room, don't reconnect
-        if (socketRef.current && currentRoomCode === roomCode) {
-            console.log(`[Client] Already connected to room ${roomCode}`);
-            return;
-        }
-        
-        // If connected to a different room, disconnect first
-        if (socketRef.current) {
-            console.log(`[Client] Disconnecting from current room to join ${roomCode}`);
-            socketRef.current.disconnect();
-            socketRef.current = null;
-        }
+    socketRef.current = socket;
 
-        console.log(`[Client] Attempting to join room: ${roomCode}`);
-        setCurrentRoomCode(roomCode);
+    // Listeners -----------------------------------------
+    socket.on("connect", () => {
+      setState(prev => ({ ...prev, isConnected: true }));
+      const userData = { id: socket.id!, name: "Anonymous" };
+      socket.emit("joinRoom", { roomCode, user: userData });
+    });
 
-        // Get auth token from localStorage
-        const token = localStorage.getItem('token') || 'guest-token';
+    socket.on("roomState", (roomState: { participants: Participant[]; messages: ChatMessage[] }) => {
+      setState(prev => ({ ...prev, participants: roomState.participants, messages: roomState.messages }));
+    });
 
-        // Create a new socket connection
-        const socket = io('http://localhost:4000', {
-            withCredentials: true,
-            transports: ['websocket', 'polling'],
-            extraHeaders: {
-                "Access-Control-Allow-Origin": "*"
-            },
-            auth: {
-                token: token // Pass token in auth object
-            },
-            reconnectionAttempts: 5,
-            reconnectionDelay: 1000,
-            timeout: 10000
-        });
-        
-        console.log(`[Client] Attempting to connect to socket server at http://localhost:4000`);
-        
-        socketRef.current = socket;
+    socket.on("userJoined", (user: Participant) => {
+      setState(prev => ({ ...prev, participants: [...prev.participants, user] }));
+    });
 
-        // Listen for connection event
-        socket.on('connect', () => {
-            console.log('[Client] Connected to socket server with ID:', socket.id);
+    socket.on("userLeft", ({ userId }: { userId: string }) => {
+      setState(prev => ({ ...prev, participants: prev.participants.filter(p => p.id !== userId) }));
+    });
 
-            // Use authenticated user data or fallback to a default
-            const participantName = authUser ? `${authUser.firstName} ${authUser.lastName}` : 'Anonymous User';
-            const participantAvatar = authUser?.profilePicture || `https://i.pravatar.cc/40?u=${socket.id}`;
+    socket.on("newMessage", (message: ChatMessage) => {
+      setState(prev => ({ ...prev, messages: [...prev.messages, message] }));
+    });
 
-            const user = {
-                name: participantName,
-                avatar: participantAvatar,
-                isSpeaking: false,
-                isTyping: false,
-                handRaised: false,
-                status: 'online' as const
-            };
-            const userWithId = { ...user, id: socket.id! };
-            setCurrentUser(userWithId);
-
-            console.log(`[Client] Emitting 'joinRoom' for room '${roomCode}' with user:`, userWithId);
-            socket.emit('joinRoom', { roomCode, user: userWithId });
-            setIsConnected(true);
-        });
-
-        // Handle reconnection
-        socket.io.on("reconnect", () => {
-            console.log('[Client] Reconnected to socket server');
-            if (currentUser && roomCode) {
-                console.log(`[Client] Rejoining room ${roomCode} after reconnection`);
-                socket.emit('joinRoom', { 
-                    roomCode, 
-                    user: currentUser 
-                });
+    socket.on("reactionAdded", ({ messageId, emoji, userId }: { messageId: string; emoji: string; userId: string }) => {
+      setState(prev => ({
+        ...prev,
+        messages: prev.messages.map(msg => {
+          if (msg.id === messageId) {
+            const reactions = msg.reactions ? { ...msg.reactions } : {};
+            if (!reactions[emoji]) reactions[emoji] = [];
+            if (!reactions[emoji].includes(userId)) {
+              reactions[emoji].push(userId);
             }
-        });
+            return { ...msg, reactions };
+          }
+          return msg;
+        }),
+      }));
+    });
 
-        // Log connection attempts
-        socket.io.on("reconnect_attempt", (attempt) => {
-            console.log(`[Client] Reconnection attempt ${attempt}`);
-        });
+    socket.on("typingStatusChanged", ({ userId, isTyping }: { userId: string; isTyping: boolean }) => {
+      setState(prev => ({
+        ...prev,
+        participants: prev.participants.map(p => (p.id === userId ? { ...p, isTyping } : p)),
+      }));
+    });
 
-        socket.on('roomState', (state: { participants: Participant[], messages: ChatMessage[], files: SharedFile[], tasks: Task[] }) => {
-            console.log('[Client] Received roomState:', state);
-            setParticipants(state.participants);
-            setMessages(state.messages);
-            if (state.files) setFiles(state.files);
-            if (state.tasks) setTasks(state.tasks);
-        });
+    socket.on("disconnect", () => {
+      setState(prev => ({ ...prev, isConnected: false }));
+    });
+  }, [safeEmit]);
 
-        socket.on('userJoined', ({ user }: { user: Participant }) => {
-            console.log('[Client] New user joined:', user);
-            setParticipants(prev => {
-                // Avoid adding duplicates on reconnect or if user is already present
-                if (prev.some(p => p.id === user.id)) {
-                    return prev;
-                }
-                return [...prev, user];
-            });
-        });
+  const leaveRoom = useCallback(() => {
+    socketRef.current?.disconnect();
+    socketRef.current = null;
+    roomCodeRef.current = null;
+    setState({ participants: [], messages: [], isConnected: false });
+  }, []);
 
-        socket.on('fileAdded', (file: SharedFile) => {
-            console.log('[Client] File added:', file);
-            setFiles(prev => [...prev, file]);
-        });
-
-        // Document editing events
-        socket.on('documentUpdate', ({ fileId, newContent, editedBy }) => {
-            console.log(`[Client] Document ${fileId} updated by ${editedBy}`);
-            // This will be handled by the DocumentEditor component
-        });
-
-        socket.on('documentSaved', ({ fileId, savedBy }) => {
-            console.log(`[Client] Document ${fileId} saved by ${savedBy}`);
-            // Could show a notification here
-        });
-
-        socket.on('disconnect', (reason) => {
-            console.log('[Client] Disconnected from socket server. Reason:', reason);
-            setIsConnected(false)
-        });
-
-        socket.on('connect_error', (err) => {
-            console.error('[Client] Connection Error:', err.message);
-            // Provide more detailed error information
-            if (err.message.includes('Authentication')) {
-                console.log('[Client] Authentication error - using fallback anonymous connection');
-                // You could implement a fallback connection strategy here
-            }
-        });
-
-        socket.on('error', (error) => {
-            console.error('[Client] Socket error:', error);
-        });
-
-        socket.on('userLeft', ({ userId }: { userId: string }) => setParticipants(prev => prev.filter(p => p.id !== userId)));
-        socket.on('newMessage', (message: ChatMessage) => setMessages(prev => [...prev, message]));
-        socket.on('reactionAdded', ({ messageId, emoji, userId }) => {
-            setMessages(prev => prev.map(msg => {
-                if (msg.id === messageId) {
-                    const newReactions = { ...msg.reactions };
-                    if (!newReactions[emoji]) newReactions[emoji] = [];
-                    if (!newReactions[emoji].includes(userId)) {
-                        newReactions[emoji].push(userId);
-                    } else {
-                        // Allow toggling reaction off
-                        newReactions[emoji] = newReactions[emoji].filter(id => id !== userId);
-                    }
-                    return { ...msg, reactions: newReactions };
-                }
-                return msg;
-            }));
-        });
-        socket.on('typingStatusChanged', ({ userId, isTyping }) => {
-            setParticipants(prev => prev.map(p => p.id === userId ? { ...p, isTyping } : p));
-        });
-
-        socket.on('handRaisedToggled', ({ userId, handRaised }) => {
-            setParticipants(prev => prev.map(p => p.id === userId ? { ...p, handRaised } : p));
-        });
-
-        socket.on('tldrawUpdate', (data) => {
-            tldrawStore.loadSnapshot(data.snapshot);
-        });
-
-        socket.on('tasksUpdate', (newTasks: Task[]) => {
-            setTasks(newTasks);
-        });
-
-        socket.on('timerUpdate', (newTimerState: TimerState) => {
-            setTimer(newTimerState);
-        });
-    }, [authUser, tldrawStore]);
-
-    const leaveRoom = useCallback(() => {
-        if (socketRef.current) {
-            socketRef.current.disconnect();
-            socketRef.current = null;
-        }
-        // Reset state
-        setIsConnected(false);
-        setParticipants([]);
-        setMessages([]);
-        setCurrentUser(null);
-        setTasks([]);
-        setTimer({ mode: 'work', timeRemaining: 25 * 60, isRunning: false });
-    }, []);
-
-    // --- REAL-TIME FUNCTIONS ---
-
-    const sendMessage = useCallback((message: string, replyTo?: string | null) => {
-        if (!socketRef.current || !currentUser) return;
-
-        const newMessage: ChatMessage = {
-            id: Date.now().toString(),
-            userId: currentUser.id,
-            name: currentUser.name,
-            avatar: currentUser.avatar,
-            message,
-            content: message, // Add content field for compatibility
-            timestamp: new Date().toISOString(),
-            reactions: {},
-            type: 'user', // Add type field
-            ...(replyTo ? { replyTo } : {})
-        };
-
-        socketRef.current.emit('sendMessage', { roomCode: currentRoomCode, message: newMessage });
-        
-        // Optimistically add the message to our local state
-        setMessages(prev => [...prev, newMessage]);
-    }, [socketRef, currentUser, currentRoomCode]);
-
-    const addReaction = useCallback((messageId: string, emoji: string) => {
-        if (!socketRef.current || !currentUser) return;
-        socketRef.current.emit('addReaction', { messageId, emoji, userId: currentUser.id });
-    }, [currentUser]);
-
-    const setTyping = useCallback((isTyping: boolean) => {
-        if (!socketRef.current || !currentUser) return;
-        socketRef.current.emit('setTyping', { userId: currentUser.id, isTyping });
-    }, [currentUser]);
-
-    const toggleHandRaised = useCallback(() => {
-        if (!socketRef.current || !currentUser) return;
-        socketRef.current.emit('toggleHandRaised', { userId: currentUser.id });
-    }, [currentUser]);
-
-    const summarizeChat = useCallback(() => {
-        // In a real app, you'd send `messages` to a backend service.
-        const summaryText = `The chat has ${messages.length} messages. The main topics seem to be brainstorming and sharing initial project files.`;
-        const summary: AiInteraction = {
-            id: `ai${Date.now()}`,
-            type: 'summary',
-            text: summaryText
-        };
-        setAiInteractions(prev => [...prev, summary]);
-    }, [messages]);
-
-    const askAi = useCallback((query: string) => {
-        if (!query.trim()) return;
-
-        const userQuery: AiInteraction = { id: `ai${Date.now()}`, type: 'user_query', text: query };
-
-        // Mock AI Response
-        const aiResponseText = `Based on your query about "${query}", I suggest focusing on the key deliverables outlined in the project brief.`;
-        const aiResponse: AiInteraction = { id: `ai${Date.now() + 1}`, type: 'ai_response', text: aiResponseText };
-
-        setAiInteractions(prev => [...prev, userQuery, aiResponse]);
-    }, []);
-
-    const handleTldrawMount = useCallback((tldraw: any) => {
-        tldraw.on('change', (event: any) => {
-            if (event.source !== 'user' || !socketRef.current) return;
-            socketRef.current.emit('tldrawUpdate', {
-                snapshot: tldraw.store.getSnapshot(),
-            });
-        });
-    }, []);
-
-    // File upload function
-    const uploadFile = useCallback(async (file: File) => {
-        if (!socketRef.current || !currentUser || !currentRoomCode || !authUser) {
-            console.error('[Client] Cannot upload file: missing socket, user, or room code');
-            throw new Error('Cannot upload file: not connected to a room');
-        }
-
-        try {
-            console.log('[Client] Uploading file:', file.name);
-
-            // Create form data for the file upload
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('roomCode', currentRoomCode);
-
-            // Get the auth token from localStorage
-            const token = localStorage.getItem('token');
-            if (!token) {
-                throw new Error('Authentication token not found');
-            }
-
-            // Upload the file to the backend
-            const response = await axios.post(
-                'http://localhost:4000/api/up/collaboration-upload',
-                formData,
-                {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                        'Authorization': `Bearer ${token}`
-                    }
-                }
-            );
-
-            console.log('[Client] File upload response:', response.data);
-
-            if (response.data && response.data.success) {
-                // Notify the collaboration server about the new file
-                socketRef.current.emit('fileShared', response.data);
-            } else {
-                throw new Error('File upload failed');
-            }
-        } catch (error) {
-            console.error('[Client] Error uploading file:', error);
-            throw error;
-        }
-    }, [currentUser, currentRoomCode, authUser]);
-
-    const addTask = useCallback((text: string) => {
-        if (!socketRef.current) return;
-        socketRef.current.emit('addTask', { text });
-    }, []);
-
-    const toggleTask = useCallback((id: string) => {
-        if (!socketRef.current) return;
-        socketRef.current.emit('toggleTask', { id });
-    }, []);
-
-    const deleteTask = useCallback((id: string) => {
-        if (!socketRef.current) return;
-        socketRef.current.emit('deleteTask', { id });
-    }, []);
-
-    const startTimer = useCallback(() => {
-        if (!socketRef.current) return;
-        socketRef.current.emit('startTimer');
-    }, []);
-
-    const pauseTimer = useCallback(() => {
-        if (!socketRef.current) return;
-        socketRef.current.emit('pauseTimer');
-    }, []);
-
-    const resetTimer = useCallback(() => {
-        if (!socketRef.current) return;
-        socketRef.current.emit('resetTimer');
-    }, []);
-
-    const value = {
-        participants,
-        files,
-        messages,
-        currentUser,
-        aiInteractions,
-        isConnected,
-        socketRef,
-        currentRoomCode,
-        tldrawStore,
-        tasks,
-        timer,
-        joinRoom,
-        leaveRoom,
-        sendMessage,
-        addReaction,
-        setTyping,
-        toggleHandRaised,
-        summarizeChat,
-        askAi,
-        uploadFile,
-        handleTldrawMount,
-        addTask,
-        toggleTask,
-        deleteTask,
-        startTimer,
-        pauseTimer,
-        resetTimer,
+  const sendMessage = useCallback((text: string) => {
+    if (!roomCodeRef.current || !socketRef.current) return;
+    const message: ChatMessage = {
+      id: `${Date.now()}-${Math.random()}`,
+      senderId: socketRef.current.id!,
+      senderName: "Anonymous",
+      text,
+      timestamp: Date.now(),
     };
+    setState(prev => ({ ...prev, messages: [...prev.messages, message] }));
+    safeEmit("sendMessage", message);
+  }, [safeEmit]);
 
-    return (
-        <CollaborationContext.Provider value={value}>
-            {children}
-        </CollaborationContext.Provider>
-    );
+  const addReaction = useCallback((messageId: string, emoji: string) => {
+    const userId = socketRef.current?.id ?? "";
+    if (!userId) return;
+    safeEmit("addReaction", { messageId, emoji, userId });
+  }, [safeEmit]);
+
+  const setTyping = useCallback((isTyping: boolean) => {
+    const userId = socketRef.current?.id ?? "";
+    if (!userId) return;
+    safeEmit("setTyping", { userId, isTyping });
+  }, [safeEmit]);
+
+  // Provide ------------------------------------------------
+  const value: CollaborationContextType = {
+    ...state,
+    joinRoom,
+    leaveRoom,
+    sendMessage,
+    addReaction,
+    setTyping,
+  };
+
+  return <CollaborationContext.Provider value={value}>{children}</CollaborationContext.Provider>;
 };
 
-// --- CUSTOM HOOK ---
-
+// Hook ----------------------------------------------------
 export const useCollaboration = () => {
-    const context = useContext(CollaborationContext);
-    if (!context) throw new Error('useCollaboration must be used within a CollaborationProvider');
-    return context;
+  const ctx = useContext(CollaborationContext);
+  if (!ctx) throw new Error("useCollaboration must be used within a CollaborationProvider");
+  return ctx;
 }; 
