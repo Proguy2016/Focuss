@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { AppProvider } from './contexts/AppContext';
@@ -33,8 +33,8 @@ const LoadingScreen: React.FC = () => (
   </div>
 );
 
-// Main layout for authenticated users, now handling its own authentication check
-const MainLayout: React.FC = () => {
+// Main layout for authenticated users
+const MainLayout = () => {
   const { isAuthenticated, loading, logout } = useAuth();
 
   if (loading) {
@@ -59,7 +59,49 @@ const MainLayout: React.FC = () => {
   );
 };
 
+// Protected route component that ensures authentication
+const ProtectedRoutes = () => {
+  return (
+    <Routes>
+      <Route element={<MainLayout />}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/focus" element={<FocusTimer />} />
+        <Route path="/tasks" element={<Tasks />} />
+        <Route path="/habits" element={<Habits />} />
+        <Route path="/social" element={<Social />} />
+        <Route path="/library" element={<Library />} />
+        <Route path="/pdf-viewer" element={<PDFViewer />} />
+        <Route path="/pdf-viewer/:fileId" element={<PDFViewer />} />
+        <Route path="/soundscapes" element={<Soundscapes />} />
+        <Route path="/ai-coach" element={<AICoach />} />
+        <Route path="/achievements" element={<Achievements />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/collaboration" element={<CollaborationRoomApp />} />
+        <Route path="/search" element={<SearchResults />} />
+        <Route path="/notifications" element={<div className="p-6"><h1 className="text-3xl font-bold text-gradient">Notifications</h1><p className="mt-4 text-white/60">No new notifications</p></div>} />
+        <Route path="/activity" element={<div className="p-6"><h1 className="text-3xl font-bold text-gradient">Activity History</h1><p className="mt-4 text-white/60">Your recent activity will appear here</p></div>} />
+        {/* Catch-all for protected routes: if authenticated, redirect to dashboard for unknown paths */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Route>
+    </Routes>
+  );
+};
+
 function AppContent() {
+  const [isReady, setIsReady] = useState(false);
+
+  // Add a small delay to ensure AuthContext is fully initialized
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsReady(true);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!isReady) {
+    return <LoadingScreen />;
+  }
+
   return (
     <div className="min-h-screen text-white">
       <AnimatePresence mode="wait">
@@ -72,28 +114,8 @@ function AppContent() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/email-sent" element={<EmailSentConfirmation />} />
 
-          {/* Protected Routes - rendered within MainLayout */}
-          {/* The MainLayout component itself contains the authentication check and redirect */}
-          <Route element={<MainLayout />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/focus" element={<FocusTimer />} />
-            <Route path="/tasks" element={<Tasks />} />
-            <Route path="/habits" element={<Habits />} />
-            <Route path="/social" element={<Social />} />
-            <Route path="/library" element={<Library />} />
-            <Route path="/pdf-viewer" element={<PDFViewer />} />
-            <Route path="/pdf-viewer/:fileId" element={<PDFViewer />} />
-            <Route path="/soundscapes" element={<Soundscapes />} />
-            <Route path="/ai-coach" element={<AICoach />} />
-            <Route path="/achievements" element={<Achievements />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/collaboration" element={<CollaborationRoomApp />} />
-            <Route path="/search" element={<SearchResults />} />
-            <Route path="/notifications" element={<div className="p-6"><h1 className="text-3xl font-bold text-gradient">Notifications</h1><p className="mt-4 text-white/60">No new notifications</p></div>} />
-            <Route path="/activity" element={<div className="p-6"><h1 className="text-3xl font-bold text-gradient">Activity History</h1><p className="mt-4 text-white/60">Your recent activity will appear here</p></div>} />
-            {/* Catch-all for protected routes: if authenticated, redirect to dashboard for unknown paths */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Route>
+          {/* Protected Routes */}
+          <Route path="/*" element={<ProtectedRoutes />} />
 
           {/* Fallback for any other unmatched routes, redirects to /auth */}
           <Route path="*" element={<Navigate to="/auth" replace />} />

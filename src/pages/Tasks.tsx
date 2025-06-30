@@ -256,9 +256,9 @@ const TaskRow = ({ task, onFocus, onEdit, onDelete, onStatusToggle, onUpdateTask
     // Prevent toggling if clicking on the status toggle or action buttons
     const target = e.target as HTMLElement;
     if (target.closest('button') && !target.closest('.subtask-toggle-button')) {
-        // If the click was on a button, but not specifically the subtask toggle button, do nothing.
-        // This allows action buttons (edit, delete, focus, status) to work without toggling subtasks.
-        return;
+      // If the click was on a button, but not specifically the subtask toggle button, do nothing.
+      // This allows action buttons (edit, delete, focus, status) to work without toggling subtasks.
+      return;
     }
     if (task.subtasks && task.subtasks.length > 0) {
       setShowSubtasks(!showSubtasks);
@@ -301,12 +301,12 @@ const TaskRow = ({ task, onFocus, onEdit, onDelete, onStatusToggle, onUpdateTask
             </p>
             {task.subtasks && task.subtasks.length > 0 && (
               <button
-                onClick={(e) => {e.stopPropagation(); setShowSubtasks(!showSubtasks);}}
+                onClick={(e) => { e.stopPropagation(); setShowSubtasks(!showSubtasks); }}
                 className="ml-2 text-xs text-white/50 hover:text-white subtask-toggle-button p-1 rounded hover:bg-white/10"
                 title={showSubtasks ? "Hide subtasks" : "Show subtasks"}
               >
                 <ChevronDown className={`w-4 h-4 transition-transform ${showSubtasks ? 'rotate-180' : ''}`} />
-                 ({numCompletedSubtasks}/{totalSubtasks})
+                ({numCompletedSubtasks}/{totalSubtasks})
               </button>
             )}
           </div>
@@ -333,13 +333,13 @@ const TaskRow = ({ task, onFocus, onEdit, onDelete, onStatusToggle, onUpdateTask
         </td>
         <td className="p-4 text-right">
           <div className="flex justify-end items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onFocus();}} title="Focus on this task">
+            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onFocus(); }} title="Focus on this task">
               <Play className="w-4 h-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onEdit();}} title="Edit task">
+            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onEdit(); }} title="Edit task">
               <Edit className="w-4 h-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onDelete();}} className="text-red-500/70 hover:bg-red-500/20" title="Delete task">
+            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onDelete(); }} className="text-red-500/70 hover:bg-red-500/20" title="Delete task">
               <Trash2 className="w-4 h-4" />
             </Button>
           </div>
@@ -363,7 +363,7 @@ const TaskRow = ({ task, onFocus, onEdit, onDelete, onStatusToggle, onUpdateTask
                       className="flex items-center text-sm group"
                     >
                       <button
-                        onClick={(e) => {e.stopPropagation(); handleToggleSubtaskStatus(subtask.id);}}
+                        onClick={(e) => { e.stopPropagation(); handleToggleSubtaskStatus(subtask.id); }}
                         className="flex-shrink-0 cursor-pointer p-1 rounded-full hover:bg-white/20"
                       >
                         {subtask.completed ? (
@@ -410,7 +410,7 @@ export const Tasks: React.FC = () => {
       if (!token) {
         throw new Error("Authentication token not found.");
       }
-      const response = await fetch('http://localhost:5001/api/stats/getTasks', {
+      const response = await fetch('http://localhost:5001/api/tasks', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -429,6 +429,7 @@ export const Tasks: React.FC = () => {
         High: { level: 'high', color: '#EF4444' },
         Medium: { level: 'medium', color: '#FBBF24' },
         Low: { level: 'low', color: '#3B82F6' },
+        Urgent: { level: 'urgent', color: '#EF4444' }, // Added Urgent
       };
 
       const transformedTasks = data.tasks.map((backendTask: any): Task => {
@@ -437,70 +438,47 @@ export const Tasks: React.FC = () => {
         if (backendTask.completed === true) { // Assuming backend sends a 'completed' boolean
           taskStatusType = 'completed';
         } else if (backendTask.status) { // Or if backend sends a status string
-          if (backendTask.status === 'completed') taskStatusType = 'completed';
-          else if (backendTask.status === 'inProgress') taskStatusType = 'inProgress';
-          else if (backendTask.status === 'blocked') taskStatusType = 'blocked';
+          if (backendTask.status.type === 'completed') taskStatusType = 'completed';
+          else if (backendTask.status.type === 'inProgress') taskStatusType = 'inProgress';
+          else if (backendTask.status.type === 'blocked') taskStatusType = 'blocked';
         }
         // Add other conditions if backend provides more granular status like 'inProgress'
 
         const taskStatus: TaskStatus = {
           type: taskStatusType,
           label: taskStatusType.charAt(0).toUpperCase() + taskStatusType.slice(1), // Basic label
-          color: taskStatusType === 'completed' ? 'green' : taskStatusType === 'inProgress' ? 'yellow' : 'gray', // Basic colors
+          color: taskStatusType === 'completed' ? '#10B981' : taskStatusType === 'inProgress' ? '#F59E0B' : '#6B7280', // Basic colors
         };
 
         return {
-          id: backendTask.taskId,
-          title: backendTask.taskTitle,
-          description: backendTask.taskDescription,
+          id: backendTask.id,
+          title: backendTask.title,
+          description: backendTask.description,
           status: taskStatus,
-          priority: priorityMap[backendTask.priority] || priorityMap.Medium,
+          priority: backendTask.priority.level ? backendTask.priority : priorityMap.Medium,
           dueDate: backendTask.dueDate ? new Date(backendTask.dueDate) : undefined,
           createdAt: backendTask.createdAt ? new Date(backendTask.createdAt) : new Date(), // Assuming backend sends createdAt
           updatedAt: backendTask.updatedAt ? new Date(backendTask.updatedAt) : new Date(), // Assuming backend sends updatedAt
-          subtasks: Array.isArray(backendTask.subTasks) ? backendTask.subTasks.map((subtaskItem: any, index: number) => {
-            if (typeof subtaskItem === 'string') {
-              return {
-                id: `${backendTask.taskId}-sub-${index}`,
-                title: subtaskItem,
-                completed: false, // Default for string-based subtasks
-              };
-            } else if (typeof subtaskItem === 'object' && subtaskItem !== null && typeof subtaskItem.title === 'string') {
-              return { // Assuming subtask object like { title: "string", completed: boolean }
-                id: subtaskItem.id || `${backendTask.taskId}-sub-${index}`, // Use subtask id if provided
-                title: subtaskItem.title,
-                completed: subtaskItem.completed === true, // Ensure boolean
-              };
-            }
-            return null; // Or handle error for unexpected subtask format
-          }).filter(st => st !== null) as SubTask[] : [],
+          subtasks: Array.isArray(backendTask.subtasks) ? backendTask.subtasks.map((subtaskItem: any) => {
+            return {
+              id: subtaskItem.id,
+              title: subtaskItem.title,
+              completed: subtaskItem.completed
+            };
+          }) : [],
           category: backendTask.category,
           tags: backendTask.tags || [], // Ensure tags is an array
-          // Initialize other fields from Task interface if not present in backendTask
-          urgency: { level: 'medium', color: '#FBBF24' }, // Default or map from backend
+          urgency: backendTask.urgency || { level: 'medium', color: '#FBBF24' }, // Default or map from backend
           estimatedTime: backendTask.estimatedTime,
           actualTime: backendTask.actualTime,
           dependencies: backendTask.dependencies || [],
           recurring: backendTask.recurring,
-          completedAt: taskStatusType === 'completed' ? (backendTask.completedAt ? new Date(backendTask.completedAt) : new Date()) : undefined,
+          completedAt: backendTask.completedAt ? new Date(backendTask.completedAt) : undefined,
+          completed: backendTask.completed,
         };
       });
 
-      setTasks(prevTasks => {
-        // More robust merging: prioritize new server data but keep local status if server doesn't specify
-        return transformedTasks.map(newTask => {
-          const oldTask = prevTasks.find(t => t.id === newTask.id);
-          if (oldTask) {
-            // If the new task status from server is 'todo' (our default if not specified),
-            // and old task had a more specific status ('inProgress', 'blocked'), keep old status.
-            // This handles cases where server only sends 'completed' or nothing for status.
-            if (newTask.status.type === 'todo' && (oldTask.status.type === 'inProgress' || oldTask.status.type === 'blocked')) {
-              return { ...newTask, status: oldTask.status, subtasks: newTask.subtasks.length ? newTask.subtasks : oldTask.subtasks };
-            }
-          }
-          return newTask;
-        });
-      });
+      setTasks(transformedTasks);
 
     } catch (e: any) {
       setError(e.message || 'Failed to fetch tasks.');
@@ -571,77 +549,84 @@ export const Tasks: React.FC = () => {
   };
 
   const handleSaveTask = async (taskData: any) => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError("Authentication token not found.");
-      return;
-    }
+    setLoading(true);
+    setError('');
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error("Authentication token not found.");
+      }
 
-    if (editingTask) {
-      const payload = {
-        taskId: editingTask.id,
-        taskTitle: taskData.title,
-        taskDescription: taskData.description,
-        priority: taskData.priority.charAt(0).toUpperCase() + taskData.priority.slice(1),
-        category: "Work", // default
-        estimatedTime: 120, // default
-        dueDate: taskData.dueDate ? new Date(taskData.dueDate).toISOString() : new Date().toISOString(),
-        tags: [], // default
-        subTasks: taskData.subtasks?.map((st: SubTask) => st.title) || [],
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
       };
 
-      try {
-        const response = await fetch('http://localhost:5001/api/stats/updateTask', {
+      let response;
+      if (taskData.id) {
+        // Update existing task
+        response = await fetch(`http://localhost:5001/api/tasks/${taskData.id}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
+          headers,
+          body: JSON.stringify({
+            title: taskData.title,
+            description: taskData.description,
+            dueDate: taskData.dueDate || null,
+            priority: taskData.priority,
+            subtasks: taskData.subtasks.map((sub: any) => {
+              const subtaskPayload: any = {
+                title: sub.title,
+                completed: sub.completed || false,
+              };
+              // Only include subtask ID if it's a valid MongoDB ID (not a temporary client-side ID)
+              if (sub.id && typeof sub.id === 'string' && sub.id.length === 24 && /^[0-9a-fA-F]{24}$/.test(sub.id)) {
+                subtaskPayload.id = sub.id;
+              }
+              return subtaskPayload;
+            }),
+            completed: taskData.status?.type === 'completed', // Derive from current status type
+          }),
         });
-
-        if (!response.ok) {
-          const errorBody = await response.text();
-          throw new Error(`HTTP error! status: ${response.status}, body: ${errorBody}`);
-        }
-        await fetchTasks();
-        closeModal();
-      } catch (e: any) {
-        setError(e.message || 'Failed to update task.');
-        console.error(e);
-      }
-    } else {
-      const payload = {
-        taskTitle: taskData.title,
-        taskDescription: taskData.description,
-        priority: taskData.priority.charAt(0).toUpperCase() + taskData.priority.slice(1),
-        category: "Work", // default
-        estimatedTime: 120, // default
-        dueDate: taskData.dueDate ? new Date(taskData.dueDate).toISOString() : new Date().toISOString(),
-        tags: [], // default
-        subTasks: taskData.subtasks?.map((st: SubTask) => st.title) || [],
-      };
-
-      try {
-        const response = await fetch('http://localhost:5001/api/stats/addTask', {
+      } else {
+        // Create new task
+        response = await fetch('http://localhost:5001/api/tasks', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
+          headers,
+          body: JSON.stringify({
+            title: taskData.title,
+            description: taskData.description,
+            dueDate: taskData.dueDate || null,
+            priority: taskData.priority,
+            subtasks: taskData.subtasks.map((sub: any) => ({ // Ensure subtasks also have completed status consistently
+              title: sub.title,
+              completed: sub.completed || false, // Default to false for new subtasks
+            })),
+            completed: false, // New tasks are not completed by default
+          }),
         });
-
-        if (!response.ok) {
-          const errorBody = await response.text();
-          throw new Error(`HTTP error! status: ${response.status}, body: ${errorBody}`);
-        }
-        await fetchTasks();
-        closeModal();
-      } catch (e: any) {
-        setError(e.message || 'Failed to create task.');
-        console.error(e);
       }
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Failed to save task. Server responded with ${response.status}: ${errorBody}`);
+      }
+
+      const savedTask = await response.json();
+      setTasks(prevTasks => {
+        if (taskData.id) {
+          return prevTasks.map(task =>
+            task.id === savedTask.id ? savedTask : task
+          );
+        } else {
+          return [...prevTasks, savedTask];
+        }
+      });
+      closeModal();
+    } catch (e: any) {
+      setError(e.message || 'An error occurred while saving the task.');
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -652,19 +637,20 @@ export const Tasks: React.FC = () => {
       return;
     }
     try {
-      const response = await fetch('http://localhost:5001/api/stats/removeTask', {
+      const response = await fetch(`http://localhost:5001/api/tasks/${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ taskId: id, deleteTask: true }),
       });
       if (!response.ok) {
         const errorBody = await response.text();
         throw new Error(`HTTP error! status: ${response.status}, body: ${errorBody}`);
       }
-      await fetchTasks();
+      // No need to fetch all tasks again, just remove the deleted one from state
+      setTasks(prevTasks => prevTasks.filter(task => task.id !== id));
+
     } catch (e: any) {
       setError(e.message || 'Failed to delete task.');
       console.error(e);
@@ -672,13 +658,18 @@ export const Tasks: React.FC = () => {
   };
 
   const toggleTaskStatus = async (task: Task) => {
-    const newStatusType = task.status.type === 'completed' ? 'todo' : 'completed';
-    const newStatus = { ...task.status, type: newStatusType };
+    const newCompletedStatus = task.status.type !== 'completed'; // If current is not completed, set to completed
+    const newStatusType = newCompletedStatus ? 'completed' : 'todo';
 
     // Optimistic update
-    setTasks(currentTasks => currentTasks.map(t =>
-      t.id === task.id ? { ...t, status: newStatus } : t
-    ));
+    setTasks(currentTasks => currentTasks.map(t => {
+      if (t.id === task.id) {
+        // Create a new status object to ensure reference change if properties are same but type differs
+        const updatedStatus = { ...t.status, type: newStatusType };
+        return { ...t, status: updatedStatus };
+      }
+      return t;
+    }));
 
     const token = localStorage.getItem('token');
     if (!token) {
@@ -691,22 +682,52 @@ export const Tasks: React.FC = () => {
     }
 
     try {
-      const baseUrl = newStatusType === 'completed' ? 'http://localhost:5001/api/stats/task' : 'http://localhost:5001/api/stats/dec';
-      const endpoint = `${baseUrl}?taskId=${task.id}`;
-      const response = await fetch(endpoint, {
+      const response = await fetch(`http://localhost:5001/api/tasks/${task.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
+        body: JSON.stringify({ completed: newCompletedStatus }),
       });
 
       if (!response.ok) {
         const errorBody = await response.text();
-        throw new Error(`Failed to update task status count. Server responded with ${response.status}: ${errorBody}`);
+        throw new Error(`Failed to update task completion. Server responded with ${response.status}: ${errorBody}`);
       }
 
-      console.log(`Successfully called ${endpoint} for task ${task.id}`);
+      // Assuming the backend returns the updated task
+      const updatedTaskFromBackend = await response.json();
+
+      // Update local state with the actual task data from the backend
+      setTasks(currentTasks => currentTasks.map(t =>
+        t.id === updatedTaskFromBackend.id ? updatedTaskFromBackend : t
+      ));
+
+      console.log(`Successfully updated task completion for task ${task.id}`);
+
+      // --- New: Update statistics based on completion status ---
+      const statsEndpoint = newCompletedStatus ? 'task' : 'dec';
+      try {
+        const statsResponse = await fetch(`http://localhost:5001/api/stats/${statsEndpoint}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ taskId: task.id }), // Send taskId for stats update
+        });
+
+        if (!statsResponse.ok) {
+          const statsErrorBody = await statsResponse.text();
+          console.error(`Failed to update stats: ${statsEndpoint}. Server responded with ${statsResponse.status}: ${statsErrorBody}`);
+        } else {
+          console.log(`Successfully called http://localhost:5001/api/stats/${statsEndpoint} for task ${task.id}`);
+        }
+      } catch (statsError) {
+        console.error(`Error calling stats API (${statsEndpoint}):`, statsError);
+      }
+      // --- End New ---
 
     } catch (e: any) {
       setError(e.message || 'An error occurred.');

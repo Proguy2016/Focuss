@@ -35,7 +35,7 @@ export const StatsGrid: React.FC = () => {
     {
       icon: CheckCircle,
       label: 'Tasks Completed',
-      value: analytics?.tasks.totalTasks || 0,
+      value: analytics?.tasks?.totalCompleted || 0,
       subtext: 'Completed tasks',
       color: 'from-success-500 to-success-600',
       bgColor: 'bg-success-500/10',
