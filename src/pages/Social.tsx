@@ -53,7 +53,7 @@ interface SocialPost {
 export const Social: React.FC = () => {
   const { state } = useApp();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'feed' | 'groups' | 'leaderboard' | 'friends'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'leaderboard' | 'friends'>('feed');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showJoinGroup, setShowJoinGroup] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -621,20 +621,7 @@ export const Social: React.FC = () => {
             </Button>
           ) : (
             <>
-              <Button
-                variant="secondary"
-                icon={Plus}
-                onClick={() => setShowCreateGroup(true)}
-              >
-                Create Group
-              </Button>
-              <Button
-                variant="primary"
-                icon={Search}
-                onClick={() => setShowJoinGroup(true)}
-              >
-                Find Groups
-              </Button>
+              {/* Group-related buttons removed */}
             </>
           )}
         </div>
@@ -648,13 +635,6 @@ export const Social: React.FC = () => {
           onClick={() => setActiveTab('feed')}
         >
           Feed
-        </Button>
-        <Button
-          variant={activeTab === 'groups' ? 'primary' : 'ghost'}
-          size="sm"
-          onClick={() => setActiveTab('groups')}
-        >
-          Groups
         </Button>
         <Button
           variant={activeTab === 'friends' ? 'primary' : 'ghost'}
@@ -776,45 +756,6 @@ export const Social: React.FC = () => {
                   ))}
                 </div>
               </Card>
-            </div>
-          </motion.div>
-        )}
-
-        {activeTab === 'groups' && (
-          <motion.div
-            key="groups"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="space-y-6"
-          >
-            {/* Search and Filters */}
-            <Card variant="glass" className="p-4">
-              <div className="flex gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/40" />
-                  <input
-                    type="text"
-                    placeholder="Search groups..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 glass rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  />
-                </div>
-                <select className="glass px-3 py-2 rounded-lg text-white focus:outline-none">
-                  <option>All Groups</option>
-                  <option>Public</option>
-                  <option>Private</option>
-                  <option>Active Sessions</option>
-                </select>
-              </div>
-            </Card>
-
-            {/* Groups Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {focusGroups.map((group, index) => (
-                <GroupCard key={group.id} group={group} index={index} />
-              ))}
             </div>
           </motion.div>
         )}
