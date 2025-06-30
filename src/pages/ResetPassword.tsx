@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,6 +13,7 @@ const ResetPassword: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const token = searchParams.get('token'); // Get token from query parameter
+    const navigationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -29,6 +30,13 @@ const ResetPassword: React.FC = () => {
         if (!token) {
             setFormError("Password reset token is missing from the URL.");
         }
+        
+        // Cleanup function to clear any navigation timeout when component unmounts
+        return () => {
+            if (navigationTimeoutRef.current) {
+                clearTimeout(navigationTimeoutRef.current);
+            }
+        };
     }, [clearError, token]);
 
     useEffect(() => {
@@ -65,7 +73,7 @@ const ResetPassword: React.FC = () => {
             setConfirmPassword('');
             setFormError(null);
             // Optionally navigate to login page after a delay
-            setTimeout(() => navigate('/auth'), 3000);
+            navigationTimeoutRef.current = setTimeout(() => navigate('/auth'), 3000);
         } catch (err) {
             // Error is handled by the useAuth hook and reflected in 'error' state
         }
