@@ -1,6 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { MessageSquare, FileText, CheckSquare, Folder, BookOpen, Users, Settings, ChevronLeft, ChevronRight, Video, VideoOff, Timer, Search, Sparkles, Bot, BarChart3, Shield, Brain, Database, Layout, Plus, Calendar, Target } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
 
 import { useRoom } from '@/hooks/useRoom';
 import { useLiveCursors } from '@/hooks/useLiveCursors';
@@ -28,12 +29,12 @@ import { AssignTaskModal } from '@/components/modals/AssignTaskModal';
 import { AddProjectModal } from '@/components/modals/AddProjectModal';
 import { UpcomingMeetingsModal } from '@/components/modals/UpcomingMeetingsModal';
 
-import { ChatTab } from '@/components/tabs/ChatTab';
-import { TasksTab } from '@/components/tabs/TasksTab';
-import { FilesTab } from '@/components/tabs/FilesTab';
-import { WhiteboardTab } from '@/components/tabs/WhiteboardTab';
-import { SharedLibraryTab } from '@/components/tabs/SharedLibraryTab';
-import { SharedAIChatTab } from '@/components/tabs/SharedAIChatTab';
+import { ChatTab } from '@/components/collabUI/tabs/ChatTab';
+import { TasksTab } from '@/components/collabUI/tabs/TasksTab';
+import { FilesTab } from '@/components/collabUI/tabs/FilesTab';
+import { WhiteboardTab } from '@/components/collabUI/tabs/WhiteboardTab';
+import { SharedLibraryTab } from '@/components/collabUI/tabs/SharedLibraryTab';
+import { SharedAIChatTab } from '@/components/collabUI/tabs/SharedAIChatTab';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -41,8 +42,15 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 import { CollaborationProvider } from "@/contexts/CollaborationContext";
+import { useAuth } from '@/contexts/AuthContext';
+import { Spinner } from '@/components/ui/spinner';
+import { CreateRoom } from '@/components/collabUI/modals/CreateRoom';
 
 export function CollaborationRoom() {
+  const { roomId } = useParams<{ roomId: string }>();
+  const navigate = useNavigate();
+  const { user: authUser } = useAuth();
+  const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('room-hub');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isConferencePanelOpen, setIsConferencePanelOpen] = useState(false);
@@ -55,10 +63,9 @@ export function CollaborationRoom() {
   const [isAssignTaskOpen, setIsAssignTaskOpen] = useState(false);
   const [isAddProjectOpen, setIsAddProjectOpen] = useState(false);
   const [isUpcomingMeetingsOpen, setIsUpcomingMeetingsOpen] = useState(false);
-  const [roomCode, setRoomCode] = useState('STU-2024-A7X9');
 
-  const { room, sendMessage, updateTask, toggleRecording } = useRoom('room-1');
-  const { cursors, updateCursor } = useLiveCursors();
+  const { room, isLoading, error, sendMessage, updateTask, addTask, deleteTask, toggleRecording, updateWhiteboard, setTypingStatus, uploadFile, createRoom } = useRoom(roomId);
+  const { cursors, updateCursor } = useLiveCursors(roomId);
   const { hasPermission, getCurrentUserPermissions } = usePermissions();
   const { generateInsights } = useAdvancedAI();
   const { getCurrentProject, getUpcomingMeetings } = useCompanyWorkspace();
@@ -68,92 +75,15 @@ export function CollaborationRoom() {
   const currentProject = getCurrentProject();
   const upcomingMeetings = getUpcomingMeetings();
 
-  // Enhanced mock database items for project tracking with detailed task assignments
-  const [databaseItems, setDatabaseItems] = useState([
-    {
-      id: '1',
-      title: 'Frontend Component Library',
-      status: 'In Progress' as const,
-      priority: 'High' as const,
-      assignee: 'Sarah Chen',
-      dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-      tags: ['frontend', 'components', 'react'],
-      type: 'Task' as const,
-      description: 'Build reusable React components for the design system',
-      subtasks: [
-        { id: '1a', title: 'Button Component', assignee: 'Sarah Chen', status: 'completed', progress: 100 },
-        { id: '1b', title: 'Input Component', assignee: 'Sarah Chen', status: 'in-progress', progress: 70 },
-        { id: '1c', title: 'Modal Component', assignee: 'Marcus Johnson', status: 'todo', progress: 0 },
-      ],
-      estimatedHours: 40,
-      actualHours: 28,
-      blockers: ['Waiting for design approval'],
-    },
-    {
-      id: '2',
-      title: 'API Documentation',
-      status: 'Not Started' as const,
-      priority: 'Medium' as const,
-      assignee: 'Marcus Johnson',
-      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      tags: ['documentation', 'api', 'backend'],
-      type: 'Feature' as const,
-      description: 'Complete API documentation for all endpoints',
-      subtasks: [
-        { id: '2a', title: 'Authentication Endpoints', assignee: 'Marcus Johnson', status: 'todo', progress: 0 },
-        { id: '2b', title: 'User Management APIs', assignee: 'Elena Rodriguez', status: 'todo', progress: 0 },
-        { id: '2c', title: 'Data Export APIs', assignee: 'David Kim', status: 'todo', progress: 0 },
-      ],
-      estimatedHours: 24,
-      actualHours: 0,
-      blockers: [],
-    },
-    {
-      id: '3',
-      title: 'User Testing Results Analysis',
-      status: 'Done' as const,
-      priority: 'High' as const,
-      assignee: 'Elena Rodriguez',
-      tags: ['testing', 'ux', 'research'],
-      type: 'Task' as const,
-      description: 'Analyze user testing feedback and create improvement recommendations',
-      subtasks: [
-        { id: '3a', title: 'Data Collection', assignee: 'Elena Rodriguez', status: 'completed', progress: 100 },
-        { id: '3b', title: 'Analysis Report', assignee: 'Elena Rodriguez', status: 'completed', progress: 100 },
-        { id: '3c', title: 'Recommendations', assignee: 'Elena Rodriguez', status: 'completed', progress: 100 },
-      ],
-      estimatedHours: 16,
-      actualHours: 18,
-      blockers: [],
-    },
-    {
-      id: '4',
-      title: 'Mobile App Performance Optimization',
-      status: 'In Progress' as const,
-      priority: 'Critical' as const,
-      assignee: 'David Kim',
-      dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-      tags: ['mobile', 'performance', 'optimization'],
-      type: 'Bug' as const,
-      description: 'Optimize app performance to reduce load times by 50%',
-      subtasks: [
-        { id: '4a', title: 'Image Optimization', assignee: 'David Kim', status: 'completed', progress: 100 },
-        { id: '4b', title: 'Code Splitting', assignee: 'Priya Patel', status: 'in-progress', progress: 60 },
-        { id: '4c', title: 'Caching Strategy', assignee: 'Alex Thompson', status: 'todo', progress: 0 },
-      ],
-      estimatedHours: 32,
-      actualHours: 20,
-      blockers: ['Need approval for caching infrastructure'],
-    },
-  ]);
-
   // Auto-generate insights periodically
   useEffect(() => {
-    const interval = setInterval(() => {
-      generateInsights(room);
-    }, 30000); // Every 30 seconds
+    if (room) {
+      const interval = setInterval(() => {
+        generateInsights(room);
+      }, 30000); // Every 30 seconds
 
-    return () => clearInterval(interval);
+      return () => clearInterval(interval);
+    }
   }, [room, generateInsights]);
 
   // Handle mouse movement for live cursors
@@ -165,6 +95,30 @@ export function CollaborationRoom() {
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, [updateCursor]);
+
+  const handleCreateRoom = async (roomDetails: { name: string; description: string; type: string; members: any[] }) => {
+    if (!authUser) {
+      console.error("User is not authenticated.");
+      // Optionally, show an error to the user
+      return;
+    }
+
+    try {
+      const fullRoomDetails = {
+        ...roomDetails,
+        userId: authUser._id,
+        userName: authUser.firstName,
+      };
+      const newRoom = await createRoom(fullRoomDetails);
+      if (newRoom && newRoom.roomId) {
+        navigate(`/collaboration/${newRoom.roomId}`);
+        setIsCreateRoomOpen(false);
+      }
+    } catch (err) {
+      console.error("Failed to create room:", err);
+      // Handle error in UI
+    }
+  };
 
   // Format session timer
   const formatTimer = (seconds: number) => {
@@ -182,7 +136,7 @@ export function CollaborationRoom() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
+        e.preventDefault(); 
         setIsCommandPaletteOpen(true);
       }
       if (e.key === 'Escape') {
@@ -208,73 +162,61 @@ export function CollaborationRoom() {
     }
   };
 
-  const handleDeleteProject = (projectId: string) => {
-    setDatabaseItems(prev => prev.filter(item => item.id !== projectId));
-  };
-
-  const handleAddProject = (projectData: any) => {
-    const newProject = {
-      id: Date.now().toString(),
-      ...projectData,
-      subtasks: [],
-      estimatedHours: 0,
-      actualHours: 0,
-      blockers: [],
-    };
-    setDatabaseItems(prev => [...prev, newProject]);
-  };
-
   const renderTabContent = () => {
+    if (isLoading) {
+      return (
+        <div className="h-full flex items-center justify-center">
+          <Spinner size="lg" />
+          <span className="ml-2 text-white">Loading room data...</span>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="h-full flex flex-col items-center justify-center text-theme-red">
+          <span className="text-lg font-semibold">Error loading room</span>
+          <span className="text-sm">{error}</span>
+          <Button onClick={() => navigate('/collaboration')} className="mt-4">Back to Lobby</Button>
+        </div>
+      );
+    }
+
     switch (activeTab) {
       case 'room-hub':
         return <CompanyDashboard />;
       case 'chat':
-        return <ChatTab messages={room.messages} onSendMessage={sendMessage} />;
+        return <ChatTab messages={room.messages} onSendMessage={sendMessage} onTyping={(isTyping) => setTypingStatus(isTyping, 'chat')} />;
       case 'ai-chat':
         return <SharedAIChatTab participants={room.participants} />;
       case 'whiteboard':
-        return <WhiteboardTab />;
+        return <WhiteboardTab elements={room.whiteboard?.elements || []} onUpdateElements={updateWhiteboard} />;
       case 'tasks':
         return (
           <TasksTab 
             tasks={room.tasks} 
             onUpdateTask={updateTask}
+            onAddTask={addTask}
+            onDeleteTask={deleteTask}
             onAssignTask={() => setIsAssignTaskOpen(true)}
+            participants={room.participants}
           />
         );
       case 'library':
         return <SharedLibraryTab files={room.files} />;
+      case 'files':
+        return <FilesTab files={room.files} onUploadFile={uploadFile} />;
       case 'tracker':
         return (
-          <div className="h-full p-6 bg-gradient-to-br from-white to-gray-50/50">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-xl font-bold text-theme-dark">Project Tracker</h3>
-                <p className="text-theme-gray-dark">Detailed view of all project tasks and assignments</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Button 
-                  onClick={() => setIsAddProjectOpen(true)}
-                  className="gap-2 bg-theme-primary hover:bg-theme-primary-dark text-white"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Project
-                </Button>
-                <Button 
-                  onClick={() => setIsTemplateGalleryOpen(true)}
-                  variant="outline"
-                  className="gap-2"
-                >
-                  <Layout className="w-4 h-4" />
-                  Templates
-                </Button>
-              </div>
+          <div className="h-full flex items-center justify-center text-gray text-lg">
+            <div className="max-w-md text-center">
+              <h3 className="text-xl font-bold text-white mb-2">Project Tracker</h3>
+              <p>Connect to your project management system to see live project data here.</p>
+              <Button className="mt-4 gap-2 bg-gradient-to-r from-theme-primary to-theme-secondary hover:from-theme-primary-dark hover:to-theme-primary text-white shadow-glow">
+                <Plus className="w-4 h-4" />
+                Connect Project Management
+              </Button>
             </div>
-            <DatabaseView 
-              items={databaseItems}
-              onItemDelete={handleDeleteProject}
-              className="h-[calc(100%-120px)]"
-            />
           </div>
         );
       default:
@@ -286,8 +228,36 @@ export function CollaborationRoom() {
                            currentUser.role === 'admin' || 
                            currentUser.role === 'moderator';
 
+  if (!roomId) {
+    return (
+      <div className="flex flex-col h-screen animated-bg items-center justify-center">
+        <div className="text-center p-8 bg-dark/80 backdrop-blur-glass rounded-xl shadow-custom border border-white/10">
+          <h1 className="text-4xl font-bold text-white mb-2">Collaboration Hub</h1>
+          <p className="text-lg text-gray mb-8">Create a new room or join an existing one.</p>
+          <Button onClick={() => setIsCreateRoomOpen(true)} size="lg" className="gap-2 bg-gradient-to-r from-theme-primary to-theme-secondary hover:from-theme-primary-dark hover:to-theme-primary text-white shadow-glow">
+            <Plus className="w-5 h-5" />
+            Create New Room
+          </Button>
+          {/* TODO: Add a list of existing/public rooms to join */}
+        </div>
+        {isCreateRoomOpen && (
+          <CreateRoom
+            onCreateRoom={handleCreateRoom}
+            onCancel={() => setIsCreateRoomOpen(false)}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen animated-bg relative">
+      {isCreateRoomOpen && (
+        <CreateRoom
+          onCreateRoom={handleCreateRoom}
+          onCancel={() => setIsCreateRoomOpen(false)}
+        />
+      )}
       {/* Live Cursors */}
       {cursors.map((cursor) => (
         <LiveCursor
@@ -299,14 +269,14 @@ export function CollaborationRoom() {
       ))}
 
       {/* Header */}
-      <header className="flex items-center justify-between px-4 sm:px-6 py-4 bg-white/90 backdrop-blur-glass border-b border-gray-200/60 shadow-custom z-10">
+      <header className="flex items-center justify-between px-4 sm:px-6 py-4 bg-dark/80 backdrop-blur-glass border-b border-white/10 shadow-custom z-10">
         <div className="flex items-center gap-3 sm:gap-6 min-w-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-theme-primary to-theme-secondary rounded-xl flex items-center justify-center shadow-glow animate-glow-pulse flex-shrink-0">
               <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
             <ProjectSwitcher />
-          </div>
+                </div>
           <div className="hidden sm:flex items-center gap-3">
             {room.isRecording && (
               <Badge className="gap-2 bg-theme-red/10 text-theme-red border-theme-red/30 hover:bg-theme-red/20">
@@ -314,7 +284,7 @@ export function CollaborationRoom() {
                 Recording
               </Badge>
             )}
-            <Badge variant="secondary" className="gap-2 bg-theme-primary/10 text-theme-primary-dark border-theme-primary/30">
+            <Badge variant="secondary" className="gap-2 bg-theme-primary/10 text-theme-primary border-theme-primary/30">
               <Timer className="w-3 h-3" />
               {formatTimer(room.sessionTimer)}
             </Badge>
@@ -323,12 +293,12 @@ export function CollaborationRoom() {
               {room.participants.filter(p => p.status === 'online').length} Online
             </Badge>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-theme-gray-dark">Room Code:</span>
-              <Badge variant="outline" className="font-mono text-theme-dark border-theme-primary/30">
-                {roomCode}
+              <span className="text-sm text-gray">Room Code:</span>
+              <Badge variant="outline" className="font-mono text-white border-theme-primary/30">
+                {roomId}
               </Badge>
-            </div>
-          </div>
+                </div>
+                    </div>
         </div>
 
         <div className="flex items-center gap-2 sm:gap-4">
@@ -342,7 +312,7 @@ export function CollaborationRoom() {
               variant="ghost"
               size="sm"
               onClick={() => setIsAIAssistantOpen(true)}
-              className="gap-2 text-theme-gray-dark hover:text-theme-primary hover:bg-theme-primary/10 hidden sm:flex"
+              className="gap-2 text-gray hover:text-theme-primary hover:bg-theme-primary/10 hidden sm:flex"
             >
               <Bot className="w-4 h-4" />
               <span className="hidden md:inline">AI Assistant</span>
@@ -353,7 +323,7 @@ export function CollaborationRoom() {
               variant="ghost"
               size="sm"
               onClick={() => setIsAnalyticsOpen(true)}
-              className="gap-2 text-theme-gray-dark hover:text-theme-primary hover:bg-theme-primary/10 hidden sm:flex"
+              className="gap-2 text-gray hover:text-theme-primary hover:bg-theme-primary/10 hidden sm:flex"
             >
               <BarChart3 className="w-4 h-4" />
               <span className="hidden md:inline">Analytics</span>
@@ -364,7 +334,7 @@ export function CollaborationRoom() {
               variant="ghost"
               size="sm"
               onClick={() => setIsAdvancedAnalyticsOpen(true)}
-              className="gap-2 text-theme-gray-dark hover:text-theme-primary hover:bg-theme-primary/10 hidden sm:flex"
+              className="gap-2 text-gray hover:text-theme-primary hover:bg-theme-primary/10 hidden sm:flex"
             >
               <Brain className="w-4 h-4" />
               <span className="hidden md:inline">AI Insights</span>
@@ -376,7 +346,7 @@ export function CollaborationRoom() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsPermissionsOpen(true)}
-                className="gap-2 text-theme-gray-dark hover:text-theme-primary hover:bg-theme-primary/10 hidden sm:flex"
+                className="gap-2 text-gray hover:text-theme-primary hover:bg-theme-primary/10 hidden sm:flex"
               >
                 <Shield className="w-4 h-4" />
                 <span className="hidden md:inline">Permissions</span>
@@ -387,11 +357,11 @@ export function CollaborationRoom() {
               variant="ghost"
               size="sm"
               onClick={() => setIsCommandPaletteOpen(true)}
-              className="gap-2 text-theme-gray-dark hover:text-theme-primary hover:bg-theme-primary/10 hidden sm:flex"
+              className="gap-2 text-gray hover:text-theme-primary hover:bg-theme-primary/10 hidden sm:flex"
             >
               <Search className="w-4 h-4" />
               <span className="hidden md:inline">Search</span>
-              <kbd className="hidden md:inline-flex h-5 select-none items-center gap-1 rounded border bg-theme-primary/10 px-1.5 font-mono text-xs font-medium text-theme-primary-dark">
+              <kbd className="hidden md:inline-flex h-5 select-none items-center gap-1 rounded border bg-theme-primary/10 px-1.5 font-mono text-xs font-medium text-theme-primary">
                 <span className="text-xs">⌘</span>K
               </kbd>
             </Button>
@@ -419,19 +389,19 @@ export function CollaborationRoom() {
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <aside className={cn(
-          "border-r border-gray-200/60 bg-white/80 backdrop-blur-glass shadow-custom transition-all duration-300",
+          "border-r border-white/10 bg-dark/50 backdrop-blur-glass shadow-custom transition-all duration-300",
           isSidebarCollapsed ? "w-16" : "w-72",
           "hidden lg:block"
         )}>
-          <div className="flex items-center justify-between p-4 border-b border-gray-200/60">
+          <div className="flex items-center justify-between p-4 border-b border-white/10">
             {!isSidebarCollapsed && (
-              <span className="font-bold text-theme-dark">Room Workspace</span>
+              <span className="font-bold text-white">Room Workspace</span>
             )}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className="w-8 h-8 p-0 text-theme-gray-dark hover:text-theme-primary hover:bg-theme-primary/10"
+              className="w-8 h-8 p-0 text-gray hover:text-theme-primary hover:bg-theme-primary/10"
             >
               {isSidebarCollapsed ? (
                 <ChevronRight className="w-4 h-4" />
@@ -482,6 +452,12 @@ export function CollaborationRoom() {
                   label="Whiteboard"
                   isActive={activeTab === 'whiteboard'}
                   onClick={() => setActiveTab('whiteboard')}
+                />
+                <SidebarItem
+                  icon={<Folder className="w-4 h-4" />}
+                  label="Files"
+                  isActive={activeTab === 'files'}
+                  onClick={() => setActiveTab('files')}
                 />
                 <SidebarItem
                   icon={<BookOpen className="w-4 h-4" />}
@@ -560,7 +536,7 @@ export function CollaborationRoom() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex flex-1 flex-col overflow-hidden bg-white shadow-custom">
+        <main className="flex flex-1 flex-col overflow-hidden animated-bg shadow-custom">
           <div className="flex-1 overflow-hidden">
             {renderTabContent()}
           </div>
@@ -618,7 +594,14 @@ export function CollaborationRoom() {
         onClose={() => setIsAssignTaskOpen(false)}
         participants={room.participants}
         onAssignTask={(taskData) => {
-          console.log('Assigned task:', taskData);
+          addTask({
+            title: taskData.title,
+            description: taskData.description,
+            assigneeId: taskData.assigneeId,
+            status: 'todo',
+            priority: taskData.priority,
+            dueDate: taskData.dueDate
+          });
           setIsAssignTaskOpen(false);
         }}
       />
@@ -626,7 +609,10 @@ export function CollaborationRoom() {
       <AddProjectModal
         isOpen={isAddProjectOpen}
         onClose={() => setIsAddProjectOpen(false)}
-        onAddProject={handleAddProject}
+        onAddProject={(projectData) => {
+          console.log('Added project:', projectData);
+          setIsAddProjectOpen(false);
+        }}
       />
 
       <UpcomingMeetingsModal
@@ -646,4 +632,4 @@ export default function CollaborationRoomPage() {
       <CollaborationRoom />
     </CollaborationProvider>
   );
-}
+} 

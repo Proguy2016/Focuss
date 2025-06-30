@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useRoom } from './useRoom';
 
 export interface Cursor {
   userId: string;
@@ -8,51 +9,72 @@ export interface Cursor {
   lastSeen: Date;
 }
 
-export function useLiveCursors() {
+export function useLiveCursors(roomId: string) {
   const [cursors, setCursors] = useState<Record<string, Cursor>>({});
   const [isEnabled, setIsEnabled] = useState(true);
+  const { room } = useRoom(roomId);
 
+  // Update local cursor and send to server
   const updateCursor = useCallback((x: number, y: number) => {
-    if (!isEnabled) return;
+    if (!isEnabled || !room) return;
     
-    // In a real implementation, this would send to WebSocket
-    // For now, we'll simulate other users' cursors
+    // Update local state
     setCursors(prev => ({
       ...prev,
       'current': {
-        userId: 'current',
+        userId: localStorage.getItem('userId') || 'current',
         userName: 'You',
         x,
         y,
         lastSeen: new Date(),
       }
     }));
-  }, [isEnabled]);
+    
+    // Emit cursor position to server
+    const socket = (window as any).socket;
+    if (socket && socket.connected) {
+      socket.emit('cursor-move', {
+        roomId,
+        userId: localStorage.getItem('userId') || 'current',
+        x,
+        y
+      });
+    }
+  }, [isEnabled, roomId, room]);
 
+  // Listen for cursor updates from other users
   useEffect(() => {
-    // Simulate other users' cursors moving
-    const interval = setInterval(() => {
+    if (!room) return;
+
+    const socket = (window as any).socket;
+    if (!socket) return;
+    
+    const handleCursorMoved = ({ userId, x, y }: { userId: string; x: number; y: number }) => {
+      // Don't update for our own cursor
+      if (userId === localStorage.getItem('userId') || userId === 'current') return;
+      
+      // Find user name from room participants
+      const participant = room.participants.find(p => p.id === userId);
+      const userName = participant ? participant.name : 'Unknown User';
+      
       setCursors(prev => ({
         ...prev,
-        'user-2': {
-          userId: 'user-2',
-          userName: 'Marcus Johnson',
-          x: Math.random() * window.innerWidth,
-          y: Math.random() * window.innerHeight,
-          lastSeen: new Date(),
-        },
-        'user-3': {
-          userId: 'user-3',
-          userName: 'Elena Rodriguez',
-          x: Math.random() * window.innerWidth,
-          y: Math.random() * window.innerHeight,
-          lastSeen: new Date(),
+        [userId]: {
+          userId,
+          userName,
+          x,
+          y,
+          lastSeen: new Date()
         }
       }));
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, []);
+    };
+    
+    socket.on('cursor-moved', handleCursorMoved);
+    
+    return () => {
+      socket.off('cursor-moved', handleCursorMoved);
+    };
+  }, [room]);
 
   // Clean up old cursors
   useEffect(() => {
@@ -72,7 +94,7 @@ export function useLiveCursors() {
   }, []);
 
   return {
-    cursors: Object.values(cursors).filter(c => c.userId !== 'current'),
+    cursors: Object.values(cursors).filter(c => c.userId !== 'current' && c.userId !== localStorage.getItem('userId')),
     updateCursor,
     isEnabled,
     setIsEnabled,

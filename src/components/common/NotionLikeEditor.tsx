@@ -33,6 +33,7 @@ export function NotionLikeEditor({
   const [commandPosition, setCommandPosition] = useState({ x: 0, y: 0 });
   const [searchTerm, setSearchTerm] = useState('');
   const editorRef = useRef<HTMLDivElement>(null);
+  const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
 
   const commands = [
     { id: 'paragraph', label: 'Text', icon: Type, description: 'Just start writing with plain text.' },
@@ -91,10 +92,11 @@ export function NotionLikeEditor({
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       const newBlockId = addBlock(blockId);
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
         const newElement = document.querySelector(`[data-block-id="${newBlockId}"]`) as HTMLElement;
         newElement?.focus();
       }, 0);
+      timeoutsRef.current.push(timeout);
     }
 
     if (e.key === 'Backspace' && block.content === '') {
@@ -131,11 +133,11 @@ export function NotionLikeEditor({
     updateBlock(blockId, { type: commandId as Block['type'], content: '' });
     setShowCommands(false);
     setSearchTerm('');
-    
-    setTimeout(() => {
+    const timeout = setTimeout(() => {
       const element = document.querySelector(`[data-block-id="${blockId}"]`) as HTMLElement;
       element?.focus();
     }, 0);
+    timeoutsRef.current.push(timeout);
   };
 
   const toggleTodo = (blockId: string) => {
@@ -197,6 +199,13 @@ export function NotionLikeEditor({
     }
   };
 
+  useEffect(() => {
+    return () => {
+      timeoutsRef.current.forEach(clearTimeout);
+      timeoutsRef.current = [];
+    };
+  }, []);
+
   return (
     <div className={cn("relative", className)} ref={editorRef}>
       <div className="space-y-2">
@@ -211,7 +220,6 @@ export function NotionLikeEditor({
                 getBlockClassName(block.type),
                 block.completed && "line-through text-theme-gray"
               )}
-              placeholder={getBlockPlaceholder(block.type)}
               onKeyDown={(e) => handleKeyDown(e, block.id)}
               onInput={(e) => handleInput(e, block.id)}
               onFocus={() => setActiveBlockId(block.id)}

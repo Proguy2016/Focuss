@@ -57,7 +57,7 @@ export function DatabaseView({ items, onItemUpdate, onItemAdd, onItemDelete, cla
   ];
 
   const statusColors = {
-    'Not Started': 'bg-theme-gray/10 text-theme-gray-dark border-theme-gray/30',
+    'Not Started': 'bg-gray/10 text-gray border-gray/30',
     'In Progress': 'bg-theme-yellow/10 text-theme-yellow border-theme-yellow/30',
     'Done': 'bg-theme-emerald/10 text-theme-emerald border-theme-emerald/30',
   };
@@ -135,29 +135,29 @@ export function DatabaseView({ items, onItemUpdate, onItemAdd, onItemDelete, cla
   };
 
   const renderExpandedView = (item: DatabaseItem) => (
-    <div className="mt-4 p-4 bg-gray-50/50 rounded-lg border border-gray-200/60">
+    <div className="mt-4 p-4 bg-dark/30 rounded-lg border border-white/10">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Project Details */}
         <div>
-          <h4 className="font-semibold text-theme-dark mb-3">Project Details</h4>
+          <h4 className="font-semibold text-white mb-3">Project Details</h4>
           <div className="space-y-3">
             <div>
-              <span className="text-sm text-theme-gray-dark">Description:</span>
-              <p className="text-sm text-theme-dark mt-1">{item.description || 'No description provided'}</p>
+              <span className="text-sm text-gray">Description:</span>
+              <p className="text-sm text-white mt-1">{item.description || 'No description provided'}</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <span className="text-sm text-theme-gray-dark">Estimated Hours:</span>
-                <div className="text-sm font-semibold text-theme-dark">{item.estimatedHours || 0}h</div>
+                <span className="text-sm text-gray">Estimated Hours:</span>
+                <div className="text-sm font-semibold text-white">{item.estimatedHours || 0}h</div>
               </div>
               <div>
-                <span className="text-sm text-theme-gray-dark">Actual Hours:</span>
-                <div className="text-sm font-semibold text-theme-dark">{item.actualHours || 0}h</div>
+                <span className="text-sm text-gray">Actual Hours:</span>
+                <div className="text-sm font-semibold text-white">{item.actualHours || 0}h</div>
               </div>
             </div>
             {item.blockers && item.blockers.length > 0 && (
               <div>
-                <span className="text-sm text-theme-gray-dark">Blockers:</span>
+                <span className="text-sm text-gray">Blockers:</span>
                 <div className="mt-1 space-y-1">
                   {item.blockers.map((blocker, index) => (
                     <div key={index} className="flex items-center gap-2 text-sm text-theme-red">
@@ -173,13 +173,13 @@ export function DatabaseView({ items, onItemUpdate, onItemAdd, onItemDelete, cla
 
         {/* Task Assignments */}
         <div>
-          <h4 className="font-semibold text-theme-dark mb-3">Task Assignments</h4>
+          <h4 className="font-semibold text-white mb-3">Task Assignments</h4>
           {item.subtasks && item.subtasks.length > 0 ? (
             <div className="space-y-3">
               {item.subtasks.map((subtask) => (
-                <div key={subtask.id} className="p-3 bg-white rounded-lg border border-gray-200/60">
+                <div key={subtask.id} className="p-3 bg-dark/40 rounded-lg border border-white/10">
                   <div className="flex items-center justify-between mb-2">
-                    <h5 className="font-medium text-theme-dark text-sm">{subtask.title}</h5>
+                    <h5 className="font-medium text-white text-sm">{subtask.title}</h5>
                     <Badge variant="secondary" className={cn("text-xs", statusColors[subtask.status === 'todo' ? 'Not Started' : subtask.status === 'in-progress' ? 'In Progress' : 'Done'])}>
                       {subtask.status === 'todo' ? 'Not Started' : subtask.status === 'in-progress' ? 'In Progress' : 'Done'}
                     </Badge>
@@ -191,19 +191,19 @@ export function DatabaseView({ items, onItemUpdate, onItemAdd, onItemDelete, cla
                           {subtask.assignee.split(' ').map(n => n[0]).join('')}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-xs text-theme-gray-dark">{subtask.assignee}</span>
+                      <span className="text-xs text-gray">{subtask.assignee}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Progress value={subtask.progress} className="w-16 h-1.5" />
-                      <span className="text-xs font-semibold text-theme-dark">{subtask.progress}%</span>
+                      <span className="text-xs font-semibold text-white">{subtask.progress}%</span>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-center py-6 text-theme-gray-dark">
-              <Users className="w-8 h-8 mx-auto mb-2 text-theme-gray" />
+            <div className="text-center py-6 text-gray">
+              <Users className="w-8 h-8 mx-auto mb-2 text-gray" />
               <p className="text-sm">No subtasks assigned yet</p>
             </div>
           )}
@@ -213,17 +213,17 @@ export function DatabaseView({ items, onItemUpdate, onItemAdd, onItemDelete, cla
   );
 
   const renderTableView = () => (
-    <div className="border border-gray-200/60 rounded-xl overflow-hidden bg-white">
+    <div className="border border-white/10 rounded-xl overflow-hidden bg-dark/30">
       <table className="w-full">
-        <thead className="bg-gradient-to-r from-theme-primary/5 to-theme-secondary/5 border-b border-gray-200/60">
+        <thead className="bg-gradient-to-r from-theme-primary/10 to-theme-secondary/10 border-b border-white/10">
           <tr>
-            <th className="text-left p-4 font-semibold text-theme-dark w-8"></th>
-            <th className="text-left p-4 font-semibold text-theme-dark">Title</th>
-            <th className="text-left p-4 font-semibold text-theme-dark">Status</th>
-            <th className="text-left p-4 font-semibold text-theme-dark">Priority</th>
-            <th className="text-left p-4 font-semibold text-theme-dark">Progress</th>
-            <th className="text-left p-4 font-semibold text-theme-dark">Team</th>
-            <th className="text-left p-4 font-semibold text-theme-dark">Due Date</th>
+            <th className="text-left p-4 font-semibold text-white w-8"></th>
+            <th className="text-left p-4 font-semibold text-white">Title</th>
+            <th className="text-left p-4 font-semibold text-white">Status</th>
+            <th className="text-left p-4 font-semibold text-white">Priority</th>
+            <th className="text-left p-4 font-semibold text-white">Progress</th>
+            <th className="text-left p-4 font-semibold text-white">Team</th>
+            <th className="text-left p-4 font-semibold text-white">Due Date</th>
             <th className="w-12"></th>
           </tr>
         </thead>
@@ -236,8 +236,8 @@ export function DatabaseView({ items, onItemUpdate, onItemAdd, onItemDelete, cla
             return (
               <React.Fragment key={item.id}>
                 <tr className={cn(
-                  "border-b border-gray-200/60 hover:bg-theme-primary/5 transition-colors",
-                  index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
+                  "border-b border-white/10 hover:bg-theme-primary/10 transition-colors",
+                  index % 2 === 0 ? 'bg-dark/30' : 'bg-dark/40'
                 )}>
                   <td className="p-4">
                     <Button
@@ -254,13 +254,13 @@ export function DatabaseView({ items, onItemUpdate, onItemAdd, onItemDelete, cla
                     </Button>
                   </td>
                   <td className="p-4">
-                    <div className="font-medium text-theme-dark">{item.title}</div>
+                    <div className="font-medium text-white">{item.title}</div>
                     <div className="flex gap-1 mt-1">
                       <Badge variant="secondary" className={cn("text-xs", typeColors[item.type])}>
                         {item.type}
                       </Badge>
                       {item.tags.slice(0, 2).map(tag => (
-                        <Badge key={tag} variant="outline" className="text-xs">
+                        <Badge key={tag} variant="outline" className="text-xs border-white/10 text-gray">
                           {tag}
                         </Badge>
                       ))}
@@ -279,28 +279,28 @@ export function DatabaseView({ items, onItemUpdate, onItemAdd, onItemDelete, cla
                   <td className="p-4">
                     <div className="flex items-center gap-2">
                       <Progress value={progress} className="w-16 h-2" />
-                      <span className="text-sm font-semibold text-theme-dark">{progress}%</span>
+                      <span className="text-sm font-semibold text-white">{progress}%</span>
                     </div>
                   </td>
                   <td className="p-4">
                     <div className="flex -space-x-1">
                       {assignees.slice(0, 3).map(assignee => (
-                        <Avatar key={assignee} className="w-6 h-6 border border-white ring-1 ring-theme-primary/20">
+                        <Avatar key={assignee} className="w-6 h-6 border border-dark ring-1 ring-theme-primary/20">
                           <AvatarFallback className="text-xs bg-gradient-to-br from-theme-primary to-theme-secondary text-white">
                             {assignee?.split(' ').map(n => n[0]).join('')}
                           </AvatarFallback>
                         </Avatar>
                       ))}
                       {assignees.length > 3 && (
-                        <div className="w-6 h-6 bg-theme-gray/20 border border-white rounded-full flex items-center justify-center">
-                          <span className="text-xs font-bold text-theme-gray-dark">+{assignees.length - 3}</span>
+                        <div className="w-6 h-6 bg-dark/50 border border-dark rounded-full flex items-center justify-center">
+                          <span className="text-xs font-bold text-gray">+{assignees.length - 3}</span>
                         </div>
                       )}
                     </div>
                   </td>
                   <td className="p-4">
                     {item.dueDate && (
-                      <div className="flex items-center gap-1 text-sm text-theme-gray-dark">
+                      <div className="flex items-center gap-1 text-sm text-gray">
                         <Clock className="w-3 h-3" />
                         <span>{item.dueDate.toLocaleDateString()}</span>
                       </div>
@@ -313,17 +313,17 @@ export function DatabaseView({ items, onItemUpdate, onItemAdd, onItemDelete, cla
                           <MoreHorizontal className="w-4 h-4" />
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-48" align="end">
+                      <PopoverContent className="w-48 bg-dark/90 border-white/10" align="end">
                         <div className="space-y-1">
-                          <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
+                          <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-gray hover:text-white">
                             <Edit className="w-4 h-4" />
                             Edit
                           </Button>
-                          <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
+                          <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-gray hover:text-white">
                             <Users className="w-4 h-4" />
                             Assign Tasks
                           </Button>
-                          <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
+                          <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-gray hover:text-white">
                             <Plus className="w-4 h-4" />
                             Duplicate
                           </Button>
@@ -364,7 +364,7 @@ export function DatabaseView({ items, onItemUpdate, onItemAdd, onItemDelete, cla
         {columns.map(status => (
           <div key={status} className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-theme-dark">{status}</h3>
+              <h3 className="font-semibold text-white">{status}</h3>
               <Badge variant="secondary" className="text-xs">
                 {sortedItems.filter(item => item.status === status).length}
               </Badge>
@@ -377,8 +377,8 @@ export function DatabaseView({ items, onItemUpdate, onItemAdd, onItemDelete, cla
                   const assignees = getAssigneeList(item);
                   
                   return (
-                    <div key={item.id} className="p-4 bg-white border border-gray-200/60 rounded-xl hover:shadow-custom transition-all notion-hover">
-                      <div className="font-medium text-theme-dark mb-2">{item.title}</div>
+                    <div key={item.id} className="p-4 bg-dark/30 border border-white/10 rounded-xl hover:shadow-custom transition-all notion-hover">
+                      <div className="font-medium text-white mb-2">{item.title}</div>
                       <div className="flex items-center gap-2 mb-3">
                         <Badge variant="secondary" className={cn("text-xs", priorityColors[item.priority])}>
                           {item.priority}
@@ -389,22 +389,22 @@ export function DatabaseView({ items, onItemUpdate, onItemAdd, onItemDelete, cla
                       </div>
                       <div className="mb-3">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs text-theme-gray-dark">Progress:</span>
-                          <span className="text-xs font-semibold text-theme-dark">{progress}%</span>
+                          <span className="text-xs text-gray">Progress:</span>
+                          <span className="text-xs font-semibold text-white">{progress}%</span>
                         </div>
                         <Progress value={progress} className="h-1.5" />
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex gap-1">
                           {item.tags.slice(0, 2).map(tag => (
-                            <Badge key={tag} variant="outline" className="text-xs">
+                            <Badge key={tag} variant="outline" className="text-xs border-white/10 text-gray">
                               {tag}
                             </Badge>
                           ))}
                         </div>
                         <div className="flex -space-x-1">
                           {assignees.slice(0, 2).map(assignee => (
-                            <Avatar key={assignee} className="w-5 h-5 border border-white">
+                            <Avatar key={assignee} className="w-5 h-5 border border-dark">
                               <AvatarFallback className="text-xs bg-gradient-to-br from-theme-primary to-theme-secondary text-white">
                                 {assignee?.split(' ').map(n => n[0]).join('')}
                               </AvatarFallback>
@@ -430,17 +430,17 @@ export function DatabaseView({ items, onItemUpdate, onItemAdd, onItemDelete, cla
         
         return (
           <Collapsible key={item.id}>
-            <div className="flex items-center gap-4 p-4 bg-white border border-gray-200/60 rounded-xl hover:bg-theme-primary/5 transition-colors notion-hover">
+            <div className="flex items-center gap-4 p-4 bg-dark/30 border border-white/10 rounded-xl hover:bg-theme-primary/10 transition-colors notion-hover">
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="sm" className="w-6 h-6 p-0">
                   <ChevronRight className="w-3 h-3" />
                 </Button>
               </CollapsibleTrigger>
               <div className="flex-1">
-                <div className="font-medium text-theme-dark">{item.title}</div>
+                <div className="font-medium text-white">{item.title}</div>
                 <div className="flex items-center gap-2 mt-1">
                   <Progress value={progress} className="w-20 h-1.5" />
-                  <span className="text-xs text-theme-gray-dark">{progress}%</span>
+                  <span className="text-xs text-gray">{progress}%</span>
                 </div>
               </div>
               <Badge variant="secondary" className={cn("text-xs", statusColors[item.status])}>
@@ -451,7 +451,7 @@ export function DatabaseView({ items, onItemUpdate, onItemAdd, onItemDelete, cla
               </Badge>
               <div className="flex -space-x-1">
                 {assignees.slice(0, 2).map(assignee => (
-                  <Avatar key={assignee} className="w-6 h-6 border border-white">
+                  <Avatar key={assignee} className="w-6 h-6 border border-dark">
                     <AvatarFallback className="text-xs bg-gradient-to-br from-theme-primary to-theme-secondary text-white">
                       {assignee?.split(' ').map(n => n[0]).join('')}
                     </AvatarFallback>
@@ -464,9 +464,9 @@ export function DatabaseView({ items, onItemUpdate, onItemAdd, onItemDelete, cla
                     <MoreHorizontal className="w-4 h-4" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-48" align="end">
+                <PopoverContent className="w-48 bg-dark/90 border-white/10" align="end">
                   <div className="space-y-1">
-                    <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
+                    <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-gray hover:text-white">
                       <Edit className="w-4 h-4" />
                       Edit
                     </Button>
@@ -499,10 +499,10 @@ export function DatabaseView({ items, onItemUpdate, onItemAdd, onItemDelete, cla
       case 'list': return renderListView();
       case 'calendar': 
         return (
-          <div className="flex items-center justify-center h-64 bg-white border border-gray-200/60 rounded-xl">
+          <div className="flex items-center justify-center h-64 bg-dark/30 border border-white/10 rounded-xl">
             <div className="text-center">
-              <Calendar className="w-12 h-12 mx-auto mb-4 text-theme-gray" />
-              <p className="text-theme-gray-dark">Calendar view coming soon</p>
+              <Calendar className="w-12 h-12 mx-auto mb-4 text-gray" />
+              <p className="text-gray">Calendar view coming soon</p>
             </div>
           </div>
         );
@@ -515,7 +515,7 @@ export function DatabaseView({ items, onItemUpdate, onItemAdd, onItemDelete, cla
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 bg-white border border-gray-200/60 rounded-lg p-1">
+          <div className="flex items-center gap-1 bg-dark/40 border border-white/10 rounded-lg p-1">
             {views.map(view => (
               <Button
                 key={view.id}
@@ -526,7 +526,7 @@ export function DatabaseView({ items, onItemUpdate, onItemAdd, onItemDelete, cla
                   "gap-2 h-8",
                   viewType === view.id 
                     ? "bg-theme-primary text-white shadow-glow" 
-                    : "text-theme-gray-dark hover:text-theme-dark hover:bg-theme-primary/10"
+                    : "text-gray hover:text-white hover:bg-theme-primary/10"
                 )}
               >
                 <view.icon className="w-4 h-4" />
@@ -541,22 +541,22 @@ export function DatabaseView({ items, onItemUpdate, onItemAdd, onItemDelete, cla
       <div className="flex items-center gap-4 flex-wrap">
         <div className="flex-1 min-w-64">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-theme-gray-dark" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray" />
             <Input
               placeholder="Search projects and tasks..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 border-theme-primary/30 focus:border-theme-primary"
+              className="pl-10 bg-dark/50 border-white/10 text-white focus:border-theme-primary"
             />
           </div>
         </div>
         
         <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-40 bg-dark/50 border-white/10 text-gray">
             <Filter className="w-4 h-4 mr-2" />
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-dark border-white/10">
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="Not Started">Not Started</SelectItem>
             <SelectItem value="In Progress">In Progress</SelectItem>
@@ -565,11 +565,11 @@ export function DatabaseView({ items, onItemUpdate, onItemAdd, onItemDelete, cla
         </Select>
 
         <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-40 bg-dark/50 border-white/10 text-gray">
             <Sort className="w-4 h-4 mr-2" />
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-dark border-white/10">
             <SelectItem value="title">Title</SelectItem>
             <SelectItem value="status">Status</SelectItem>
             <SelectItem value="priority">Priority</SelectItem>

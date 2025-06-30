@@ -16,15 +16,26 @@ interface DrawingElement {
   strokeWidth: number;
 }
 
-export function WhiteboardTab() {
+interface WhiteboardTabProps {
+  elements?: DrawingElement[];
+  onUpdateElements?: (elements: DrawingElement[]) => void;
+}
+
+export function WhiteboardTab({ elements = [], onUpdateElements }: WhiteboardTabProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [tool, setTool] = useState<'pen' | 'rectangle' | 'circle' | 'text' | 'eraser'>('pen');
   const [color, setColor] = useState('#04d9d9');
   const [strokeWidth, setStrokeWidth] = useState(2);
-  const [elements, setElements] = useState<DrawingElement[]>([]);
+  const [localElements, setLocalElements] = useState<DrawingElement[]>(elements);
   const [history, setHistory] = useState<DrawingElement[][]>([[]]);
   const [historyIndex, setHistoryIndex] = useState(0);
+
+  // Update local elements when props change
+  useEffect(() => {
+    setLocalElements(elements);
+  }, [elements]);
 
   const tools = [
     { id: 'pen', icon: Pen, label: 'Pen' },
@@ -35,8 +46,70 @@ export function WhiteboardTab() {
   ];
 
   const colors = [
-    '#04d9d9', '#ef4444', '#f59e0b', '#34d399', '#8b5cf6', '#ec4899', '#000000'
+    '#04d9d9', '#ef4444', '#f59e0b', '#34d399', '#8b5cf6', '#ec4899', '#ffffff'
   ];
+
+  const drawGrid = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    const gridSize = 20;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 1;
+    
+    // Draw vertical lines
+    for (let x = 0; x <= width; x += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+      ctx.stroke();
+    }
+    
+    // Draw horizontal lines
+    for (let y = 0; y <= height; y += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+  };
+
+  const saveCanvasState = () => {
+    // Save to history
+    setHistory(prev => [...prev.slice(0, historyIndex + 1), localElements]);
+    setHistoryIndex(prev => prev + 1);
+  };
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    const container = containerRef.current;
+    
+    const resizeCanvas = () => {
+      if (container) {
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+        
+        // Fill with dark background
+        ctx.fillStyle = 'rgba(0, 32, 36, 0.3)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Add grid pattern
+        drawGrid(ctx, canvas.width, canvas.height);
+      }
+    };
+    
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
+    // Save initial canvas state
+    saveCanvasState();
+    
+    return () => {
+      window.removeEventListener('resize', resizeCanvas);
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -52,7 +125,14 @@ export function WhiteboardTab() {
     // Clear and redraw
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    elements.forEach(element => {
+    // Fill with dark background
+    ctx.fillStyle = 'rgba(0, 32, 36, 0.3)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Add grid pattern
+    drawGrid(ctx, canvas.width, canvas.height);
+    
+    localElements.forEach(element => {
       ctx.strokeStyle = element.color;
       ctx.lineWidth = element.strokeWidth;
       ctx.lineCap = 'round';
@@ -76,7 +156,7 @@ export function WhiteboardTab() {
         ctx.stroke();
       }
     });
-  }, [elements]);
+  }, [localElements]);
 
   const startDrawing = (e: React.MouseEvent) => {
     setIsDrawing(true);
@@ -94,7 +174,13 @@ export function WhiteboardTab() {
         color,
         strokeWidth,
       };
-      setElements(prev => [...prev, newElement]);
+      const updatedElements = [...localElements, newElement];
+      setLocalElements(updatedElements);
+      
+      // Sync with server if callback provided
+      if (onUpdateElements) {
+        onUpdateElements(updatedElements);
+      }
     }
   };
 
@@ -107,49 +193,71 @@ export function WhiteboardTab() {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    setElements(prev => {
-      const newElements = [...prev];
-      const lastElement = newElements[newElements.length - 1];
-      if (lastElement && lastElement.points) {
-        lastElement.points.push(x, y);
-      }
-      return newElements;
-    });
+    const updatedElements = [...localElements];
+    const lastElement = updatedElements[updatedElements.length - 1];
+    if (lastElement && lastElement.points) {
+      lastElement.points.push(x, y);
+      setLocalElements(updatedElements);
+    }
   };
 
   const stopDrawing = () => {
     if (isDrawing) {
       setIsDrawing(false);
       // Save to history
-      setHistory(prev => [...prev.slice(0, historyIndex + 1), elements]);
+      setHistory(prev => [...prev.slice(0, historyIndex + 1), localElements]);
       setHistoryIndex(prev => prev + 1);
+      
+      // Sync with server if callback provided
+      if (onUpdateElements) {
+        onUpdateElements(localElements);
+      }
     }
   };
 
   const undo = () => {
     if (historyIndex > 0) {
-      setHistoryIndex(prev => prev - 1);
-      setElements(history[historyIndex - 1]);
+      const newHistoryIndex = historyIndex - 1;
+      setHistoryIndex(newHistoryIndex);
+      const updatedElements = history[newHistoryIndex];
+      setLocalElements(updatedElements);
+      
+      // Sync with server if callback provided
+      if (onUpdateElements) {
+        onUpdateElements(updatedElements);
+      }
     }
   };
 
   const redo = () => {
     if (historyIndex < history.length - 1) {
-      setHistoryIndex(prev => prev + 1);
-      setElements(history[historyIndex + 1]);
+      const newHistoryIndex = historyIndex + 1;
+      setHistoryIndex(newHistoryIndex);
+      const updatedElements = history[newHistoryIndex];
+      setLocalElements(updatedElements);
+      
+      // Sync with server if callback provided
+      if (onUpdateElements) {
+        onUpdateElements(updatedElements);
+      }
     }
   };
 
   const clearCanvas = () => {
-    setElements([]);
+    setLocalElements([]);
     setHistory([[]]);
     setHistoryIndex(0);
+    
+    // Sync with server if callback provided
+    if (onUpdateElements) {
+      onUpdateElements([]);
+    }
   };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-white to-gray-50/50">
+    <div className="flex flex-col h-full animated-bg" ref={containerRef}>
       {/* Toolbar */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200/60 bg-white/90 backdrop-blur-glass">
+      <div className="flex items-center justify-between p-4 border-b border-white/10 bg-dark/30 backdrop-blur-glass">
         <div className="flex items-center gap-2">
           {tools.map((toolItem) => (
             <Button
@@ -161,14 +269,14 @@ export function WhiteboardTab() {
                 "w-10 h-10 p-0",
                 tool === toolItem.id 
                   ? "bg-gradient-to-r from-theme-primary to-theme-secondary text-white shadow-glow"
-                  : "border-theme-primary/30 hover:bg-theme-primary/10 text-theme-primary"
+                  : "border-white/10 hover:bg-theme-primary/10 text-theme-primary"
               )}
             >
               <toolItem.icon className="w-4 h-4" />
             </Button>
           ))}
           
-          <div className="w-px h-6 bg-gray-300 mx-2" />
+          <div className="w-px h-6 bg-white/10 mx-2" />
           
           <div className="flex items-center gap-2">
             {colors.map((colorOption) => (
@@ -177,14 +285,14 @@ export function WhiteboardTab() {
                 onClick={() => setColor(colorOption)}
                 className={cn(
                   "w-8 h-8 rounded-lg border-2 transition-all",
-                  color === colorOption ? "border-gray-400 scale-110" : "border-gray-200 hover:scale-105"
+                  color === colorOption ? "border-white scale-110" : "border-white/20 hover:scale-105"
                 )}
                 style={{ backgroundColor: colorOption }}
               />
             ))}
           </div>
 
-          <div className="w-px h-6 bg-gray-300 mx-2" />
+          <div className="w-px h-6 bg-white/10 mx-2" />
 
           <input
             type="range"
@@ -194,27 +302,27 @@ export function WhiteboardTab() {
             onChange={(e) => setStrokeWidth(Number(e.target.value))}
             className="w-20"
           />
-          <span className="text-sm text-theme-gray-dark w-8">{strokeWidth}px</span>
+          <span className="text-sm text-gray w-8">{strokeWidth}px</span>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={undo} disabled={historyIndex === 0}>
+          <Button variant="outline" size="sm" onClick={undo} disabled={historyIndex === 0} className="border-white/10 text-gray hover:text-white">
             <Undo className="w-4 h-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={redo} disabled={historyIndex === history.length - 1}>
+          <Button variant="outline" size="sm" onClick={redo} disabled={historyIndex === history.length - 1} className="border-white/10 text-gray hover:text-white">
             <Redo className="w-4 h-4" />
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" className="border-white/10 text-gray hover:text-white">
             <Download className="w-4 h-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={clearCanvas}>
+          <Button variant="outline" size="sm" onClick={clearCanvas} className="border-white/10 text-gray hover:text-white">
             <Trash2 className="w-4 h-4" />
           </Button>
         </div>
       </div>
 
       {/* Canvas */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 relative overflow-hidden bg-dark/20">
         <canvas
           ref={canvasRef}
           className="absolute inset-0 w-full h-full cursor-crosshair"

@@ -9,14 +9,16 @@ import { RealtimeCollaborationIndicator } from '@/components/common/RealtimeColl
 import { SmartSuggestionsPanel } from '@/components/common/SmartSuggestionsPanel';
 import { useTypingIndicators } from '@/hooks/useTypingIndicators';
 import { useRealtimeCollaboration } from '@/hooks/useRealtimeCollaboration';
-import { Message } from '@/hooks/useRoom';
+import { Message, Participant } from '@/hooks/useRoom';
 
 interface ChatTabProps {
   messages: Message[];
   onSendMessage: (content: string) => void;
+  onTyping?: (isTyping: boolean) => void;
+  participants?: Participant[];
 }
 
-export function ChatTab({ messages, onSendMessage }: ChatTabProps) {
+export function ChatTab({ messages, onSendMessage, onTyping, participants = [] }: ChatTabProps) {
   const [newMessage, setNewMessage] = useState('');
   const { startTyping, stopTyping, getTypingUsersForLocation } = useTypingIndicators();
   const { startEdit, endEdit } = useRealtimeCollaboration();
@@ -26,32 +28,38 @@ export function ChatTab({ messages, onSendMessage }: ChatTabProps) {
   const typingUsers = getTypingUsersForLocation('chat');
 
   useEffect(() => {
-    let timeout: NodeJS.Timeout;
+    let timeout: NodeJS.Timeout | undefined;
     
     if (newMessage && !isTyping) {
       setIsTyping(true);
       startTyping('chat');
       startEdit('text', 'chat-input', { content: newMessage });
+      if (onTyping) onTyping(true);
     }
 
     if (newMessage) {
-      clearTimeout(timeout);
+      if (timeout) clearTimeout(timeout);
       timeout = setTimeout(() => {
         setIsTyping(false);
         stopTyping('chat');
         endEdit('chat-input');
+        if (onTyping) onTyping(false);
       }, 1000);
     } else if (isTyping) {
       setIsTyping(false);
       stopTyping('chat');
       endEdit('chat-input');
+      if (onTyping) onTyping(false);
     }
 
     // Show suggestions for longer messages
     setShowSuggestions(newMessage.length > 20);
 
-    return () => clearTimeout(timeout);
-  }, [newMessage, isTyping, startTyping, stopTyping, startEdit, endEdit]);
+    return () => {
+      if (timeout) clearTimeout(timeout);
+      if (isTyping && onTyping) onTyping(false);
+    };
+  }, [newMessage, isTyping, startTyping, stopTyping, startEdit, endEdit, onTyping]);
 
   const handleSend = () => {
     if (newMessage.trim()) {
@@ -61,6 +69,7 @@ export function ChatTab({ messages, onSendMessage }: ChatTabProps) {
       stopTyping('chat');
       endEdit('chat-input');
       setShowSuggestions(false);
+      if (onTyping) onTyping(false);
     }
   };
 
@@ -75,26 +84,25 @@ export function ChatTab({ messages, onSendMessage }: ChatTabProps) {
     return new Intl.DateTimeFormat('en-US', {
       hour: 'numeric',
       minute: '2-digit',
-    }).format(date);
+    }).format(date instanceof Date ? date : new Date(date));
   };
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
-  // Mock user data
-  const users = {
-    '1': { name: 'Sarah Chen', avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&dpr=2' },
-    '2': { name: 'Marcus Johnson', avatar: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&dpr=2' },
-    '3': { name: 'Elena Rodriguez', avatar: 'https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&dpr=2' },
+  // Get user data from participants
+  const getUserInfo = (userId: string) => {
+    const participant = participants.find(p => p.id === userId);
+    return participant || { id: userId, name: 'Unknown User', status: 'offline' as const };
   };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-white to-gray-50/50 relative">
+    <div className="flex flex-col h-full animated-bg relative">
       <ScrollArea className="flex-1 p-6">
         <div className="space-y-6">
           {messages.map((message) => {
-            const user = users[message.userId as keyof typeof users] || { name: 'Unknown User' };
+            const user = getUserInfo(message.userId);
             return (
               <div key={message.id} className="flex items-start gap-4">
                 <Avatar className="w-9 h-9 ring-1 ring-theme-primary/20 shadow-custom">
@@ -105,14 +113,14 @@ export function ChatTab({ messages, onSendMessage }: ChatTabProps) {
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-2">
-                    <span className="font-bold text-theme-dark">{user.name}</span>
-                    <span className="text-xs text-theme-gray-dark">{formatTime(message.timestamp)}</span>
+                    <span className="font-bold text-white">{user.name}</span>
+                    <span className="text-xs text-gray">{formatTime(message.timestamp)}</span>
                   </div>
-                  <div className="text-theme-gray-dark leading-relaxed">
+                  <div className="text-gray leading-relaxed">
                     {message.type === 'file' ? (
-                      <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-theme-primary/10 to-theme-secondary/5 rounded-xl border border-theme-primary/20 hover:bg-theme-primary/15 transition-colors shadow-custom">
+                      <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-theme-primary/10 to-theme-secondary/10 rounded-xl border border-theme-primary/20 hover:bg-theme-primary/15 transition-colors shadow-custom">
                         <Paperclip className="w-4 h-4 text-theme-primary" />
-                        <span className="font-semibold text-theme-dark">{message.content}</span>
+                        <span className="font-semibold text-white">{message.content}</span>
                       </div>
                     ) : (
                       message.content
@@ -143,7 +151,7 @@ export function ChatTab({ messages, onSendMessage }: ChatTabProps) {
         </div>
       )}
       
-      <div className="border-t border-gray-200/60 p-6 bg-gradient-to-r from-white to-gray-50/50 backdrop-blur-glass">
+      <div className="border-t border-white/10 p-6 bg-dark/30 backdrop-blur-glass">
         {/* Real-time Collaboration Indicator */}
         <div className="mb-3">
           <RealtimeCollaborationIndicator location="chat-input" />
@@ -156,14 +164,14 @@ export function ChatTab({ messages, onSendMessage }: ChatTabProps) {
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Type a message..."
-              className="border-theme-primary/30 focus:border-theme-primary focus:ring-theme-primary/20 bg-white shadow-custom"
+              className="border-white/10 focus:border-theme-primary focus:ring-theme-primary/20 bg-dark/50 text-white shadow-custom"
             />
           </div>
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" className="w-10 h-10 p-0 hover:bg-theme-primary/10 text-theme-gray-dark hover:text-theme-primary">
+            <Button variant="ghost" size="sm" className="w-10 h-10 p-0 hover:bg-theme-primary/10 text-gray hover:text-theme-primary">
               <Paperclip className="w-4 h-4" />
             </Button>
-            <Button variant="ghost" size="sm" className="w-10 h-10 p-0 hover:bg-theme-primary/10 text-theme-gray-dark hover:text-theme-primary">
+            <Button variant="ghost" size="sm" className="w-10 h-10 p-0 hover:bg-theme-primary/10 text-gray hover:text-theme-primary">
               <Smile className="w-4 h-4" />
             </Button>
             <Button 

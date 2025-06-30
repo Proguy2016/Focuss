@@ -1,255 +1,234 @@
-import React from 'react';
-import { Plus, Circle, Clock, AlertCircle, Users, Target, UserPlus } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import React, { useState } from 'react';
+import { Plus, CheckCircle, Circle, Clock, Calendar, MoreHorizontal, User, Tag, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Task } from '@/hooks/useRoom';
 import { cn } from '@/lib/utils';
 
 interface TasksTabProps {
   tasks: Task[];
   onUpdateTask: (taskId: string, updates: Partial<Task>) => void;
-  onAssignTask?: () => void;
+  onAssignTask: () => void;
 }
 
 export function TasksTab({ tasks, onUpdateTask, onAssignTask }: TasksTabProps) {
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'bg-theme-red/10 text-theme-red border-theme-red/30';
-      case 'medium':
-        return 'bg-theme-yellow/10 text-theme-yellow border-theme-yellow/30';
-      case 'low':
-        return 'bg-theme-emerald/10 text-theme-emerald border-theme-emerald/30';
-      default:
-        return 'bg-theme-gray/10 text-theme-gray-dark border-theme-gray/30';
-    }
+  const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'completed'>('all');
+  
+  const filteredTasks = tasks.filter(task => {
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'active') return !task.completed;
+    if (activeFilter === 'completed') return task.completed;
+    return true;
+  });
+
+  const handleToggleComplete = (taskId: string, completed: boolean) => {
+    onUpdateTask(taskId, { completed });
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <Circle className="w-5 h-5 text-theme-emerald fill-current" />;
-      case 'in-progress':
-        return <Clock className="w-5 h-5 text-theme-primary" />;
-      default:
-        return <Circle className="w-5 h-5 text-theme-gray" />;
-    }
-  };
-
-  const toggleTaskStatus = (task: Task) => {
-    const newStatus = task.status === 'completed' ? 'todo' : 
-                     task.status === 'todo' ? 'in-progress' : 'completed';
-    onUpdateTask(task.id, { status: newStatus });
-  };
-
-  // Mock user data
-  const users = {
-    '1': { name: 'Sarah Chen', avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&dpr=2' },
-    '2': { name: 'Marcus Johnson', avatar: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&dpr=2' },
-    '3': { name: 'Elena Rodriguez', avatar: 'https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&dpr=2' },
-  };
-
-  const getInitials = (name: string) => {
+  const getAvatarFallback = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
-  // Enhanced tasks with milestone information
-  const enhancedTasks = tasks.map(task => ({
-    ...task,
-    milestone: task.priority === 'high' ? 'Sprint 1 Milestone' : 'General Tasks',
-    assignedBy: 'Room Admin',
-    estimatedHours: Math.floor(Math.random() * 20) + 5,
-    actualHours: task.status === 'completed' ? Math.floor(Math.random() * 15) + 3 : 0,
-  }));
-
-  // Group tasks by milestone
-  const tasksByMilestone = enhancedTasks.reduce((acc, task) => {
-    if (!acc[task.milestone]) {
-      acc[task.milestone] = [];
+  const getPriorityColor = (priority: 'low' | 'medium' | 'high' | 'urgent') => {
+    switch (priority) {
+      case 'low': return 'bg-theme-primary/10 text-theme-primary border-theme-primary/30';
+      case 'medium': return 'bg-theme-yellow/10 text-theme-yellow border-theme-yellow/30';
+      case 'high': return 'bg-orange-500/10 text-orange-500 border-orange-500/30';
+      case 'urgent': return 'bg-theme-red/10 text-theme-red border-theme-red/30';
+      default: return 'bg-theme-primary/10 text-theme-primary border-theme-primary/30';
     }
-    acc[task.milestone].push(task);
-    return acc;
-  }, {} as Record<string, typeof enhancedTasks>);
+  };
+
+  const formatDate = (date: Date) => {
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+    }).format(date);
+  };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-white to-gray-50/50">
-      <div className="flex items-center justify-between p-6 border-b border-gray-200/60 bg-gradient-to-r from-white to-gray-50/50">
-        <div>
-          <h3 className="font-bold text-theme-dark">Tasks & Milestones</h3>
-          <p className="text-sm text-theme-gray-dark">Tasks assigned by moderators and room admins</p>
+    <div className="flex flex-col h-full animated-bg">
+      <div className="p-6 border-b border-white/10">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-xl font-bold text-white">Tasks & Milestones</h3>
+            <p className="text-gray">Track and manage team tasks and project milestones</p>
+          </div>
+          <Button 
+            onClick={onAssignTask}
+            className="gap-2 bg-gradient-to-r from-theme-primary to-theme-secondary hover:from-theme-primary-dark hover:to-theme-primary text-white shadow-glow"
+          >
+            <Plus className="w-4 h-4" />
+            Assign Task
+          </Button>
         </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="secondary" className="gap-2 bg-theme-primary/10 text-theme-primary border-theme-primary/30">
-            <Target className="w-3 h-3" />
-            {Object.keys(tasksByMilestone).length} Milestones
-          </Badge>
-          {onAssignTask && (
-            <Button 
-              onClick={onAssignTask}
-              size="sm" 
-              className="gap-2 bg-gradient-to-r from-theme-primary to-theme-secondary hover:from-theme-primary-dark hover:to-theme-primary text-white shadow-glow"
-            >
-              <UserPlus className="w-4 h-4" />
-              Assign Task
-            </Button>
-          )}
+
+        <div className="flex items-center justify-between">
+          <Tabs defaultValue="all" className="w-full max-w-md" onValueChange={(value) => setActiveFilter(value as any)}>
+            <TabsList className="bg-dark/30">
+              <TabsTrigger value="all" className="data-[state=active]:bg-theme-primary data-[state=active]:text-white">All Tasks</TabsTrigger>
+              <TabsTrigger value="active" className="data-[state=active]:bg-theme-primary data-[state=active]:text-white">Active</TabsTrigger>
+              <TabsTrigger value="completed" className="data-[state=active]:bg-theme-primary data-[state=active]:text-white">Completed</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 border-white/10 text-gray hover:text-white">
+                  <Filter className="w-4 h-4" />
+                  <span className="hidden sm:inline">Filter</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 bg-dark border-white/10" align="end">
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-white">Filter Tasks</h4>
+                  <div className="space-y-2">
+                    {/* Filter options would go here */}
+                    <div className="text-gray">Filter options coming soon</div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
       </div>
-      
-      <ScrollArea className="flex-1">
-        <div className="p-6 space-y-8">
-          {Object.entries(tasksByMilestone).map(([milestone, milestoneTasks]) => (
-            <div key={milestone} className="space-y-4">
-              {/* Milestone Header */}
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-theme-primary/10 to-theme-secondary/5 rounded-xl border border-theme-primary/20">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-theme-primary to-theme-secondary rounded-lg flex items-center justify-center shadow-glow">
-                    <Target className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-theme-dark">{milestone}</h4>
-                    <p className="text-sm text-theme-gray-dark">
-                      {milestoneTasks.filter(t => t.status === 'completed').length} of {milestoneTasks.length} tasks completed
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <div className="text-sm font-semibold text-theme-dark">
-                      {Math.round((milestoneTasks.filter(t => t.status === 'completed').length / milestoneTasks.length) * 100)}%
-                    </div>
-                    <div className="text-xs text-theme-gray-dark">Complete</div>
-                  </div>
-                  <Progress 
-                    value={(milestoneTasks.filter(t => t.status === 'completed').length / milestoneTasks.length) * 100} 
-                    className="w-24 h-2"
-                  />
-                </div>
-              </div>
 
-              {/* Tasks in Milestone */}
-              <div className="space-y-3 ml-4">
-                {milestoneTasks.map((task) => {
-                  const assignee = task.assigneeId ? users[task.assigneeId as keyof typeof users] : null;
-                  return (
-                    <div
-                      key={task.id}
-                      className={cn(
-                        "p-5 border border-gray-200/60 rounded-xl hover:shadow-custom transition-all duration-200 bg-white/80 backdrop-blur-glass",
-                        task.status === 'completed' && "opacity-60"
-                      )}
-                    >
-                      <div className="flex items-start gap-4">
-                        <button
-                          onClick={() => toggleTaskStatus(task)}
-                          className="mt-1 hover:scale-110 transition-transform"
-                        >
-                          {getStatusIcon(task.status)}
-                        </button>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-3 mb-3">
-                            <div className="flex-1">
-                              <h4 className={cn(
-                                "font-bold text-theme-dark",
-                                task.status === 'completed' && "line-through text-theme-gray"
-                              )}>
-                                {task.title}
-                              </h4>
-                              {task.description && (
-                                <p className="text-theme-gray-dark mt-1 leading-relaxed">{task.description}</p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-3 flex-shrink-0">
-                              <Badge variant="secondary" className={cn("shadow-custom", getPriorityColor(task.priority))}>
-                                {task.priority}
-                              </Badge>
-                              {assignee && (
-                                <div className="flex items-center gap-2">
-                                  <Avatar className="w-7 h-7 ring-1 ring-theme-primary/20 shadow-custom">
-                                    <AvatarImage src={assignee.avatar} alt={assignee.name} />
-                                    <AvatarFallback className="text-xs font-bold bg-gradient-to-br from-theme-primary to-theme-secondary text-white">
-                                      {getInitials(assignee.name)}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <div className="text-xs">
-                                    <div className="font-semibold text-theme-dark">{assignee.name}</div>
-                                    <div className="text-theme-gray-dark">Assignee</div>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
+      <ScrollArea className="flex-1 p-6">
+        <div className="space-y-4">
+          {filteredTasks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="w-16 h-16 bg-theme-primary/10 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle className="w-8 h-8 text-theme-primary" />
+              </div>
+              <h4 className="text-lg font-semibold text-white mb-2">No tasks found</h4>
+              <p className="text-gray max-w-sm">
+                {activeFilter === 'completed' 
+                  ? "No completed tasks yet. Mark tasks as done to see them here."
+                  : activeFilter === 'active'
+                  ? "No active tasks. Create a new task to get started."
+                  : "No tasks have been created yet. Create your first task to get started."}
+              </p>
+              <Button 
+                onClick={onAssignTask}
+                className="mt-6 gap-2 bg-theme-primary/10 text-theme-primary hover:bg-theme-primary/20"
+              >
+                <Plus className="w-4 h-4" />
+                Create Task
+              </Button>
+            </div>
+          ) : (
+            filteredTasks.map((task) => (
+              <div 
+                key={task.id} 
+                className={`p-5 border rounded-xl shadow-custom transition-all duration-200 ${
+                  task.completed 
+                    ? 'bg-dark/20 border-white/5' 
+                    : 'bg-dark/30 border-white/10 hover:border-theme-primary/30'
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <button
+                    onClick={() => handleToggleComplete(task.id, !task.completed)}
+                    className="mt-1 flex-shrink-0"
+                  >
+                    {task.completed ? (
+                      <CheckCircle className="w-5 h-5 text-theme-primary" />
+                    ) : (
+                      <Circle className="w-5 h-5 text-gray" />
+                    )}
+                  </button>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className={`font-semibold ${task.completed ? 'text-gray line-through' : 'text-white'}`}>
+                        {task.title}
+                      </h4>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray hover:text-white">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 bg-dark border-white/10" align="end">
+                          <div className="space-y-1">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="w-full justify-start text-white hover:bg-theme-primary/10"
+                            >
+                              Edit Task
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="w-full justify-start text-theme-red hover:bg-theme-red/10"
+                            >
+                              Delete Task
+                            </Button>
                           </div>
-                          
-                          {/* Task Metadata */}
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3 text-xs">
-                            <div>
-                              <span className="text-theme-gray-dark">Assigned by:</span>
-                              <div className="font-semibold text-theme-dark">{task.assignedBy}</div>
-                            </div>
-                            <div>
-                              <span className="text-theme-gray-dark">Estimated:</span>
-                              <div className="font-semibold text-theme-dark">{task.estimatedHours}h</div>
-                            </div>
-                            <div>
-                              <span className="text-theme-gray-dark">Actual:</span>
-                              <div className="font-semibold text-theme-dark">{task.actualHours}h</div>
-                            </div>
-                            <div>
-                              <span className="text-theme-gray-dark">Status:</span>
-                              <div className="font-semibold text-theme-dark capitalize">
-                                {task.status.replace('-', ' ')}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center justify-between text-xs text-theme-gray-dark">
-                            <div className="flex items-center gap-4">
-                              <div className="flex items-center gap-1">
-                                <Users className="w-3 h-3" />
-                                <span>Room Task</span>
-                              </div>
-                              {task.dueDate && (
-                                <div className="flex items-center gap-1">
-                                  <AlertCircle className="w-3 h-3" />
-                                  <span>Due {task.dueDate.toLocaleDateString()}</span>
-                                </div>
-                              )}
-                            </div>
-                            <div className="text-theme-primary font-semibold">
-                              Milestone: {milestone}
-                            </div>
-                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    
+                    <p className="text-gray text-sm mb-4">
+                      {task.description}
+                    </p>
+                    
+                    {task.progress !== undefined && (
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-gray">Progress</span>
+                          <span className="text-white font-medium">{task.progress}%</span>
                         </div>
+                        <Progress value={task.progress} className="h-1.5" />
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center flex-wrap gap-3 mt-3">
+                      {task.dueDate && (
+                        <Badge variant="outline" className="gap-1.5 border-white/10 text-gray">
+                          <Calendar className="w-3 h-3" />
+                          {formatDate(task.dueDate)}
+                        </Badge>
+                      )}
+                      
+                      {task.priority && (
+                        <Badge className={`gap-1.5 ${getPriorityColor(task.priority)}`}>
+                          <Clock className="w-3 h-3" />
+                          {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                        </Badge>
+                      )}
+                      
+                      {task.tags && task.tags.length > 0 && (
+                        <Badge variant="outline" className="gap-1.5 border-white/10 text-gray">
+                          <Tag className="w-3 h-3" />
+                          {task.tags[0]}{task.tags.length > 1 ? ` +${task.tags.length - 1}` : ''}
+                        </Badge>
+                      )}
+                      
+                      <div className="ml-auto flex items-center">
+                        {task.assignee && (
+                          <div className="flex items-center gap-2">
+                            <User className="w-3 h-3 text-gray" />
+                            <Avatar className="w-6 h-6">
+                              <AvatarFallback className="text-xs bg-theme-primary text-white">
+                                {getAvatarFallback(task.assignee)}
+                              </AvatarFallback>
+                            </Avatar>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
-
-          {/* Empty State */}
-          {enhancedTasks.length === 0 && (
-            <div className="text-center py-12">
-              <Target className="w-16 h-16 mx-auto mb-4 text-theme-gray" />
-              <h3 className="font-semibold text-theme-dark mb-2">No tasks assigned yet</h3>
-              <p className="text-theme-gray-dark mb-6">
-                Room moderators and admins can assign tasks to team members
-              </p>
-              {onAssignTask && (
-                <Button 
-                  onClick={onAssignTask}
-                  className="gap-2 bg-theme-primary hover:bg-theme-primary-dark text-white"
-                >
-                  <UserPlus className="w-4 h-4" />
-                  Assign First Task
-                </Button>
-              )}
-            </div>
+            ))
           )}
         </div>
       </ScrollArea>

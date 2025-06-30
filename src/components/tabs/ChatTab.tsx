@@ -26,31 +26,30 @@ export function ChatTab({ messages, onSendMessage }: ChatTabProps) {
   const typingUsers = getTypingUsersForLocation('chat');
 
   useEffect(() => {
-    let timeout: NodeJS.Timeout;
+    const typingTimeout = setTimeout(() => {
+      if (isTyping) {
+        setIsTyping(false);
+        stopTyping('chat');
+        endEdit('chat-input');
+      }
+    }, 1000);
     
+    return () => clearTimeout(typingTimeout);
+  }, [newMessage, isTyping, stopTyping, endEdit]);
+  
+  useEffect(() => {
     if (newMessage && !isTyping) {
       setIsTyping(true);
       startTyping('chat');
       startEdit('text', 'chat-input', { content: newMessage });
-    }
-
-    if (newMessage) {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        setIsTyping(false);
-        stopTyping('chat');
-        endEdit('chat-input');
-      }, 1000);
-    } else if (isTyping) {
+    } else if (!newMessage && isTyping) {
       setIsTyping(false);
       stopTyping('chat');
       endEdit('chat-input');
     }
-
+    
     // Show suggestions for longer messages
     setShowSuggestions(newMessage.length > 20);
-
-    return () => clearTimeout(timeout);
   }, [newMessage, isTyping, startTyping, stopTyping, startEdit, endEdit]);
 
   const handleSend = () => {
@@ -90,7 +89,7 @@ export function ChatTab({ messages, onSendMessage }: ChatTabProps) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-white to-gray-50/50 relative">
+    <div className="flex flex-col h-full animated-bg relative">
       <ScrollArea className="flex-1 p-6">
         <div className="space-y-6">
           {messages.map((message) => {
@@ -105,14 +104,14 @@ export function ChatTab({ messages, onSendMessage }: ChatTabProps) {
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-2">
-                    <span className="font-bold text-theme-dark">{user.name}</span>
-                    <span className="text-xs text-theme-gray-dark">{formatTime(message.timestamp)}</span>
+                    <span className="font-bold text-white">{user.name}</span>
+                    <span className="text-xs text-gray">{formatTime(message.timestamp)}</span>
                   </div>
-                  <div className="text-theme-gray-dark leading-relaxed">
+                  <div className="text-gray leading-relaxed">
                     {message.type === 'file' ? (
                       <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-theme-primary/10 to-theme-secondary/5 rounded-xl border border-theme-primary/20 hover:bg-theme-primary/15 transition-colors shadow-custom">
                         <Paperclip className="w-4 h-4 text-theme-primary" />
-                        <span className="font-semibold text-theme-dark">{message.content}</span>
+                        <span className="font-semibold text-white">{message.content}</span>
                       </div>
                     ) : (
                       message.content
@@ -143,7 +142,7 @@ export function ChatTab({ messages, onSendMessage }: ChatTabProps) {
         </div>
       )}
       
-      <div className="border-t border-gray-200/60 p-6 bg-gradient-to-r from-white to-gray-50/50 backdrop-blur-glass">
+      <div className="border-t border-white/10 p-6 bg-dark/30 backdrop-blur-glass">
         {/* Real-time Collaboration Indicator */}
         <div className="mb-3">
           <RealtimeCollaborationIndicator location="chat-input" />
@@ -156,14 +155,14 @@ export function ChatTab({ messages, onSendMessage }: ChatTabProps) {
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Type a message..."
-              className="border-theme-primary/30 focus:border-theme-primary focus:ring-theme-primary/20 bg-white shadow-custom"
+              className="border-theme-primary/30 focus:border-theme-primary focus:ring-theme-primary/20 bg-dark/50 text-white shadow-custom"
             />
           </div>
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" className="w-10 h-10 p-0 hover:bg-theme-primary/10 text-theme-gray-dark hover:text-theme-primary">
+            <Button variant="ghost" size="sm" className="w-10 h-10 p-0 hover:bg-theme-primary/10 text-gray hover:text-theme-primary">
               <Paperclip className="w-4 h-4" />
             </Button>
-            <Button variant="ghost" size="sm" className="w-10 h-10 p-0 hover:bg-theme-primary/10 text-theme-gray-dark hover:text-theme-primary">
+            <Button variant="ghost" size="sm" className="w-10 h-10 p-0 hover:bg-theme-primary/10 text-gray hover:text-theme-primary">
               <Smile className="w-4 h-4" />
             </Button>
             <Button 

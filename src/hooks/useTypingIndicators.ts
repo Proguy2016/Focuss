@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export interface TypingUser {
   userId: string;
@@ -9,6 +9,7 @@ export interface TypingUser {
 
 export function useTypingIndicators() {
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
+  const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
 
   const startTyping = useCallback((location: 'chat' | 'whiteboard' | 'tasks') => {
     // In real implementation, this would emit to WebSocket
@@ -43,13 +44,18 @@ export function useTypingIndicators() {
         });
 
         // Remove after 3 seconds
-        setTimeout(() => {
+        const timeout = setTimeout(() => {
           setTypingUsers(prev => prev.filter(u => u.userId !== randomUser.userId));
         }, 3000);
+        timeoutsRef.current.push(timeout);
       }
     }, 5000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      timeoutsRef.current.forEach(clearTimeout);
+      timeoutsRef.current = [];
+    };
   }, []);
 
   const getTypingUsersForLocation = useCallback((location: 'chat' | 'whiteboard' | 'tasks') => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search, Filter } from 'lucide-react';
@@ -23,6 +23,7 @@ const SearchResults: React.FC = () => {
   const [results, setResults] = useState<SearchResultItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string | null>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const query = new URLSearchParams(location.search).get('q');
@@ -30,13 +31,25 @@ const SearchResults: React.FC = () => {
       setSearchQuery(query);
       performSearch(query);
     }
+    
+    return () => {
+      // Clear any pending timeouts when component unmounts
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
   }, [location.search]);
 
   const performSearch = (query: string) => {
     setLoading(true);
     
+    // Clear any existing timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
     // Simulate search results from tasks
-    setTimeout(() => {
+    searchTimeoutRef.current = setTimeout(() => {
       const taskResults: SearchResultItem[] = state.tasks
         .filter((task: Task) => 
           task.title.toLowerCase().includes(query.toLowerCase()) || 
@@ -54,6 +67,7 @@ const SearchResults: React.FC = () => {
       // In a real app, you would search other content types as well
       setResults(taskResults);
       setLoading(false);
+      searchTimeoutRef.current = null;
     }, 500);
   };
 

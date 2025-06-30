@@ -69,19 +69,19 @@ export function ConferencePanel({ isOpen, onClose, className }: ConferencePanelP
 
   return (
     <div className={cn(
-      "fixed inset-y-0 right-0 w-96 bg-white/95 backdrop-blur-glass border-l border-gray-200/60 shadow-custom-lg flex flex-col z-50",
+      "fixed inset-y-0 right-0 w-96 animated-bg border-l border-white/10 shadow-custom-lg flex flex-col z-50",
       className
     )}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200/60">
+      <div className="flex items-center justify-between p-4 border-b border-white/10">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-theme-primary to-theme-secondary rounded-xl flex items-center justify-center shadow-glow">
             <Video className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h3 className="font-bold text-theme-dark">Conference</h3>
+            <h3 className="font-bold text-white">Conference</h3>
             {isInConference && (
-              <div className="flex items-center gap-2 text-xs text-theme-gray-dark">
+              <div className="flex items-center gap-2 text-xs text-gray">
                 <Clock className="w-3 h-3" />
                 <span>{formatDuration(stats.duration)}</span>
                 {isRecording && (
@@ -94,7 +94,7 @@ export function ConferencePanel({ isOpen, onClose, className }: ConferencePanelP
             )}
           </div>
         </div>
-        <Button variant="ghost" size="sm" onClick={onClose}>
+        <Button variant="ghost" size="sm" onClick={onClose} className="text-gray hover:text-white">
           <Phone className="w-4 h-4" />
         </Button>
       </div>
@@ -106,8 +106,8 @@ export function ConferencePanel({ isOpen, onClose, className }: ConferencePanelP
             <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-theme-primary/20 to-theme-secondary/20 rounded-2xl flex items-center justify-center shadow-custom">
               <Video className="w-10 h-10 text-theme-primary" />
             </div>
-            <h3 className="font-bold text-theme-dark mb-2">Start or Join Conference</h3>
-            <p className="text-theme-gray-dark leading-relaxed">
+            <h3 className="font-bold text-white mb-2">Start or Join Conference</h3>
+            <p className="text-gray leading-relaxed">
               Connect with your team through high-quality video conferencing
             </p>
           </div>
@@ -235,12 +235,12 @@ export function ConferencePanel({ isOpen, onClose, className }: ConferencePanelP
                             <MoreHorizontal className="w-3 h-3 text-white" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-48" align="end">
+                        <PopoverContent className="w-48 bg-dark border-white/10" align="end">
                           <div className="space-y-1">
                             <Button 
                               variant="ghost" 
                               size="sm" 
-                              className="w-full justify-start gap-2"
+                              className="w-full justify-start gap-2 text-white hover:bg-theme-primary/10"
                               onClick={() => muteParticipant(participant.id)}
                             >
                               <MicOff className="w-4 h-4" />
@@ -249,7 +249,7 @@ export function ConferencePanel({ isOpen, onClose, className }: ConferencePanelP
                             <Button 
                               variant="ghost" 
                               size="sm" 
-                              className="w-full justify-start gap-2 text-theme-red hover:text-theme-red"
+                              className="w-full justify-start gap-2 text-theme-red hover:text-theme-red hover:bg-theme-red/10"
                               onClick={() => removeParticipant(participant.id)}
                             >
                               <Phone className="w-4 h-4" />
@@ -266,7 +266,7 @@ export function ConferencePanel({ isOpen, onClose, className }: ConferencePanelP
           </div>
 
           {/* Conference Controls */}
-          <div className="border-t border-gray-200/60 p-4 bg-white/90 backdrop-blur-glass">
+          <div className="border-t border-white/10 p-4 bg-dark/50 backdrop-blur-glass">
             {/* Main Controls */}
             <div className="flex items-center justify-center gap-3 mb-4">
               <Button
@@ -327,7 +327,7 @@ export function ConferencePanel({ isOpen, onClose, className }: ConferencePanelP
                 </Button>
               )}
 
-              <div className="w-px h-6 bg-theme-gray/30 mx-2" />
+              <div className="w-px h-6 bg-white/10 mx-2" />
 
               <Button
                 variant="destructive"
@@ -342,11 +342,11 @@ export function ConferencePanel({ isOpen, onClose, className }: ConferencePanelP
             {/* Secondary Controls */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" className="gap-2">
+                <Button variant="ghost" size="sm" className="gap-2 text-gray hover:text-white">
                   <Users className="w-4 h-4" />
                   <span className="text-sm">{participants.length + 1}</span>
                 </Button>
-                <Button variant="ghost" size="sm" className="gap-2">
+                <Button variant="ghost" size="sm" className="gap-2 text-gray hover:text-white">
                   <MessageSquare className="w-4 h-4" />
                   Chat
                 </Button>
@@ -355,16 +355,16 @@ export function ConferencePanel({ isOpen, onClose, className }: ConferencePanelP
               <div className="flex items-center gap-2">
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="ghost" size="sm" className="gap-2">
+                    <Button variant="ghost" size="sm" className="gap-2 text-gray hover:text-white">
                       <Volume2 className="w-4 h-4" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-64" align="end">
+                  <PopoverContent className="w-64 bg-dark border-white/10" align="end">
                     <div className="space-y-4">
                       <div>
-                        <label className="text-sm font-medium text-theme-dark">Volume</label>
+                        <label className="text-sm font-medium text-white">Volume</label>
                         <div className="flex items-center gap-3 mt-2">
-                          <VolumeX className="w-4 h-4 text-theme-gray-dark" />
+                          <VolumeX className="w-4 h-4 text-gray" />
                           <Slider
                             value={volume}
                             onValueChange={setVolume}
@@ -372,7 +372,7 @@ export function ConferencePanel({ isOpen, onClose, className }: ConferencePanelP
                             step={1}
                             className="flex-1"
                           />
-                          <Volume2 className="w-4 h-4 text-theme-gray-dark" />
+                          <Volume2 className="w-4 h-4 text-gray" />
                         </div>
                       </div>
                     </div>
@@ -382,38 +382,38 @@ export function ConferencePanel({ isOpen, onClose, className }: ConferencePanelP
                 {isHost && (
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" className="text-gray hover:text-white">
                         <Settings className="w-4 h-4" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-80" align="end">
+                    <PopoverContent className="w-80 bg-dark border-white/10" align="end">
                       <div className="space-y-4">
-                        <h4 className="font-semibold text-theme-dark">Conference Settings</h4>
+                        <h4 className="font-semibold text-white">Conference Settings</h4>
                         
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
-                            <label className="text-sm text-theme-dark">Allow participant mute</label>
+                            <label className="text-sm text-white">Allow participant mute</label>
                             <Switch 
                               checked={settings.allowParticipantMute}
                               onCheckedChange={(checked) => updateSettings({ allowParticipantMute: checked })}
                             />
                           </div>
                           <div className="flex items-center justify-between">
-                            <label className="text-sm text-theme-dark">Allow screen sharing</label>
+                            <label className="text-sm text-white">Allow screen sharing</label>
                             <Switch 
                               checked={settings.allowScreenShare}
                               onCheckedChange={(checked) => updateSettings({ allowScreenShare: checked })}
                             />
                           </div>
                           <div className="flex items-center justify-between">
-                            <label className="text-sm text-theme-dark">Enable waiting room</label>
+                            <label className="text-sm text-white">Enable waiting room</label>
                             <Switch 
                               checked={settings.enableWaitingRoom}
                               onCheckedChange={(checked) => updateSettings({ enableWaitingRoom: checked })}
                             />
                           </div>
                           <div className="flex items-center justify-between">
-                            <label className="text-sm text-theme-dark">Record meeting</label>
+                            <label className="text-sm text-white">Record meeting</label>
                             <Switch 
                               checked={settings.recordMeeting}
                               onCheckedChange={(checked) => updateSettings({ recordMeeting: checked })}

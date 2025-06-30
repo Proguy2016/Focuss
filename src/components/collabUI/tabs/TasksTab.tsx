@@ -1,20 +1,32 @@
-import React from 'react';
-import { Plus, Circle, Clock, AlertCircle, Users, Target, UserPlus } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plus, Circle, Clock, AlertCircle, Users, Target, UserPlus, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
-import { Task } from '@/hooks/useRoom';
+import { Task, Participant } from '@/hooks/useRoom';
 import { cn } from '@/lib/utils';
 
 interface TasksTabProps {
   tasks: Task[];
+  participants: Participant[];
   onUpdateTask: (taskId: string, updates: Partial<Task>) => void;
+  onAddTask?: (task: Omit<Task, 'id' | 'createdAt'>) => void;
+  onDeleteTask?: (taskId: string) => void;
   onAssignTask?: () => void;
 }
 
-export function TasksTab({ tasks, onUpdateTask, onAssignTask }: TasksTabProps) {
+export function TasksTab({ 
+  tasks, 
+  participants, 
+  onUpdateTask, 
+  onAddTask, 
+  onDeleteTask,
+  onAssignTask 
+}: TasksTabProps) {
+  const [showConfirmDelete, setShowConfirmDelete] = useState<string | null>(null);
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high':
@@ -24,7 +36,7 @@ export function TasksTab({ tasks, onUpdateTask, onAssignTask }: TasksTabProps) {
       case 'low':
         return 'bg-theme-emerald/10 text-theme-emerald border-theme-emerald/30';
       default:
-        return 'bg-theme-gray/10 text-theme-gray-dark border-theme-gray/30';
+        return 'bg-gray/10 text-gray border-gray/30';
     }
   };
 
@@ -35,7 +47,7 @@ export function TasksTab({ tasks, onUpdateTask, onAssignTask }: TasksTabProps) {
       case 'in-progress':
         return <Clock className="w-5 h-5 text-theme-primary" />;
       default:
-        return <Circle className="w-5 h-5 text-theme-gray" />;
+        return <Circle className="w-5 h-5 text-gray" />;
     }
   };
 
@@ -45,41 +57,39 @@ export function TasksTab({ tasks, onUpdateTask, onAssignTask }: TasksTabProps) {
     onUpdateTask(task.id, { status: newStatus });
   };
 
-  // Mock user data
-  const users = {
-    '1': { name: 'Sarah Chen', avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&dpr=2' },
-    '2': { name: 'Marcus Johnson', avatar: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&dpr=2' },
-    '3': { name: 'Elena Rodriguez', avatar: 'https://images.pexels.com/photos/1181686/pexels-photo-1181686.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&dpr=2' },
+  const handleDeleteTask = (taskId: string) => {
+    if (onDeleteTask) {
+      onDeleteTask(taskId);
+      setShowConfirmDelete(null);
+    }
   };
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
-  // Enhanced tasks with milestone information
-  const enhancedTasks = tasks.map(task => ({
-    ...task,
-    milestone: task.priority === 'high' ? 'Sprint 1 Milestone' : 'General Tasks',
-    assignedBy: 'Room Admin',
-    estimatedHours: Math.floor(Math.random() * 20) + 5,
-    actualHours: task.status === 'completed' ? Math.floor(Math.random() * 15) + 3 : 0,
-  }));
+  const getParticipantById = (userId: string) => {
+    return participants.find(p => p.id === userId) || null;
+  };
 
-  // Group tasks by milestone
-  const tasksByMilestone = enhancedTasks.reduce((acc, task) => {
-    if (!acc[task.milestone]) {
-      acc[task.milestone] = [];
+  // Group tasks by priority (using priority as milestone)
+  const tasksByMilestone = tasks.reduce((acc, task) => {
+    const milestone = task.priority === 'high' ? 'Critical Tasks' : 
+                      task.priority === 'medium' ? 'Important Tasks' : 'Regular Tasks';
+    
+    if (!acc[milestone]) {
+      acc[milestone] = [];
     }
-    acc[task.milestone].push(task);
+    acc[milestone].push(task);
     return acc;
-  }, {} as Record<string, typeof enhancedTasks>);
+  }, {} as Record<string, Task[]>);
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-white to-gray-50/50">
-      <div className="flex items-center justify-between p-6 border-b border-gray-200/60 bg-gradient-to-r from-white to-gray-50/50">
+    <div className="flex flex-col h-full animated-bg">
+      <div className="flex items-center justify-between p-6 border-b border-white/10 bg-dark/30">
         <div>
-          <h3 className="font-bold text-theme-dark">Tasks & Milestones</h3>
-          <p className="text-sm text-theme-gray-dark">Tasks assigned by moderators and room admins</p>
+          <h3 className="font-bold text-white">Tasks & Milestones</h3>
+          <p className="text-sm text-gray">Tasks assigned by moderators and room admins</p>
         </div>
         <div className="flex items-center gap-3">
           <Badge variant="secondary" className="gap-2 bg-theme-primary/10 text-theme-primary border-theme-primary/30">
@@ -104,24 +114,24 @@ export function TasksTab({ tasks, onUpdateTask, onAssignTask }: TasksTabProps) {
           {Object.entries(tasksByMilestone).map(([milestone, milestoneTasks]) => (
             <div key={milestone} className="space-y-4">
               {/* Milestone Header */}
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-theme-primary/10 to-theme-secondary/5 rounded-xl border border-theme-primary/20">
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-theme-primary/10 to-theme-secondary/10 rounded-xl border border-theme-primary/20">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-gradient-to-br from-theme-primary to-theme-secondary rounded-lg flex items-center justify-center shadow-glow">
                     <Target className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-theme-dark">{milestone}</h4>
-                    <p className="text-sm text-theme-gray-dark">
+                    <h4 className="font-bold text-white">{milestone}</h4>
+                    <p className="text-sm text-gray">
                       {milestoneTasks.filter(t => t.status === 'completed').length} of {milestoneTasks.length} tasks completed
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <div className="text-sm font-semibold text-theme-dark">
+                    <div className="text-sm font-semibold text-white">
                       {Math.round((milestoneTasks.filter(t => t.status === 'completed').length / milestoneTasks.length) * 100)}%
                     </div>
-                    <div className="text-xs text-theme-gray-dark">Complete</div>
+                    <div className="text-xs text-gray">Complete</div>
                   </div>
                   <Progress 
                     value={(milestoneTasks.filter(t => t.status === 'completed').length / milestoneTasks.length) * 100} 
@@ -133,12 +143,12 @@ export function TasksTab({ tasks, onUpdateTask, onAssignTask }: TasksTabProps) {
               {/* Tasks in Milestone */}
               <div className="space-y-3 ml-4">
                 {milestoneTasks.map((task) => {
-                  const assignee = task.assigneeId ? users[task.assigneeId as keyof typeof users] : null;
+                  const assignee = task.assigneeId ? getParticipantById(task.assigneeId) : null;
                   return (
                     <div
                       key={task.id}
                       className={cn(
-                        "p-5 border border-gray-200/60 rounded-xl hover:shadow-custom transition-all duration-200 bg-white/80 backdrop-blur-glass",
+                        "p-5 border border-white/10 rounded-xl hover:shadow-custom transition-all duration-200 bg-dark/30 backdrop-blur-glass",
                         task.status === 'completed' && "opacity-60"
                       )}
                     >
@@ -154,13 +164,13 @@ export function TasksTab({ tasks, onUpdateTask, onAssignTask }: TasksTabProps) {
                           <div className="flex items-start justify-between gap-3 mb-3">
                             <div className="flex-1">
                               <h4 className={cn(
-                                "font-bold text-theme-dark",
-                                task.status === 'completed' && "line-through text-theme-gray"
+                                "font-bold text-white",
+                                task.status === 'completed' && "line-through text-gray"
                               )}>
                                 {task.title}
                               </h4>
                               {task.description && (
-                                <p className="text-theme-gray-dark mt-1 leading-relaxed">{task.description}</p>
+                                <p className="text-gray mt-1 leading-relaxed">{task.description}</p>
                               )}
                             </div>
                             <div className="flex items-center gap-3 flex-shrink-0">
@@ -176,37 +186,66 @@ export function TasksTab({ tasks, onUpdateTask, onAssignTask }: TasksTabProps) {
                                     </AvatarFallback>
                                   </Avatar>
                                   <div className="text-xs">
-                                    <div className="font-semibold text-theme-dark">{assignee.name}</div>
-                                    <div className="text-theme-gray-dark">Assignee</div>
+                                    <div className="font-semibold text-white">{assignee.name}</div>
+                                    <div className="text-gray">Assignee</div>
                                   </div>
                                 </div>
+                              )}
+                              {onDeleteTask && (
+                                showConfirmDelete === task.id ? (
+                                  <div className="flex items-center gap-2">
+                                    <Button 
+                                      variant="destructive" 
+                                      size="sm"
+                                      onClick={() => handleDeleteTask(task.id)}
+                                      className="h-7 px-2 text-xs"
+                                    >
+                                      Confirm
+                                    </Button>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => setShowConfirmDelete(null)}
+                                      className="h-7 px-2 text-xs border-white/10"
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setShowConfirmDelete(task.id)}
+                                    className="w-7 h-7 p-0 hover:bg-theme-red/10 text-gray hover:text-theme-red"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                )
                               )}
                             </div>
                           </div>
                           
                           {/* Task Metadata */}
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3 text-xs">
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-3 text-xs">
                             <div>
-                              <span className="text-theme-gray-dark">Assigned by:</span>
-                              <div className="font-semibold text-theme-dark">{task.assignedBy}</div>
+                              <span className="text-gray">Created:</span>
+                              <div className="font-semibold text-white">
+                                {new Date(task.createdAt).toLocaleDateString()}
+                              </div>
                             </div>
                             <div>
-                              <span className="text-theme-gray-dark">Estimated:</span>
-                              <div className="font-semibold text-theme-dark">{task.estimatedHours}h</div>
+                              <span className="text-gray">Priority:</span>
+                              <div className="font-semibold text-white capitalize">{task.priority}</div>
                             </div>
                             <div>
-                              <span className="text-theme-gray-dark">Actual:</span>
-                              <div className="font-semibold text-theme-dark">{task.actualHours}h</div>
-                            </div>
-                            <div>
-                              <span className="text-theme-gray-dark">Status:</span>
-                              <div className="font-semibold text-theme-dark capitalize">
+                              <span className="text-gray">Status:</span>
+                              <div className="font-semibold text-white capitalize">
                                 {task.status.replace('-', ' ')}
                               </div>
                             </div>
                           </div>
                           
-                          <div className="flex items-center justify-between text-xs text-theme-gray-dark">
+                          <div className="flex items-center justify-between text-xs text-gray">
                             <div className="flex items-center gap-4">
                               <div className="flex items-center gap-1">
                                 <Users className="w-3 h-3" />
@@ -215,7 +254,7 @@ export function TasksTab({ tasks, onUpdateTask, onAssignTask }: TasksTabProps) {
                               {task.dueDate && (
                                 <div className="flex items-center gap-1">
                                   <AlertCircle className="w-3 h-3" />
-                                  <span>Due {task.dueDate.toLocaleDateString()}</span>
+                                  <span>Due {new Date(task.dueDate).toLocaleDateString()}</span>
                                 </div>
                               )}
                             </div>
@@ -233,17 +272,17 @@ export function TasksTab({ tasks, onUpdateTask, onAssignTask }: TasksTabProps) {
           ))}
 
           {/* Empty State */}
-          {enhancedTasks.length === 0 && (
+          {tasks.length === 0 && (
             <div className="text-center py-12">
-              <Target className="w-16 h-16 mx-auto mb-4 text-theme-gray" />
-              <h3 className="font-semibold text-theme-dark mb-2">No tasks assigned yet</h3>
-              <p className="text-theme-gray-dark mb-6">
+              <Target className="w-16 h-16 mx-auto mb-4 text-gray" />
+              <h3 className="font-semibold text-white mb-2">No tasks assigned yet</h3>
+              <p className="text-gray mb-6">
                 Room moderators and admins can assign tasks to team members
               </p>
               {onAssignTask && (
                 <Button 
                   onClick={onAssignTask}
-                  className="gap-2 bg-theme-primary hover:bg-theme-primary-dark text-white"
+                  className="gap-2 bg-gradient-to-r from-theme-primary to-theme-secondary hover:from-theme-primary-dark hover:to-theme-primary text-white shadow-glow"
                 >
                   <UserPlus className="w-4 h-4" />
                   Assign First Task
