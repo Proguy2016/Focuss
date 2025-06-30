@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import AuthService, { AuthResponse, LoginData, RegisterData, UserProfile } from '../services/AuthService';
 import api from '../services/api';
 import { AppContext } from './AppContext';
@@ -54,7 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Login a user
-  const login = async (loginData: LoginData) => {
+  const login = useCallback(async (loginData: LoginData) => {
     try {
       setLoading(true);
       setError(null);
@@ -70,10 +70,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Register a new user
-  const register = async (registerData: RegisterData) => {
+  const register = useCallback(async (registerData: RegisterData) => {
     try {
       setLoading(true);
       setError(null);
@@ -89,27 +89,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Logout a user
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('token');
     delete api.defaults.headers.common['Authorization'];
     setUser(null);
     if (appContext && appContext.resetAppState) {
       appContext.resetAppState();
     }
-  };
+  }, [appContext]);
 
-  const safeUpdateUser = (updatedData: Partial<UserProfile>) => {
+  const safeUpdateUser = useCallback((updatedData: Partial<UserProfile>) => {
     setUser(prevUser => {
       if (!prevUser) return null;
       // Merge the new data with the existing user data
       return { ...prevUser, ...updatedData };
     });
-  };
+  }, []);
 
-  const updateName = async (nameData: { firstName: string, lastName: string }) => {
+  const updateName = useCallback(async (nameData: { firstName: string, lastName: string }) => {
     if (!user) throw new Error("User not authenticated");
     try {
       const updatedUser = await AuthService.updateName(nameData);
@@ -118,9 +118,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(err instanceof Error ? err.message : 'Name update failed');
       throw err;
     }
-  };
+  }, [user, safeUpdateUser]);
 
-  const updateBio = async (bioData: { bio: string }) => {
+  const updateBio = useCallback(async (bioData: { bio: string }) => {
     if (!user) throw new Error("User not authenticated");
     try {
       const updatedUser = await AuthService.updateBio(bioData);
@@ -129,9 +129,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(err instanceof Error ? err.message : 'Bio update failed');
       throw err;
     }
-  };
+  }, [user, safeUpdateUser]);
 
-  const updatePrivacy = async (privacyData: any) => {
+  const updatePrivacy = useCallback(async (privacyData: any) => {
     if (!user) throw new Error("User not authenticated");
     try {
       const updatedUser = await AuthService.updatePrivacy(privacyData);
@@ -140,9 +140,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(err instanceof Error ? err.message : 'Privacy update failed');
       throw err;
     }
-  };
+  }, [user, safeUpdateUser]);
 
-  const updatePfp = async (formData: FormData) => {
+  const updatePfp = useCallback(async (formData: FormData) => {
     if (!user) throw new Error("User not authenticated");
     try {
       console.log('Updating pfp in AuthContext');
@@ -152,10 +152,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(err instanceof Error ? err.message : 'Profile picture update failed');
       throw err;
     }
-  };
+  }, [user, safeUpdateUser]);
 
   // Forgot password
-  const forgotPassword = async (email: string) => {
+  const forgotPassword = useCallback(async (email: string) => {
     try {
       setLoading(true);
       setError(null);
@@ -166,10 +166,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Reset password
-  const resetPassword = async (data: { token: string; newPassword: string }) => {
+  const resetPassword = useCallback(async (data: { token: string; newPassword: string }) => {
     try {
       setLoading(true);
       setError(null);
@@ -180,15 +180,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Clear error
-  const clearError = () => {
+  const clearError = useCallback(() => {
     setError(null);
-  };
+  }, []);
 
   // Context value
-  const value = {
+  const value = useMemo(() => ({
     user,
     loading,
     error,
@@ -204,7 +204,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     clearError,
     forgotPassword,
     resetPassword,
-  };
+  }), [user, loading, error, login, register, logout, updateName, updateBio, updatePrivacy, updatePfp, setUser, clearError, forgotPassword, resetPassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

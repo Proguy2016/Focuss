@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { AppProvider } from './contexts/AppContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -20,14 +20,10 @@ import PDFViewer from './pages/PDFViewer';
 import Library from './pages/Library';
 import CollaborationRoomApp from './pages/CollaborationRoom';
 import SearchResults from './pages/SearchResults';
-import LandingPage from './pages/LandingPage'; // Import the new LandingPage component
-import ResetPassword from './pages/ResetPassword'; // Import the new ResetPassword component
-import EmailSentConfirmation from './pages/EmailSentConfirmation'; // Import EmailSentConfirmation
+import LandingPage from './pages/LandingPage';
+import ResetPassword from './pages/ResetPassword';
+import EmailSentConfirmation from './pages/EmailSentConfirmation';
 
-// Layout components
-// Moved inside AppContent to ensure useAuth is within AuthProvider
-
-// Loading component
 const LoadingScreen: React.FC = () => (
   <div className="flex h-screen items-center justify-center bg-dark">
     <div className="space-y-4 text-center">
@@ -37,93 +33,86 @@ const LoadingScreen: React.FC = () => (
   </div>
 );
 
-// Route Guard component
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+// Main layout for authenticated users, now handling its own authentication check
+const MainLayout: React.FC = () => {
+  const { isAuthenticated, loading, logout } = useAuth();
 
   if (loading) {
     return <LoadingScreen />;
   }
 
-  return isAuthenticated ? <>{children}</> : <Navigate to="/auth" />;
-};
-
-function AppContent() {
-  const { isAuthenticated, loading } = useAuth();
-
-  // Layout components
-  const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { logout } = useAuth();
-
-    return (
-      <div className="flex h-screen">
-        <Sidebar />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <Header onLogout={logout} />
-          <main className="flex-1 overflow-y-auto">
-            {children}
-          </main>
-        </div>
-      </div>
-    );
-  };
-
-  if (loading) {
-    return <LoadingScreen />;
+  if (!isAuthenticated) {
+    // If not authenticated, redirect to auth page
+    return <Navigate to="/auth" replace />;
   }
 
   return (
-    <Router>
-      <div className="min-h-screen text-white">
-        <AnimatedBackground variant="particles" />
-
-        <AnimatePresence mode="wait">
-          <Routes>
-            {/* Landing Page Route - accessible to everyone, but redirects if authenticated */}
-            <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LandingPage />} />
-
-            <Route path="/auth" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth />} />
-            <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth initialView="login" />} />
-            <Route path="/signup" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Auth initialView="signup" />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/email-sent" element={<EmailSentConfirmation />} />
-
-            {/* App routes */}
-            <Route path="/dashboard" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
-            <Route path="/focus" element={<ProtectedRoute><AppLayout><FocusTimer /></AppLayout></ProtectedRoute>} />
-            <Route path="/tasks" element={<ProtectedRoute><AppLayout><Tasks /></AppLayout></ProtectedRoute>} />
-            <Route path="/habits" element={<ProtectedRoute><AppLayout><Habits /></AppLayout></ProtectedRoute>} />
-            <Route path="/social" element={<ProtectedRoute><AppLayout><Social /></AppLayout></ProtectedRoute>} />
-            <Route path="/library" element={<ProtectedRoute><AppLayout><Library /></AppLayout></ProtectedRoute>} />
-            <Route path="/pdf-viewer" element={<ProtectedRoute><AppLayout><PDFViewer /></AppLayout></ProtectedRoute>} />
-            <Route path="/pdf-viewer/:fileId" element={<ProtectedRoute><AppLayout><PDFViewer /></AppLayout></ProtectedRoute>} />
-            <Route path="/soundscapes" element={<ProtectedRoute><AppLayout><Soundscapes /></AppLayout></ProtectedRoute>} />
-            <Route path="/ai-coach" element={<ProtectedRoute><AppLayout><AICoach /></AppLayout></ProtectedRoute>} />
-            <Route path="/achievements" element={<ProtectedRoute><AppLayout><Achievements /></AppLayout></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><AppLayout><Settings /></AppLayout></ProtectedRoute>} />
-            <Route path="/collaboration" element={<ProtectedRoute><AppLayout><CollaborationRoomApp /></AppLayout></ProtectedRoute>} />
-            <Route path="/search" element={<ProtectedRoute><AppLayout><SearchResults /></AppLayout></ProtectedRoute>} />
-            <Route path="/notifications" element={<ProtectedRoute><AppLayout><div className="p-6"><h1 className="text-3xl font-bold text-gradient">Notifications</h1><p className="mt-4 text-white/60">No new notifications</p></div></AppLayout></ProtectedRoute>} />
-            <Route path="/activity" element={<ProtectedRoute><AppLayout><div className="p-6"><h1 className="text-3xl font-bold text-gradient">Activity History</h1><p className="mt-4 text-white/60">Your recent activity will appear here</p></div></AppLayout></ProtectedRoute>} />
-
-            {/* Default route */}
-            <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/auth"} />} />
-          </Routes>
-        </AnimatePresence>
+    <div className="flex h-screen">
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header onLogout={logout} />
+        <main className="flex-1 overflow-y-auto">
+          <Outlet /> {/* This is where nested routes will render */}
+        </main>
       </div>
-    </Router>
+    </div>
+  );
+};
+
+function AppContent() {
+  return (
+    <div className="min-h-screen text-white">
+      <AnimatePresence mode="wait">
+        <Routes>
+          {/* Public Routes - always accessible */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/login" element={<Auth initialView="login" />} />
+          <Route path="/signup" element={<Auth initialView="signup" />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/email-sent" element={<EmailSentConfirmation />} />
+
+          {/* Protected Routes - rendered within MainLayout */}
+          {/* The MainLayout component itself contains the authentication check and redirect */}
+          <Route element={<MainLayout />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/focus" element={<FocusTimer />} />
+            <Route path="/tasks" element={<Tasks />} />
+            <Route path="/habits" element={<Habits />} />
+            <Route path="/social" element={<Social />} />
+            <Route path="/library" element={<Library />} />
+            <Route path="/pdf-viewer" element={<PDFViewer />} />
+            <Route path="/pdf-viewer/:fileId" element={<PDFViewer />} />
+            <Route path="/soundscapes" element={<Soundscapes />} />
+            <Route path="/ai-coach" element={<AICoach />} />
+            <Route path="/achievements" element={<Achievements />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/collaboration" element={<CollaborationRoomApp />} />
+            <Route path="/search" element={<SearchResults />} />
+            <Route path="/notifications" element={<div className="p-6"><h1 className="text-3xl font-bold text-gradient">Notifications</h1><p className="mt-4 text-white/60">No new notifications</p></div>} />
+            <Route path="/activity" element={<div className="p-6"><h1 className="text-3xl font-bold text-gradient">Activity History</h1><p className="mt-4 text-white/60">Your recent activity will appear here</p></div>} />
+            {/* Catch-all for protected routes: if authenticated, redirect to dashboard for unknown paths */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Route>
+
+          {/* Fallback for any other unmatched routes, redirects to /auth */}
+          <Route path="*" element={<Navigate to="/auth" replace />} />
+        </Routes>
+      </AnimatePresence>
+    </div>
   );
 }
 
 function App() {
   return (
-    <>
+    <Router>
       <AuthProvider>
         <AppProvider>
+          <AnimatedBackground variant="particles" />
           <AppContent />
         </AppProvider>
       </AuthProvider>
-    </>
+    </Router>
   );
 }
 

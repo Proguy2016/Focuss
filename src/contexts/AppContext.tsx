@@ -241,12 +241,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [user, refreshStats, initializeApp]);
 
   // Function to reset app state
-  const resetAppState = () => {
+  const resetAppState = useCallback(() => {
     dispatch({ type: 'RESET' } as any);
-  };
+  }, [dispatch]);
+
+  const value = useMemo(() => ({
+    state,
+    dispatch,
+    dataService,
+    refreshStats,
+    resetAppState,
+  }), [state, dispatch, dataService, refreshStats, resetAppState]);
 
   return (
-    <AppContext.Provider value={{ state: { ...state, user }, dispatch, dataService, refreshStats, resetAppState }}>
+    <AppContext.Provider value={value}>
       {children}
     </AppContext.Provider>
   );
@@ -254,8 +262,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 export const useApp = () => {
   const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useApp must be used within AppProvider');
+  if (context === null) {
+    throw new Error('useApp must be used within an AppProvider');
   }
   return context;
 };
