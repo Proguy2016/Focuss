@@ -97,23 +97,15 @@ export interface HabitCompletion {
 
 export interface Task {
   id: string;
-  userId: string;
   title: string;
   description?: string;
-  priority: TaskPriority;
-  urgency: TaskUrgency;
-  status: TaskStatus;
+  priority: string;
+  completed: boolean;
   category?: string;
+  estimatedTime: number;
   tags: string[];
   dueDate?: Date;
-  estimatedTime?: number; // minutes
-  actualTime?: number; // minutes
-  subtasks: SubTask[];
-  dependencies: string[]; // Task IDs
-  recurring?: RecurringPattern;
-  createdAt: Date;
-  updatedAt: Date;
-  completedAt?: Date;
+  subtasks: string[];
 }
 
 export interface SubTask {
