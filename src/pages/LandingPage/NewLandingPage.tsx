@@ -134,7 +134,7 @@ const NewLandingPage = () => {
                 </div>
 
                 <div className="max-w-3xl mx-auto relative z-10">
-                    <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-400 animate-fade-in">
+                    <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold text-emerald-400 animate-fade-in">
                         Unlock Unprecedented Focus.
                     </h1>
                     <h2 className="mt-4 text-3xl sm:text-4xl md:text-5xl font-bold text-gray-300 animate-fade-in animation-delay-500">

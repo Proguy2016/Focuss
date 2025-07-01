@@ -13,7 +13,7 @@ interface FeatureCardProps {
 const FeatureCard: React.FC<FeatureCardProps> = ({ icon, title, description, className, style }) => {
   return (
     <div
-      className={`relative overflow-hidden bg-gray-900 p-6 rounded-xl shadow-xl border border-gray-700 transition-all duration-300 ease-in-out group hover:shadow-emerald-500/60 hover:border-emerald-500 ${className}`}
+      className={`relative overflow-hidden bg-gray-900/80 backdrop-blur-sm p-6 rounded-xl shadow-xl border border-gray-700 transition-all duration-300 ease-in-out group hover:shadow-emerald-500/60 hover:border-emerald-500 ${className}`}
       style={style}
     >
       {/* Subtle decorative element */}
@@ -65,8 +65,19 @@ const Features: React.FC = () => {
   ];
 
   return (
-    <section id="features" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-dark">
-      <div className="max-w-6xl mx-auto">
+    <section id="features" className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 relative bg-gradient-to-b from-dark/80 to-dark">
+      {/* Subtle background pattern */}
+      <div className="absolute inset-0 opacity-5">
+        <div className="absolute inset-0" style={{
+          backgroundImage: 'url("https://images.unsplash.com/photo-1518707161404-5853f65b5d84?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          filter: 'blur(2px)'
+        }}></div>
+      </div>
+
+      {/* Content */}
+      <div className="max-w-6xl mx-auto relative z-10">
         <div className="text-center mb-16">
           <h2 className="text-4xl sm:text-5xl font-extrabold text-white mb-4">
             Everything You Need to <span className="text-emerald-400">Achieve Deep Focus</span>

@@ -4,6 +4,7 @@ import Features from './Features';
 import WhyFocusRitual from './WhyFocusRitual';
 import Pricing from './Pricing';
 import Footer from './Footer';
+import ParallaxCTA from './ParallaxCTA';
 import LandingPageNavbar from '../../components/layout/LandingPageNavbar';
 // Removed AnimatedBackground import as it's handled by App.tsx
 
@@ -17,6 +18,7 @@ const LandingPage: React.FC = () => {
       {/* Removed bg-dark as App.tsx and AnimatedBackground handle global background */}
       <Hero />
       <Features />
+      <ParallaxCTA />
       <WhyFocusRitual />
       <Pricing />
       <Footer />

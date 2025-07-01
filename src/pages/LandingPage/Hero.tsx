@@ -8,7 +8,7 @@ const Hero: React.FC = () => {
       <div className="absolute inset-0 z-0 opacity-10" style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1518707161404-5853f65b5d84?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D")', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
 
       <div className="max-w-3xl mx-auto relative z-10"> {/* Ensure content is above background */}
-        <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-500 to-green-400 animate-fade-in">
+        <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold text-emerald-400 animate-fade-in">
           Unlock Unprecedented Focus.
         </h1>
         <h2 className="mt-4 text-3xl sm:text-4xl md:text-5xl font-bold text-gray-300 animate-fade-in animation-delay-500">

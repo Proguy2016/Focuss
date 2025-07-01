@@ -63,7 +63,7 @@ export const Social: React.FC = () => {
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showAddFriend, setShowAddFriend] = useState(false);
-  const [newFriendEmail, setNewFriendEmail] = useState('');
+  const [newFriendId, setNewFriendId] = useState('');
   const [selectedFriend, setSelectedFriend] = useState<FriendProfile | null>(null);
   const [showFriendDetails, setShowFriendDetails] = useState(false);
   const [friendDetailLoading, setFriendDetailLoading] = useState(false);
@@ -332,7 +332,9 @@ export const Social: React.FC = () => {
     try {
       setIsLoading(true);
       const response = await api.get('/api/friends/requests');
+      console.log('Raw friend requests data:', response.data);
       const requests = response.data.friendRequests || [];
+      console.log('Friend requests array:', requests);
 
       // Fetch details for each friend request
       const populatedRequests = await Promise.all(
@@ -341,9 +343,10 @@ export const Social: React.FC = () => {
             // Get friend info using the friendId
             const friendResponse = await api.get(`/api/friends/info/${req.friendId}`);
             const friendData = friendResponse.data;
+            console.log('Friend data for request:', friendData);
 
             // Create a sender object with the friend data
-            return {
+            const populatedRequest = {
               ...req,
               sender: {
                 _id: req.friendId,
@@ -357,6 +360,8 @@ export const Social: React.FC = () => {
                 posts: friendData.friendPosts || [],
               }
             };
+            console.log('Populated request:', populatedRequest);
+            return populatedRequest;
           } catch (error) {
             console.error(`Failed to fetch info for sender ${req.friendId}`, error);
             return req; // Return original request if sender info fails
@@ -364,6 +369,7 @@ export const Social: React.FC = () => {
         })
       );
 
+      console.log('Final populated requests:', populatedRequests);
       setFriendRequests(populatedRequests);
     } catch (error) {
       console.error('Failed to fetch friend requests:', error);
@@ -374,8 +380,8 @@ export const Social: React.FC = () => {
 
   const sendFriendRequest = async () => {
     try {
-      await FriendsService.sendFriendRequest(newFriendEmail);
-      setNewFriendEmail('');
+      await FriendsService.sendFriendRequest(newFriendId);
+      setNewFriendId('');
       setShowAddFriend(false);
       // Show success message
     } catch (error) {
@@ -384,9 +390,10 @@ export const Social: React.FC = () => {
     }
   };
 
-  const acceptFriendRequest = async (requestId: string) => {
+  const acceptFriendRequest = async (friendId: string) => {
     try {
-      await FriendsService.acceptFriendRequest(requestId);
+      console.log('Accepting friend request with friendId:', friendId);
+      await FriendsService.acceptFriendRequest(friendId);
       fetchFriendRequests();
       fetchFriends();
     } catch (error) {
@@ -394,9 +401,10 @@ export const Social: React.FC = () => {
     }
   };
 
-  const declineFriendRequest = async (requestId: string) => {
+  const declineFriendRequest = async (friendId: string) => {
     try {
-      await FriendsService.declineFriendRequest(requestId);
+      console.log('Declining friend request with friendId:', friendId);
+      await FriendsService.declineFriendRequest(friendId);
       fetchFriendRequests();
     } catch (error) {
       console.error('Failed to decline friend request:', error);
@@ -480,42 +488,47 @@ export const Social: React.FC = () => {
   );
 
   // Friend Request Card component
-  const FriendRequestCard: React.FC<{ request: FriendRequest; index: number }> = ({ request, index }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.1 }}
-    >
-      <Card variant="solid" className="p-4 bg-white/5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-xl">
-              {request.sender?.profilePicture ? (
-                <img
-                  src={request.sender.profilePicture}
-                  alt={`${request.sender.firstName} ${request.sender.lastName}`}
-                  className="w-full h-full rounded-full object-cover"
-                />
-              ) : (
-                <User className="w-6 h-6 text-white" />
-              )}
+  const FriendRequestCard: React.FC<{ request: FriendRequest; index: number }> = ({ request, index }) => {
+    // Log the request object to understand its structure
+    console.log('Rendering friend request card with data:', request);
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.1 }}
+      >
+        <Card variant="solid" className="p-4 bg-white/5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-xl">
+                {request.sender?.profilePicture ? (
+                  <img
+                    src={request.sender.profilePicture}
+                    alt={`${request.sender.firstName} ${request.sender.lastName}`}
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  <User className="w-6 h-6 text-white" />
+                )}
+              </div>
+
+              <div className="flex-1">
+                <h3 className="font-semibold text-white">{request.sender.firstName} {request.sender.lastName}</h3>
+                {request.sender.level && <p className="text-xs text-white/60">Level {request.sender.level} | XP {request.sender.xp}</p>}
+                {request.sender.bio && <p className="text-sm text-white/60 line-clamp-1">{request.sender.bio}</p>}
+              </div>
             </div>
 
-            <div className="flex-1">
-              <h3 className="font-semibold text-white">{request.sender.firstName} {request.sender.lastName}</h3>
-              {request.sender.level && <p className="text-xs text-white/60">Level {request.sender.level} | XP {request.sender.xp}</p>}
-              {request.sender.bio && <p className="text-sm text-white/60 line-clamp-1">{request.sender.bio}</p>}
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" icon={Check} onClick={() => acceptFriendRequest(request.sender._id)} />
+              <Button variant="ghost" size="sm" icon={X} onClick={() => declineFriendRequest(request.sender._id)} className="text-error-400 hover:bg-error-500/20" />
             </div>
           </div>
-
-          <div className="flex gap-2">
-            <Button variant="ghost" size="sm" icon={Check} onClick={() => acceptFriendRequest(request.id)} />
-            <Button variant="ghost" size="sm" icon={X} onClick={() => declineFriendRequest(request.id)} className="text-error-400 hover:bg-error-500/20" />
-          </div>
-        </div>
-      </Card>
-    </motion.div>
-  );
+        </Card>
+      </motion.div>
+    );
+  };
 
   const FriendDetailsModal: React.FC<{
     friend: FriendProfile | null;
@@ -610,21 +623,7 @@ export const Social: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex gap-3">
-          {activeTab === 'friends' ? (
-            <Button
-              variant="secondary"
-              icon={UserPlus}
-              onClick={() => setShowAddFriend(true)}
-            >
-              Add Friend
-            </Button>
-          ) : (
-            <>
-              {/* Group-related buttons removed */}
-            </>
-          )}
-        </div>
+        {/* Group-related buttons removed */}
       </motion.div>
 
       {/* Navigation Tabs */}
@@ -838,7 +837,7 @@ export const Social: React.FC = () => {
                 ) : friendRequests.length > 0 ? (
                   <div className="space-y-3">
                     {friendRequests.map((request, index) => (
-                      <FriendRequestCard key={request.friendId} request={request} index={index} />
+                      <FriendRequestCard key={request.sender._id} request={request} index={index} />
                     ))}
                   </div>
                 ) : (
@@ -981,8 +980,8 @@ export const Social: React.FC = () => {
             <div className="relative">
               <input
                 type="text"
-                value={newFriendEmail}
-                onChange={(e) => setNewFriendEmail(e.target.value)}
+                value={newFriendId}
+                onChange={(e) => setNewFriendId(e.target.value)}
                 placeholder="Enter friend's ID"
                 className="input-field w-full"
                 autoFocus
@@ -1010,7 +1009,7 @@ export const Social: React.FC = () => {
               variant="primary"
               onClick={sendFriendRequest}
               fullWidth
-              disabled={!newFriendEmail.trim()}
+              disabled={!newFriendId.trim()}
             >
               Send Request
             </Button>

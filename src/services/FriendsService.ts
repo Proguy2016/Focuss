@@ -19,6 +19,7 @@ export interface FriendProfile {
 
 export interface FriendRequest {
     id: string;
+    friendId: string;
     sender: {
         _id: string;
         firstName: string;
@@ -60,6 +61,7 @@ class FriendsService {
             const response = await api.get('/api/friends/requests');
             return response.data.requests.map((req: any) => ({
                 id: req.id,
+                friendId: req.friendId,
                 sender: {
                     _id: req.sender._id,
                     firstName: req.sender.firstName,
@@ -101,9 +103,9 @@ class FriendsService {
         }
     }
 
-    async sendFriendRequest(email: string): Promise<boolean> {
+    async sendFriendRequest(friendId: string): Promise<boolean> {
         try {
-            await api.put('/api/friends/request', { email });
+            await api.put('/api/friends/request', { friendId });
             return true;
         } catch (error) {
             console.error("Error sending friend request:", error);
@@ -111,9 +113,10 @@ class FriendsService {
         }
     }
 
-    async acceptFriendRequest(requestId: string): Promise<boolean> {
+    async acceptFriendRequest(friendId: string): Promise<boolean> {
         try {
-            await api.put('/api/friends/accept', { requestId });
+            console.log('Sending accept request with data:', { friendId });
+            await api.put('/api/friends/accept', { friendId });
             return true;
         } catch (error) {
             console.error("Error accepting friend request:", error);
@@ -121,9 +124,10 @@ class FriendsService {
         }
     }
 
-    async declineFriendRequest(requestId: string): Promise<boolean> {
+    async declineFriendRequest(friendId: string): Promise<boolean> {
         try {
-            await api.put('/api/friends/decline', { requestId });
+            console.log('Sending decline request with data:', { friendId });
+            await api.put('/api/friends/decline', { friendId });
             return true;
         } catch (error) {
             console.error("Error declining friend request:", error);
