@@ -13,6 +13,8 @@ import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import FriendsService, { FriendProfile, FriendRequest } from '../services/FriendsService';
 import api from '../services/api';
+import { FriendChatManager } from '../components/social/FriendChatManager';
+import { FriendChat } from '../components/social/FriendChat';
 
 interface FocusGroup {
   id: string;
@@ -74,6 +76,8 @@ export const Social: React.FC = () => {
     isPublic: true,
     maxMembers: 10,
   });
+
+  const [activeChatFriend, setActiveChatFriend] = useState<FriendProfile | null>(null);
 
   // Mock data
   const focusGroups: FocusGroup[] = [
@@ -444,10 +448,8 @@ export const Social: React.FC = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1 }}
-      onClick={() => viewFriendDetails(friend._id)}
-      className="cursor-pointer"
     >
-      <Card variant="solid" className="p-4 bg-white/5 hover:bg-white/10 transition-colors">
+      <Card variant="solid" className="p-4 bg-white/5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-xl">
@@ -464,23 +466,25 @@ export const Social: React.FC = () => {
 
             <div className="flex-1">
               <h3 className="font-semibold text-white">{friend.firstName} {friend.lastName}</h3>
-              {friend.level && <p className="text-xs text-white/60">Level {friend.level} | XP {friend.xp}</p>}
+              <p className="text-xs text-white/60">
+                {typeof friend.level === 'number' && `Level ${friend.level}`}
+                {typeof friend.level === 'number' && typeof friend.xp === 'number' && ' | '}
+                {typeof friend.xp === 'number' && `XP ${friend.xp}`}
+              </p>
               {friend.bio && <p className="text-sm text-white/60 line-clamp-1">{friend.bio}</p>}
             </div>
           </div>
 
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" icon={MessageCircle} onClick={(e) => e.stopPropagation()} />
             <Button
               variant="ghost"
               size="sm"
-              icon={UserMinus}
-              onClick={(e) => {
-                e.stopPropagation();
-                unfriendUser(friend._id);
-              }}
-              className="text-error-400 hover:bg-error-500/20"
+              icon={MessageCircle}
+              onClick={() => setActiveChatFriend(friend)}
+              className="text-primary-400 hover:bg-primary-500/20"
             />
+            <Button variant="ghost" size="sm" icon={User} onClick={() => viewFriendDetails(friend._id)} />
+            <Button variant="ghost" size="sm" icon={UserMinus} onClick={() => unfriendUser(friend._id)} className="text-error-400 hover:bg-error-500/20" />
           </div>
         </div>
       </Card>
@@ -585,15 +589,18 @@ export const Social: React.FC = () => {
             <h3 className="text-lg font-semibold text-white mb-2 flex items-center"><MessageCircle className="w-5 h-5 mr-2" /> Recent Posts</h3>
             {friend.posts && friend.posts.length > 0 ? (
               <div className="space-y-3">
-                {friend.posts.map((post: SocialPost, index: number) => (
-                  <div key={index} className="bg-white/5 p-3 rounded-lg">
-                    <div className="flex items-center gap-2 text-sm text-white/70 mb-1">
-                      <PostIcon className="w-4 h-4 text-primary-400" /> {/* Assuming PostIcon is available or define it */}
-                      <span>{post.content.substring(0, 70)}...</span>
-                      <span className="ml-auto text-white/50">{formatTimestamp(new Date(post.timestamp))}</span>
+                {friend.posts.map((post: SocialPost, index: number) => {
+                  const PostIcon = getPostIcon(post.type);
+                  return (
+                    <div key={index} className="bg-white/5 p-3 rounded-lg">
+                      <div className="flex items-center gap-2 text-sm text-white/70 mb-1">
+                        <PostIcon className="w-4 h-4 text-primary-400" />
+                        <span>{post.content.substring(0, 70)}...</span>
+                        <span className="ml-auto text-white/50">{formatTimestamp(new Date(post.timestamp))}</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-white/60">No recent posts.</p>
@@ -623,7 +630,17 @@ export const Social: React.FC = () => {
           </p>
         </div>
 
-        {/* Group-related buttons removed */}
+        <div className="flex gap-2">
+          <a href="/chat-test">
+            <Button
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <MessageCircle className="w-4 h-4" />
+              Chat Test
+            </Button>
+          </a>
+        </div>
       </motion.div>
 
       {/* Navigation Tabs */}
@@ -1109,6 +1126,18 @@ export const Social: React.FC = () => {
         isOpen={showFriendDetails}
         onClose={() => setShowFriendDetails(false)}
       />
+
+      {/* Chat Manager */}
+      {activeChatFriend && (
+        <div className="fixed bottom-0 right-4 z-50">
+          <FriendChat
+            friendId={activeChatFriend._id}
+            friendName={`${activeChatFriend.firstName} ${activeChatFriend.lastName}`}
+            friendProfilePic={activeChatFriend.profilePicture}
+            onClose={() => setActiveChatFriend(null)}
+          />
+        </div>
+      )}
     </div>
   );
 };

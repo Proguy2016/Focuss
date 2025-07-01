@@ -23,6 +23,7 @@ import SearchResults from './pages/SearchResults';
 import LandingPage from './pages/LandingPage';
 import ResetPassword from './pages/ResetPassword';
 import EmailSentConfirmation from './pages/EmailSentConfirmation';
+import { FriendChatManager } from './components/social/FriendChatManager';
 
 const LoadingScreen: React.FC = () => (
   <div className="flex h-screen items-center justify-center bg-dark">
@@ -55,6 +56,7 @@ const MainLayout = () => {
           <Outlet /> {/* This is where nested routes will render */}
         </main>
       </div>
+      <FriendChatManager />
     </div>
   );
 };
