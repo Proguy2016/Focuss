@@ -16,7 +16,20 @@ type ViewMode = 'list' | 'kanban';
 type FilterType = 'all' | 'todo' | 'inProgress' | 'completed' | 'overdue';
 type SortType = 'dueDate' | 'priority' | 'created' | 'alphabetical';
 type SortKey = 'dueDate' | 'priority' | 'createdAt';
-type FilterStatus = 'all' | 'todo' | 'inProgress' | 'completed';
+type FilterStatus = 'all' | 'todo' | 'completed';
+
+const PRIORITY_COLORS: Record<string, string> = {
+  high: '#EF4444',
+  medium: '#FBBF24',
+  low: '#3B82F6',
+  urgent: '#EF4444',
+};
+const PRIORITY_LABELS: Record<string, string> = {
+  high: 'High',
+  medium: 'Medium',
+  low: 'Low',
+  urgent: 'Urgent',
+};
 
 const TasksHeader: React.FC<{
   onAddTask: () => void;
@@ -82,12 +95,6 @@ const FilterBar: React.FC<{
           To Do
         </Button>
         <Button
-          variant={currentFilter === 'inProgress' ? 'primary' : 'secondary'}
-          onClick={() => handleFilterChange('inProgress')}
-        >
-          In Progress
-        </Button>
-        <Button
           variant={currentFilter === 'completed' ? 'primary' : 'secondary'}
           onClick={() => handleFilterChange('completed')}
         >
@@ -104,34 +111,6 @@ const TaskCard = ({ task, onEdit, onDelete }: { task: Task, onEdit: () => void, 
   const [showSubtasks, setShowSubtasks] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const handleStatusChange = (newStatus: TaskStatus['type']) => {
-    dispatch({ type: 'UPDATE_TASK_STATUS', payload: { taskId: task.id, status: newStatus } });
-    setIsMenuOpen(false);
-  };
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const statusOptions: TaskStatus['type'][] = ['todo', 'inProgress', 'completed'];
-
-  const toggleSubtaskStatus = (subtaskId: string) => {
-    const updatedSubtasks = task.subtasks.map(subtask =>
-      subtask.id === subtaskId ? { ...subtask, completed: !subtask.completed } : subtask
-    );
-
-    dispatch({
-      type: 'UPDATE_TASK',
-      payload: { ...task, subtasks: updatedSubtasks }
-    });
-  };
-
   return (
     <motion.div
       layout
@@ -139,7 +118,7 @@ const TaskCard = ({ task, onEdit, onDelete }: { task: Task, onEdit: () => void, 
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       className="bg-white/5 backdrop-blur-sm p-4 rounded-md shadow-lg border-l-4"
-      style={{ borderColor: task.priority.color }}
+      style={{ borderColor: PRIORITY_COLORS[task.priority] }}
     >
       <div className="flex justify-between items-start">
         <p className="font-semibold pr-2">{task.title}</p>
@@ -156,17 +135,6 @@ const TaskCard = ({ task, onEdit, onDelete }: { task: Task, onEdit: () => void, 
                 className="absolute right-0 mt-2 w-48 bg-gray-800/90 backdrop-blur-md border border-white/10 rounded-md shadow-lg z-20"
               >
                 <div className="p-2">
-                  <p className="text-xs text-white/50 px-2 py-1">Change Status</p>
-                  {statusOptions.filter(s => s !== task.status.type).map(status => (
-                    <button
-                      key={status}
-                      onClick={() => handleStatusChange(status)}
-                      className="w-full text-left px-2 py-1.5 text-sm text-white rounded hover:bg-primary-500/50"
-                    >
-                      {status === 'todo' ? 'To Do' : status === 'inProgress' ? 'In Progress' : 'Completed'}
-                    </button>
-                  ))}
-                  <div className="border-t border-white/10 my-1"></div>
                   <button onClick={onEdit} className="w-full text-left px-2 py-1.5 text-sm text-white rounded hover:bg-white/10">Edit Task</button>
                   <button onClick={onDelete} className="w-full text-left px-2 py-1.5 text-sm text-red-400 rounded hover:bg-red-500/20">Delete Task</button>
                 </div>
@@ -184,7 +152,7 @@ const TaskCard = ({ task, onEdit, onDelete }: { task: Task, onEdit: () => void, 
             onClick={() => setShowSubtasks(!showSubtasks)}
           >
             <ChevronDown className={`w-4 h-4 mr-1 transition-transform ${showSubtasks ? 'rotate-180' : ''}`} />
-            <span>Subtasks ({task.subtasks.filter(st => st.completed).length}/{task.subtasks.length})</span>
+            <span>Subtasks ({task.subtasks.length})</span>
           </div>
 
           <AnimatePresence>
@@ -196,22 +164,12 @@ const TaskCard = ({ task, onEdit, onDelete }: { task: Task, onEdit: () => void, 
                 className="overflow-hidden"
               >
                 <div className="pl-2 space-y-1 mt-1">
-                  {task.subtasks.map(subtask => (
+                  {task.subtasks.map((sub, idx) => (
                     <div
-                      key={subtask.id}
-                      className="flex items-center text-sm"
-                      onClick={() => toggleSubtaskStatus(subtask.id)}
+                      key={idx}
+                      className="flex items-center text-sm group"
                     >
-                      <div className="flex-shrink-0 cursor-pointer">
-                        {subtask.completed ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <Circle className="w-4 h-4 text-white/40" />
-                        )}
-                      </div>
-                      <span className={`ml-2 ${subtask.completed ? 'line-through text-white/40' : 'text-white/80'}`}>
-                        {subtask.title}
-                      </span>
+                      <span className="ml-2 text-white/80">{sub}</span>
                     </div>
                   ))}
                 </div>
@@ -250,31 +208,6 @@ const TaskRow = ({ task, onFocus, onEdit, onDelete, onStatusToggle, onUpdateTask
   onStatusToggle: () => void,
   onUpdateTask: (updatedTask: Task) => void
 }) => {
-  const [showSubtasks, setShowSubtasks] = useState(false);
-
-  const toggleSubtaskDisplay = (e: React.MouseEvent) => {
-    // Prevent toggling if clicking on the status toggle or action buttons
-    const target = e.target as HTMLElement;
-    if (target.closest('button') && !target.closest('.subtask-toggle-button')) {
-      // If the click was on a button, but not specifically the subtask toggle button, do nothing.
-      // This allows action buttons (edit, delete, focus, status) to work without toggling subtasks.
-      return;
-    }
-    if (task.subtasks && task.subtasks.length > 0) {
-      setShowSubtasks(!showSubtasks);
-    }
-  };
-
-  const handleToggleSubtaskStatus = (subtaskId: string) => {
-    const updatedSubtasks = task.subtasks.map(subtask =>
-      subtask.id === subtaskId ? { ...subtask, completed: !subtask.completed } : subtask
-    );
-    onUpdateTask({ ...task, subtasks: updatedSubtasks });
-  };
-
-  const numCompletedSubtasks = task.subtasks?.filter(st => st.completed).length || 0;
-  const totalSubtasks = task.subtasks?.length || 0;
-
   return (
     <>
       <motion.tr
@@ -282,12 +215,13 @@ const TaskRow = ({ task, onFocus, onEdit, onDelete, onStatusToggle, onUpdateTask
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className={`border-b border-white/5 hover:bg-white/5 transition-colors duration-200 ${task.subtasks && task.subtasks.length > 0 ? 'cursor-pointer' : ''}`}
-        onClick={toggleSubtaskDisplay}
+        className={
+          `border-b border-white/5 hover:bg-white/5 transition-colors duration-200`
+        }
       >
         <td className="p-4 w-12">
           <button onClick={(e) => { e.stopPropagation(); onStatusToggle(); }} className="flex items-center justify-center group">
-            {task.status.type === 'completed' ? (
+            {task.completed ? (
               <CheckCircle2 className="w-6 h-6 text-green-500" />
             ) : (
               <Circle className="w-6 h-6 text-white/40 group-hover:text-white" />
@@ -296,39 +230,37 @@ const TaskRow = ({ task, onFocus, onEdit, onDelete, onStatusToggle, onUpdateTask
         </td>
         <td className="p-4">
           <div className="flex items-center">
-            <p className={`font-medium ${task.status.type === 'completed' ? 'line-through text-white/50' : ''}`}>
+            <p className={`font-medium ${task.completed ? 'line-through text-white/50' : ''}`}>
               {task.title}
             </p>
-            {task.subtasks && task.subtasks.length > 0 && (
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowSubtasks(!showSubtasks); }}
-                className="ml-2 text-xs text-white/50 hover:text-white subtask-toggle-button p-1 rounded hover:bg-white/10"
-                title={showSubtasks ? "Hide subtasks" : "Show subtasks"}
-              >
-                <ChevronDown className={`w-4 h-4 transition-transform ${showSubtasks ? 'rotate-180' : ''}`} />
-                ({numCompletedSubtasks}/{totalSubtasks})
-              </button>
-            )}
           </div>
           {task.description && <p className="text-sm text-white/40 mt-1 hidden sm:block">{task.description}</p>}
+          {task.subtasks && task.subtasks.length > 0 && (
+            <div className="pl-4 mt-2 space-y-1">
+              {task.subtasks.map((sub, idx) => (
+                <div key={idx} className="flex items-center text-sm">
+                  <span className="text-white/80">{sub}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </td>
         <td className="p-4 hidden md:table-cell">
           {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No date'}
         </td>
         <td className="p-4 hidden sm:table-cell">
           <span className="flex items-center gap-2">
-            <Flag className="w-4 h-4" style={{ color: task.priority.color }} />
-            {task.priority.level.charAt(0).toUpperCase() + task.priority.level.slice(1)}
+            <Flag className="w-4 h-4" style={{ color: PRIORITY_COLORS[task.priority] }} />
+            {PRIORITY_LABELS[task.priority]}
           </span>
         </td>
         <td className="p-4 hidden lg:table-cell">
           <span
-            className={`px-3 py-1 rounded-full text-xs font-semibold ${task.status.type === 'completed' ? 'bg-green-500/20 text-green-300' :
-              task.status.type === 'inProgress' ? 'bg-yellow-500/20 text-yellow-300' :
-                'bg-gray-500/20 text-gray-300'
+            className={`px-3 py-1 rounded-full text-xs font-semibold ${task.completed ? 'bg-green-500/20 text-green-300' :
+              'bg-gray-500/20 text-gray-300'
               }`}
           >
-            {task.status.type === 'todo' ? 'To Do' : task.status.type === 'inProgress' ? 'In Progress' : 'Completed'}
+            {task.completed ? 'Completed' : 'To Do'}
           </span>
         </td>
         <td className="p-4 text-right">
@@ -345,44 +277,6 @@ const TaskRow = ({ task, onFocus, onEdit, onDelete, onStatusToggle, onUpdateTask
           </div>
         </td>
       </motion.tr>
-      <AnimatePresence>
-        {showSubtasks && task.subtasks && task.subtasks.length > 0 && (
-          <motion.tr
-            key={`${task.id}-subtasks`}
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="bg-white/5"
-          >
-            <td colSpan={6} className="p-0"> {/* Colspan should match number of columns in header */}
-              <div className="p-4 pl-16"> {/* Indent subtasks */}
-                <div className="space-y-2">
-                  {task.subtasks.map(subtask => (
-                    <div
-                      key={subtask.id}
-                      className="flex items-center text-sm group"
-                    >
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleToggleSubtaskStatus(subtask.id); }}
-                        className="flex-shrink-0 cursor-pointer p-1 rounded-full hover:bg-white/20"
-                      >
-                        {subtask.completed ? (
-                          <CheckCircle2 className="w-5 h-5 text-green-400" />
-                        ) : (
-                          <Circle className="w-5 h-5 text-white/40 group-hover:text-green-400 transition-colors" />
-                        )}
-                      </button>
-                      <span className={`ml-2 ${subtask.completed ? 'line-through text-white/50' : 'text-white/80'}`}>
-                        {subtask.title}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </td>
-          </motion.tr>
-        )}
-      </AnimatePresence>
     </>
   );
 }
@@ -410,13 +304,20 @@ export const Tasks: React.FC = () => {
       if (!token) {
         throw new Error("Authentication token not found.");
       }
-      const response = await fetch('http://localhost:5001/api/tasks', {
+      const response = await fetch('http://localhost:5001/api/stats/getTasks', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
 
+      if (response.status === 404) {
+        // No tasks found for this user, treat as empty list
+        setTasks([]);
+        setLoading(false);
+        return;
+      }
       if (!response.ok) {
+        console.log(`this is the token: ${token}`);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -425,60 +326,19 @@ export const Tasks: React.FC = () => {
         throw new Error("Tasks not found in response");
       }
 
-      const priorityMap: Record<string, { level: TaskPriority['level'], color: string }> = {
-        High: { level: 'high', color: '#EF4444' },
-        Medium: { level: 'medium', color: '#FBBF24' },
-        Low: { level: 'low', color: '#3B82F6' },
-        Urgent: { level: 'urgent', color: '#EF4444' }, // Added Urgent
-      };
-
-      const transformedTasks = data.tasks.map((backendTask: any): Task => {
-        // Determine task status based on backend data
-        let taskStatusType: TaskStatus['type'] = 'todo'; // Default
-        if (backendTask.completed === true) { // Assuming backend sends a 'completed' boolean
-          taskStatusType = 'completed';
-        } else if (backendTask.status) { // Or if backend sends a status string
-          if (backendTask.status.type === 'completed') taskStatusType = 'completed';
-          else if (backendTask.status.type === 'inProgress') taskStatusType = 'inProgress';
-          else if (backendTask.status.type === 'blocked') taskStatusType = 'blocked';
-        }
-        // Add other conditions if backend provides more granular status like 'inProgress'
-
-        const taskStatus: TaskStatus = {
-          type: taskStatusType,
-          label: taskStatusType.charAt(0).toUpperCase() + taskStatusType.slice(1), // Basic label
-          color: taskStatusType === 'completed' ? '#10B981' : taskStatusType === 'inProgress' ? '#F59E0B' : '#6B7280', // Basic colors
-        };
-
-        return {
-          id: backendTask.id,
-          title: backendTask.title,
-          description: backendTask.description,
-          status: taskStatus,
-          priority: backendTask.priority.level ? backendTask.priority : priorityMap.Medium,
-          dueDate: backendTask.dueDate ? new Date(backendTask.dueDate) : undefined,
-          createdAt: backendTask.createdAt ? new Date(backendTask.createdAt) : new Date(), // Assuming backend sends createdAt
-          updatedAt: backendTask.updatedAt ? new Date(backendTask.updatedAt) : new Date(), // Assuming backend sends updatedAt
-          subtasks: Array.isArray(backendTask.subtasks) ? backendTask.subtasks.map((subtaskItem: any) => {
-            return {
-              id: subtaskItem.id,
-              title: subtaskItem.title,
-              completed: subtaskItem.completed
-            };
-          }) : [],
-          category: backendTask.category,
-          tags: backendTask.tags || [], // Ensure tags is an array
-          urgency: backendTask.urgency || { level: 'medium', color: '#FBBF24' }, // Default or map from backend
-          estimatedTime: backendTask.estimatedTime,
-          actualTime: backendTask.actualTime,
-          dependencies: backendTask.dependencies || [],
-          recurring: backendTask.recurring,
-          completedAt: backendTask.completedAt ? new Date(backendTask.completedAt) : undefined,
-          completed: backendTask.completed,
-        };
-      });
-
-      setTasks(transformedTasks);
+      const mappedTasks = data.tasks.map((task: any) => ({
+        id: task._id || task.taskId,
+        title: task.taskTitle,
+        description: task.taskDescription,
+        priority: task.priority,
+        dueDate: task.dueDate,
+        completed: task.completed,
+        subtasks: Array.isArray(task.subTasks) ? [...task.subTasks] : [],
+        category: task.category,
+        tags: task.tags,
+        estimatedTime: task.estimatedTime,
+      }));
+      setTasks(mappedTasks);
 
     } catch (e: any) {
       setError(e.message || 'Failed to fetch tasks.');
@@ -495,7 +355,7 @@ export const Tasks: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const filter = params.get('filter') as FilterStatus;
-    if (filter && ['all', 'todo', 'inProgress', 'completed'].includes(filter)) {
+    if (filter && ['all', 'todo', 'completed'].includes(filter)) {
       setFilterStatus(filter);
     }
     const action = params.get('action');
@@ -507,12 +367,12 @@ export const Tasks: React.FC = () => {
   const sortedAndFilteredTasks = useMemo(() => {
     let tasksToFilter = [...tasks];
     if (filterStatus !== 'all') {
-      tasksToFilter = tasksToFilter.filter(t => t.status.type === filterStatus);
+      tasksToFilter = tasksToFilter.filter(t => t.completed);
     }
     if (searchTerm) {
       tasksToFilter = tasksToFilter.filter(t =>
         t.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.description.toLowerCase().includes(searchTerm.toLowerCase())
+        (t.description || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
     tasksToFilter.sort((a, b) => {
@@ -520,16 +380,16 @@ export const Tasks: React.FC = () => {
         return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
       }
       if (sortKey === 'priority') {
-        const priorityOrder = { high: 3, medium: 2, low: 1 };
-        return priorityOrder[b.priority.level] - priorityOrder[a.priority.level];
+        const priorityOrder: Record<string, number> = { high: 3, medium: 2, low: 1, urgent: 4 };
+        return priorityOrder[b.priority] - priorityOrder[a.priority];
       }
-      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      return a.title.localeCompare(b.title);
     });
     return tasksToFilter;
   }, [tasks, filterStatus, searchTerm, sortKey]);
 
   const handleFocusTask = (task: Task) => {
-    dispatch({ type: 'SET_FOCUS_TASK', payload: task });
+    // dispatch({ type: 'SET_FOCUS_TASK', payload: task });
     navigate('/focus');
   };
 
@@ -548,6 +408,19 @@ export const Tasks: React.FC = () => {
     setEditingTask(null);
   };
 
+  const mapTaskFromBackend = (task: any) => ({
+    id: task._id || task.taskId || task.id,
+    title: task.taskTitle || task.title,
+    description: task.taskDescription || task.description,
+    priority: task.priority,
+    dueDate: task.dueDate,
+    completed: task.completed,
+    subtasks: Array.isArray(task.subTasks) ? [...task.subTasks] : (Array.isArray(task.subtasks) ? [...task.subtasks] : []),
+    category: task.category,
+    tags: task.tags,
+    estimatedTime: task.estimatedTime,
+  });
+
   const handleSaveTask = async (taskData: any) => {
     setLoading(true);
     setError('');
@@ -562,47 +435,31 @@ export const Tasks: React.FC = () => {
         'Authorization': `Bearer ${token}`,
       };
 
+      const payload: any = {
+        ...(taskData.id && { taskId: taskData.id }),
+        taskTitle: taskData.title,
+        taskDescription: taskData.description,
+        priority: taskData.priority,
+        category: taskData.category,
+        estimatedTime: taskData.estimatedTime,
+        dueDate: taskData.dueDate || null,
+        tags: taskData.tags || [],
+        subTasks: (taskData.subtasks || []),
+        completed: taskData.completed || false,
+      };
+
       let response;
       if (taskData.id) {
-        // Update existing task
-        response = await fetch(`http://localhost:5001/api/tasks/${taskData.id}`, {
+        response = await fetch(`http://localhost:5001/api/stats/updateTask`, {
           method: 'PUT',
           headers,
-          body: JSON.stringify({
-            title: taskData.title,
-            description: taskData.description,
-            dueDate: taskData.dueDate || null,
-            priority: taskData.priority,
-            subtasks: taskData.subtasks.map((sub: any) => {
-              const subtaskPayload: any = {
-                title: sub.title,
-                completed: sub.completed || false,
-              };
-              // Only include subtask ID if it's a valid MongoDB ID (not a temporary client-side ID)
-              if (sub.id && typeof sub.id === 'string' && sub.id.length === 24 && /^[0-9a-fA-F]{24}$/.test(sub.id)) {
-                subtaskPayload.id = sub.id;
-              }
-              return subtaskPayload;
-            }),
-            completed: taskData.status?.type === 'completed', // Derive from current status type
-          }),
+          body: JSON.stringify(payload),
         });
       } else {
-        // Create new task
-        response = await fetch('http://localhost:5001/api/tasks', {
+        response = await fetch('http://localhost:5001/api/stats/addTask', {
           method: 'POST',
           headers,
-          body: JSON.stringify({
-            title: taskData.title,
-            description: taskData.description,
-            dueDate: taskData.dueDate || null,
-            priority: taskData.priority,
-            subtasks: taskData.subtasks.map((sub: any) => ({ // Ensure subtasks also have completed status consistently
-              title: sub.title,
-              completed: sub.completed || false, // Default to false for new subtasks
-            })),
-            completed: false, // New tasks are not completed by default
-          }),
+          body: JSON.stringify(payload),
         });
       }
 
@@ -612,15 +469,25 @@ export const Tasks: React.FC = () => {
       }
 
       const savedTask = await response.json();
-      setTasks(prevTasks => {
-        if (taskData.id) {
-          return prevTasks.map(task =>
-            task.id === savedTask.id ? savedTask : task
-          );
-        } else {
-          return [...prevTasks, savedTask];
-        }
-      });
+      if (Array.isArray(savedTask.tasks)) {
+        // Backend returned the full tasks array
+        const mappedTasks = savedTask.tasks
+          .filter((t: any) => typeof t === 'object' && t.taskTitle)
+          .map(mapTaskFromBackend);
+        setTasks(mappedTasks);
+      } else {
+        // Backend returned a single task
+        const mappedTask = mapTaskFromBackend(savedTask.task || savedTask);
+        setTasks(prevTasks => {
+          if (taskData.id) {
+            return prevTasks.map(task =>
+              task.id === mappedTask.id ? mappedTask : task
+            );
+          } else {
+            return [...prevTasks, mappedTask];
+          }
+        });
+      }
       closeModal();
     } catch (e: any) {
       setError(e.message || 'An error occurred while saving the task.');
@@ -637,12 +504,17 @@ export const Tasks: React.FC = () => {
       return;
     }
     try {
-      const response = await fetch(`http://localhost:5001/api/tasks/${id}`, {
+      const payload = {
+        taskId: id,
+        deleteTask: true // or false, depending on your logic
+      };
+      const response = await fetch(`http://localhost:5001/api/stats/removeTask`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
+        body: JSON.stringify(payload)
       });
       if (!response.ok) {
         const errorBody = await response.text();
@@ -658,37 +530,34 @@ export const Tasks: React.FC = () => {
   };
 
   const toggleTaskStatus = async (task: Task) => {
-    const newCompletedStatus = task.status.type !== 'completed'; // If current is not completed, set to completed
-    const newStatusType = newCompletedStatus ? 'completed' : 'todo';
+    const newCompletedStatus = !task.completed;
 
     // Optimistic update
-    setTasks(currentTasks => currentTasks.map(t => {
-      if (t.id === task.id) {
-        // Create a new status object to ensure reference change if properties are same but type differs
-        const updatedStatus = { ...t.status, type: newStatusType };
-        return { ...t, status: updatedStatus };
-      }
-      return t;
-    }));
+    setTasks(currentTasks => currentTasks.map(t =>
+      t.id === task.id ? { ...t, completed: newCompletedStatus } : t
+    ));
 
     const token = localStorage.getItem('token');
     if (!token) {
       setError("Authentication token not found.");
       // Revert optimistic update
       setTasks(currentTasks => currentTasks.map(t =>
-        t.id === task.id ? { ...t, status: task.status } : t
+        t.id === task.id ? { ...t, completed: task.completed } : t
       ));
       return;
     }
 
     try {
-      const response = await fetch(`http://localhost:5001/api/tasks/${task.id}`, {
+      const endpoint = newCompletedStatus
+        ? 'http://localhost:5001/api/stats/task'
+        : 'http://localhost:5001/api/stats/dec';
+      const response = await fetch(endpoint, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ completed: newCompletedStatus }),
+        body: JSON.stringify({ taskId: task.id }),
       });
 
       if (!response.ok) {
@@ -705,36 +574,12 @@ export const Tasks: React.FC = () => {
       ));
 
       console.log(`Successfully updated task completion for task ${task.id}`);
-
-      // --- New: Update statistics based on completion status ---
-      const statsEndpoint = newCompletedStatus ? 'task' : 'dec';
-      try {
-        const statsResponse = await fetch(`http://localhost:5001/api/stats/${statsEndpoint}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({ taskId: task.id }), // Send taskId for stats update
-        });
-
-        if (!statsResponse.ok) {
-          const statsErrorBody = await statsResponse.text();
-          console.error(`Failed to update stats: ${statsEndpoint}. Server responded with ${statsResponse.status}: ${statsErrorBody}`);
-        } else {
-          console.log(`Successfully called http://localhost:5001/api/stats/${statsEndpoint} for task ${task.id}`);
-        }
-      } catch (statsError) {
-        console.error(`Error calling stats API (${statsEndpoint}):`, statsError);
-      }
-      // --- End New ---
-
     } catch (e: any) {
       setError(e.message || 'An error occurred.');
       console.error(e);
       // Revert optimistic update on failure
       setTasks(currentTasks => currentTasks.map(t =>
-        t.id === task.id ? { ...t, status: task.status } : t
+        t.id === task.id ? { ...t, completed: task.completed } : t
       ));
     }
   };
@@ -812,9 +657,8 @@ export const Tasks: React.FC = () => {
                 </div>
               ) : (
                 <div className="flex gap-6 p-6 overflow-x-auto">
-                  <KanbanColumn title="To Do" tasks={sortedAndFilteredTasks.filter(t => t.status.type === 'todo')} onEdit={openEditModal} onDelete={handleDeleteTask} />
-                  <KanbanColumn title="In Progress" tasks={sortedAndFilteredTasks.filter(t => t.status.type === 'inProgress')} onEdit={openEditModal} onDelete={handleDeleteTask} />
-                  <KanbanColumn title="Completed" tasks={sortedAndFilteredTasks.filter(t => t.status.type === 'completed')} onEdit={openEditModal} onDelete={handleDeleteTask} />
+                  <KanbanColumn title="To Do" tasks={sortedAndFilteredTasks.filter(t => t.completed)} onEdit={openEditModal} onDelete={handleDeleteTask} />
+                  <KanbanColumn title="Completed" tasks={sortedAndFilteredTasks.filter(t => !t.completed)} onEdit={openEditModal} onDelete={handleDeleteTask} />
                 </div>
               )}
             </motion.div>
@@ -841,28 +685,34 @@ const TaskModal = ({ isOpen, onClose, onSave, task }: { isOpen: boolean, onClose
       setTaskData({
         ...task,
         dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
-        priority: task.priority.level,
+        priority: task.priority || 'Medium',
+        category: task.category || '',
+        estimatedTime: task.estimatedTime || '',
       });
     } else {
       setTaskData({
         title: '',
         description: '',
         dueDate: '',
-        priority: 'medium',
-        subtasks: []
+        priority: 'Medium',
+        category: '',
+        subtasks: [],
+        estimatedTime: '',
       });
     }
   }, [task, isOpen]);
 
   const handleSubtaskChange = (index: number, field: string, value: any) => {
     const newSubtasks = [...(taskData.subtasks || [])];
-    newSubtasks[index] = { ...newSubtasks[index], [field]: value };
+    newSubtasks[index] = value;
     setTaskData({ ...taskData, subtasks: newSubtasks });
   };
 
   const addSubtask = () => {
-    const newSubtasks = [...(taskData.subtasks || []), { id: `sub-${Date.now()}`, title: '', completed: false }];
-    setTaskData({ ...taskData, subtasks: newSubtasks });
+    setTaskData({
+      ...taskData,
+      subtasks: [...(taskData.subtasks || []), '']
+    });
   };
 
   const removeSubtask = (index: number) => {
@@ -922,6 +772,18 @@ const TaskModal = ({ isOpen, onClose, onSave, task }: { isOpen: boolean, onClose
                     ></textarea>
                   </div>
 
+                  <div>
+                    <label className="text-sm font-medium text-white/80 block mb-2">Estimated Time (minutes)</label>
+                    <input
+                      type="number"
+                      value={taskData.estimatedTime || ''}
+                      onChange={(e) => setTaskData({ ...taskData, estimatedTime: Number(e.target.value) })}
+                      className="w-full bg-white/5 border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      placeholder="e.g., 60"
+                      required
+                    />
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="text-sm font-medium text-white/80 block mb-2">Due Date</label>
@@ -935,32 +797,42 @@ const TaskModal = ({ isOpen, onClose, onSave, task }: { isOpen: boolean, onClose
                     <div>
                       <label className="text-sm font-medium text-white/80 block mb-2">Priority</label>
                       <select
-                        value={taskData.priority || 'medium'}
-                        onChange={(e) => setTaskData({ ...taskData, priority: e.target.value as 'low' | 'medium' | 'high' })}
-                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        value={taskData.priority || 'Medium'}
+                        onChange={(e) => setTaskData({ ...taskData, priority: e.target.value })}
+                        className="w-full bg-white/5 border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        required
                       >
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                        <option value="Urgent">Urgent</option>
                       </select>
                     </div>
                   </div>
 
                   <div>
+                    <label className="text-sm font-medium text-white/80 block mb-2">Category</label>
+                    <input
+                      type="text"
+                      value={taskData.category || ''}
+                      onChange={e => setTaskData({ ...taskData, category: e.target.value })}
+                      className="w-full bg-white/5 border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      placeholder="e.g., Work, Personal, School"
+                      required
+                    />
+                  </div>
+
+                  <div>
                     <label className="text-sm font-medium text-white/80 block mb-2">Subtasks</label>
-                    {taskData.subtasks?.map((subtask: SubTask, index: number) => (
+                    {taskData.subtasks?.map((sub: string, index: number) => (
                       <div key={index} className="flex items-center gap-2 mb-2">
                         <input
-                          type="checkbox"
-                          checked={subtask.completed}
-                          onChange={() => handleSubtaskChange(index, 'completed', !subtask.completed)}
-                          className="h-5 w-5 rounded bg-white/10 border-white/20 text-primary-500 focus:ring-primary-500 shrink-0"
-                        />
-                        <input
                           type="text"
-                          value={subtask.title}
-                          onChange={(e) => handleSubtaskChange(index, 'title', e.target.value)}
-                          className="w-full bg-white/5 border-none rounded px-2 py-1 text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+                          value={sub}
+                          onChange={(e) => handleSubtaskChange(index, '', e.target.value)}
+                          className="w-full bg-white/5 border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          placeholder="Subtask name"
+                          required
                         />
                         <Button variant="ghost" size="icon" onClick={() => removeSubtask(index)} className="text-red-500/70 hover:bg-red-500/20 shrink-0">
                           <Trash2 className="w-4 h-4" />
