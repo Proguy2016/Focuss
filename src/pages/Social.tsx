@@ -13,7 +13,7 @@ import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
 import FriendsService, { FriendProfile, FriendRequest } from '../services/FriendsService';
 import api from '../services/api';
-import { FriendChatManager } from '../components/social/FriendChatManager';
+import { SimpleChatManager } from '../components/social/SimpleChatManager';
 import { FriendChat } from '../components/social/FriendChat';
 
 interface FocusGroup {
@@ -52,6 +52,18 @@ interface SocialPost {
   isLiked: boolean;
 }
 
+interface UnreadCounts {
+  [friendId: string]: number;
+}
+
+const safeGet = (obj: any, path: string, fallback: any = undefined) => {
+  try {
+    return path.split('.').reduce((o, key) => o?.[key], obj) ?? fallback;
+  } catch (e) {
+    return fallback;
+  }
+};
+
 export const Social: React.FC = () => {
   const { state } = useApp();
   const { user } = useAuth();
@@ -78,6 +90,7 @@ export const Social: React.FC = () => {
   });
 
   const [activeChatFriend, setActiveChatFriend] = useState<FriendProfile | null>(null);
+  const [unreadCounts, setUnreadCounts] = useState<UnreadCounts>({});
 
   // Mock data
   const focusGroups: FocusGroup[] = [
@@ -312,75 +325,67 @@ export const Social: React.FC = () => {
     </motion.div>
   );
 
-  // Fetch friends data
-  useEffect(() => {
-    if (activeTab === 'friends') {
-      fetchFriends();
-      fetchFriendRequests();
+  const handleOpenChat = (friend: FriendProfile) => {
+    setActiveChatFriend(null);
+    setTimeout(() => setActiveChatFriend(friend), 0);
+    if (unreadCounts[friend._id]) {
+      setUnreadCounts(prev => ({ ...prev, [friend._id]: 0 }));
     }
-  }, [activeTab]);
+  };
+
+  const handleCloseChat = (friendId: string) => {
+    if (activeChatFriend && activeChatFriend._id === friendId) {
+      setActiveChatFriend(null);
+    }
+  };
 
   const fetchFriends = async () => {
     try {
-      setIsLoading(true);
       const friendsList = await FriendsService.getFriendList();
       setFriends(friendsList);
     } catch (error) {
-      console.error('Failed to fetch friends:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('Error fetching friends list:', error);
     }
   };
 
   const fetchFriendRequests = async () => {
     try {
-      setIsLoading(true);
-      const response = await api.get('/api/friends/requests');
-      console.log('Raw friend requests data:', response.data);
-      const requests = response.data.friendRequests || [];
-      console.log('Friend requests array:', requests);
-
-      // Fetch details for each friend request
-      const populatedRequests = await Promise.all(
-        requests.map(async (req: { friendId: string }) => {
-          try {
-            // Get friend info using the friendId
-            const friendResponse = await api.get(`/api/friends/info/${req.friendId}`);
-            const friendData = friendResponse.data;
-            console.log('Friend data for request:', friendData);
-
-            // Create a sender object with the friend data
-            const populatedRequest = {
-              ...req,
-              sender: {
-                _id: req.friendId,
-                firstName: friendData.friendFirstName,
-                lastName: friendData.friendLastName,
-                profilePicture: friendData.friendPfp,
-                bio: friendData.friendBio,
-                level: friendData.friendLevel,
-                xp: friendData.friendXP,
-                achievements: friendData.friendAchievements || [],
-                posts: friendData.friendPosts || [],
-              }
-            };
-            console.log('Populated request:', populatedRequest);
-            return populatedRequest;
-          } catch (error) {
-            console.error(`Failed to fetch info for sender ${req.friendId}`, error);
-            return req; // Return original request if sender info fails
-          }
-        })
-      );
-
-      console.log('Final populated requests:', populatedRequests);
-      setFriendRequests(populatedRequests);
+      const requests = await FriendsService.getFriendRequests();
+      setFriendRequests(requests);
     } catch (error) {
       console.error('Failed to fetch friend requests:', error);
+    }
+  };
+
+  const fetchUnreadCounts = async () => {
+    try {
+      const response = await api.get('/api/messages/unread-count');
+      setUnreadCounts(response.data);
+    } catch (error) {
+      console.error("Failed to fetch unread counts", error);
+    }
+  };
+
+  const fetchAllData = async () => {
+    setIsLoading(true);
+    try {
+      await Promise.all([
+        fetchFriends(),
+        fetchUnreadCounts(),
+        fetchFriendRequests()
+      ]);
+    } catch (error) {
+      console.error("Failed to fetch social data:", error);
     } finally {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchAllData();
+    const interval = setInterval(fetchUnreadCounts, 15000); // Poll every 15 seconds
+    return () => clearInterval(interval);
+  }, []);
 
   const sendFriendRequest = async () => {
     try {
@@ -443,53 +448,65 @@ export const Social: React.FC = () => {
   };
 
   // Friend Card component
-  const FriendCard: React.FC<{ friend: FriendProfile; index: number }> = ({ friend, index }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.1 }}
-    >
-      <Card variant="solid" className="p-4 bg-white/5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-xl">
-              {friend.profilePicture ? (
-                <img
-                  src={friend.profilePicture}
-                  alt={`${friend.firstName} ${friend.lastName}`}
-                  className="w-full h-full rounded-full object-cover"
-                />
-              ) : (
-                <User className="w-6 h-6 text-white" />
-              )}
-            </div>
+  const FriendCard: React.FC<{ friend: FriendProfile, index: number }> = ({ friend, index }) => {
+    const unreadCount = unreadCounts[friend._id] || 0;
 
-            <div className="flex-1">
-              <h3 className="font-semibold text-white">{friend.firstName} {friend.lastName}</h3>
-              <p className="text-xs text-white/60">
-                {typeof friend.level === 'number' && `Level ${friend.level}`}
-                {typeof friend.level === 'number' && typeof friend.xp === 'number' && ' | '}
-                {typeof friend.xp === 'number' && `XP ${friend.xp}`}
-              </p>
-              {friend.bio && <p className="text-sm text-white/60 line-clamp-1">{friend.bio}</p>}
+    return (
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }}>
+        <div className="
+          rounded-2xl p-6 transition-all duration-300 relative overflow-hidden
+          bg-white/5 backdrop-blur-lg border border-white/10 shadow-lg
+          p-4
+        ">
+          <div style={{ transform: "translateZ(20px)" }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-xl">
+                  {friend.profilePicture ?
+                    <img src={friend.profilePicture} alt={friend.firstName} className="w-full h-full object-cover rounded-full" /> :
+                    <User className="w-6 h-6 text-white" />
+                  }
+                </div>
+                <div>
+                  <h3 className="font-semibold text-white">{friend.firstName} {friend.lastName}</h3>
+                  <p className="text-xs text-white/60">{safeGet(friend, 'email')}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleOpenChat(friend)}
+                  className="
+                    inline-flex items-center justify-center gap-2 rounded-xl font-semibold
+                    transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary-400/80
+                    disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer
+                    bg-white/10 backdrop-blur-md border border-white/10 text-white hover:bg-white/20 px-6 py-3 text-base text-primary-400 hover:bg-primary-500/20 relative
+                  "
+                >
+                  <MessageCircle size={20} />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => unfriendUser(friend._id)}
+                  className="
+                    inline-flex items-center justify-center gap-2 rounded-xl font-semibold
+                    transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary-400/80
+                    disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer
+                    bg-white/10 backdrop-blur-md border border-white/10 text-white hover:bg-white/20 px-6 py-3 text-base text-error-400 hover:bg-error-500/20
+                  "
+                >
+                  <UserMinus size={20} />
+                </button>
+              </div>
             </div>
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={MessageCircle}
-              onClick={() => setActiveChatFriend(friend)}
-              className="text-primary-400 hover:bg-primary-500/20"
-            />
-            <Button variant="ghost" size="sm" icon={User} onClick={() => viewFriendDetails(friend._id)} />
-            <Button variant="ghost" size="sm" icon={UserMinus} onClick={() => unfriendUser(friend._id)} className="text-error-400 hover:bg-error-500/20" />
           </div>
         </div>
-      </Card>
-    </motion.div>
-  );
+      </motion.div>
+    );
+  };
 
   // Friend Request Card component
   const FriendRequestCard: React.FC<{ request: FriendRequest; index: number }> = ({ request, index }) => {
@@ -543,72 +560,20 @@ export const Social: React.FC = () => {
 
     return (
       <Modal isOpen={isOpen} onClose={onClose} title={`${friend.firstName} ${friend.lastName}'s Profile`}>
-        <div className="p-4 space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-4xl overflow-hidden">
-              {friend.profilePicture ? (
-                <img
-                  src={friend.profilePicture}
-                  alt={`${friend.firstName} ${friend.lastName}`}
-                  className="w-full h-full rounded-full object-cover"
-                />
-              ) : (
-                <User className="w-12 h-12 text-white" />
-              )}
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white">{friend.firstName} {friend.lastName}</h2>
-              <p className="text-white/70">Level {friend.level} | XP {friend.xp}</p>
-              {friend.bio && <p className="text-white/80 mt-2">{friend.bio}</p>}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card variant="glass" className="p-4">
-              <h3 className="text-lg font-semibold text-white mb-2 flex items-center"><Award className="w-5 h-5 mr-2" /> Achievements</h3>
-              {friend.achievements && friend.achievements.length > 0 ? (
-                <ul className="list-disc list-inside text-white/80 space-y-1">
-                  {friend.achievements.map((achievement: any, index: number) => (
-                    <li key={index}>{achievement.name || achievement.title}</li> // Adjust based on actual achievement structure
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-white/60">No achievements yet.</p>
-              )}
-            </Card>
-
-            <Card variant="glass" className="p-4">
-              <h3 className="text-lg font-semibold text-white mb-2 flex items-center"><TrendingUp className="w-5 h-5 mr-2" /> Activity Stats</h3>
-              <p className="text-white/80">Streak: {friend.streak || 0} days</p>
-              <p className="text-white/80">Productivity Score: {friend.productivityScore || 0}</p>
-              {friend.lastActive && <p className="text-white/80">Last Active: {new Date(friend.lastActive).toLocaleDateString()}</p>}
-            </Card>
-          </div>
-
-          <Card variant="glass" className="p-4">
-            <h3 className="text-lg font-semibold text-white mb-2 flex items-center"><MessageCircle className="w-5 h-5 mr-2" /> Recent Posts</h3>
-            {friend.posts && friend.posts.length > 0 ? (
-              <div className="space-y-3">
-                {friend.posts.map((post: SocialPost, index: number) => {
-                  const PostIcon = getPostIcon(post.type);
-                  return (
-                    <div key={index} className="bg-white/5 p-3 rounded-lg">
-                      <div className="flex items-center gap-2 text-sm text-white/70 mb-1">
-                        <PostIcon className="w-4 h-4 text-primary-400" />
-                        <span>{post.content.substring(0, 70)}...</span>
-                        <span className="ml-auto text-white/50">{formatTimestamp(new Date(post.timestamp))}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+        <div className="flex flex-col items-center gap-4 p-4">
+          <div className="w-24 h-24 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-3xl">
+            {friend.profilePicture ? (
+              <img src={friend.profilePicture} alt={friend.firstName} className="w-full h-full rounded-full object-cover" />
             ) : (
-              <p className="text-white/60">No recent posts.</p>
+              <User className="w-12 h-12 text-white" />
             )}
-          </Card>
+          </div>
 
-          <div className="flex justify-end mt-4">
-            <Button onClick={onClose}>Close</Button>
+          <h2 className="text-xl font-bold text-white">{friend.firstName} {friend.lastName}</h2>
+          <p className="text-white/60">{friend.email}</p>
+
+          <div className="w-full mt-4">
+            <Button variant="primary" fullWidth>Send Message</Button>
           </div>
         </div>
       </Modal>
@@ -616,7 +581,7 @@ export const Social: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="container mx-auto p-4 md:p-6 lg:p-8 text-white">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -1128,16 +1093,10 @@ export const Social: React.FC = () => {
       />
 
       {/* Chat Manager */}
-      {activeChatFriend && (
-        <div className="fixed bottom-0 right-4 z-50">
-          <FriendChat
-            friendId={activeChatFriend._id}
-            friendName={`${activeChatFriend.firstName} ${activeChatFriend.lastName}`}
-            friendProfilePic={activeChatFriend.profilePicture}
-            onClose={() => setActiveChatFriend(null)}
-          />
-        </div>
-      )}
+      <SimpleChatManager
+        activeFriend={activeChatFriend}
+        onClose={handleCloseChat}
+      />
     </div>
   );
 };

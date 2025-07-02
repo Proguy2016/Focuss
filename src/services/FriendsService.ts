@@ -7,8 +7,8 @@ export interface FriendProfile {
     email: string;
     profilePicture?: string;
     bio?: string;
-    level: number;
-    xp: number;
+    level?: number;
+    xp?: number;
     achievements: any[];
     posts: any[];
     streak?: number;

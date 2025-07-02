@@ -8,7 +8,8 @@ import { Card } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
-import { io, Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
 
@@ -19,6 +20,7 @@ interface Message {
     content: string;
     timestamp: Date;
     read: boolean;
+    delivered: boolean;
 }
 
 interface FriendChatProps {
@@ -32,6 +34,15 @@ interface FriendChatProps {
 // Create a singleton socket instance to be reused across components
 declare global {
     var globalSocket: Socket | null;
+}
+
+// Add a debounce utility function
+function debounce(func: Function, wait: number) {
+    let timeout: NodeJS.Timeout;
+    return function (...args: any[]) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func(...args), wait);
+    };
 }
 
 export const FriendChat: React.FC<FriendChatProps> = ({
@@ -51,6 +62,20 @@ export const FriendChat: React.FC<FriendChatProps> = ({
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
     const [socketConnected, setSocketConnected] = useState(false);
+    const [isMessageSending, setIsMessageSending] = useState(false);
+    const [lastSentMessage, setLastSentMessage] = useState('');
+    const [lastSentTimestamp, setLastSentTimestamp] = useState(0);
+    const [processedMessageIds, setProcessedMessageIds] = useState<Set<string>>(new Set());
+
+    // Reset messages when friendId changes
+    useEffect(() => {
+        console.log('Friend ID changed, resetting messages');
+        setMessages([]);
+        setPage(0);
+        setHasMore(true);
+        setIsLoading(true);
+        setProcessedMessageIds(new Set());
+    }, [friendId]);
 
     // Connect to socket or use existing connection
     useEffect(() => {
@@ -60,12 +85,16 @@ export const FriendChat: React.FC<FriendChatProps> = ({
             const token = localStorage.getItem('token');
             console.log('Creating new socket connection with token');
 
+            // Make sure we're connecting to the correct WebSocket server URL
             globalThis.globalSocket = io('http://localhost:5001', {
                 withCredentials: true,
                 transports: ['websocket'],
                 auth: {
                     token: token || undefined
-                }
+                },
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 1000
             });
 
             globalThis.globalSocket.on('connect', () => {
@@ -106,45 +135,33 @@ export const FriendChat: React.FC<FriendChatProps> = ({
         console.log('Emitted open chat event with friendId:', friendId);
 
         // Listen for new messages
-        const handleNewMessage = (message: Message) => {
-            console.log('Received new private message:', message);
-            console.log('Current user ID:', user?._id);
-            console.log('Friend ID:', friendId);
-            console.log('Message sender:', message.sender);
-            console.log('Message recipient:', message.recipient);
+        const handleNewMessage = (serverMessage: Message) => {
+            // Set delivered to true for all incoming messages from the server.
+            const finalMessage = { ...serverMessage, delivered: true };
 
-            // Only process messages that are part of this conversation
-            const isRelevantMessage =
-                (message.sender === user?._id && message.recipient === friendId) ||
-                (message.sender === friendId && message.recipient === user?._id);
-
-            if (!isRelevantMessage) {
-                console.log('Message not relevant to this chat window, ignoring');
-                return;
-            }
-
-            console.log('Adding new message to chat');
-
-            // Important: Use a callback to ensure we're working with the latest state
             setMessages(prevMessages => {
-                // Check if message already exists in the array
-                const exists = prevMessages.some(m => m._id === message._id);
-
-                if (exists) {
-                    console.log('Message already exists in chat, not adding duplicate');
+                // Check if we already have this message to prevent duplicates.
+                const messageExists = prevMessages.some(m => m._id === finalMessage._id);
+                if (messageExists) {
                     return prevMessages;
                 }
 
-                const newMessages = [...prevMessages, message];
-                console.log('Updated messages array:', newMessages);
+                // Add the new message if it belongs to this chat.
+                const isCurrentConversation =
+                    (finalMessage.sender === friendId && finalMessage.recipient === user?.id) ||
+                    (finalMessage.sender === user?.id && finalMessage.recipient === friendId);
 
-                // Scroll to bottom on new message
-                setTimeout(() => {
-                    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-                }, 100);
+                if (isCurrentConversation) {
+                    return [...prevMessages, finalMessage];
+                }
 
-                return newMessages;
+                return prevMessages;
             });
+
+            // Scroll to bottom after the state has been updated
+            setTimeout(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
         };
 
         // Listen for seen messages
@@ -152,7 +169,9 @@ export const FriendChat: React.FC<FriendChatProps> = ({
             if (readerId === friendId) {
                 setMessages(prev =>
                     prev.map(msg =>
-                        msg.recipient === friendId ? { ...msg, read: true } : msg
+                        msg.sender === user?.id && msg.recipient === friendId
+                            ? { ...msg, read: true }
+                            : msg
                     )
                 );
             }
@@ -161,6 +180,12 @@ export const FriendChat: React.FC<FriendChatProps> = ({
         // Add event listeners
         socket.on('new_private_message', handleNewMessage);
         socket.on('seen_message', handleSeenMessage);
+
+        // Force socket reconnection if not connected
+        if (!socket.connected) {
+            console.log('Socket not connected, attempting to reconnect...');
+            socket.connect();
+        }
 
         return () => {
             // Let the server know we're closing the chat
@@ -171,39 +196,86 @@ export const FriendChat: React.FC<FriendChatProps> = ({
             socket.off('new_private_message', handleNewMessage);
             socket.off('seen_message', handleSeenMessage);
         };
-    }, [socket, friendId, user?._id]);
+    }, [socket, friendId, user?.id]);
+
+    // Add a heartbeat to keep the socket connection alive
+    useEffect(() => {
+        if (!socket) return;
+
+        const heartbeatInterval = setInterval(() => {
+            if (socket.connected) {
+                console.log('Sending heartbeat to keep connection alive');
+                socket.emit('heartbeat');
+            } else {
+                console.log('Socket not connected, attempting to reconnect...');
+                socket.connect();
+            }
+        }, 30000); // Every 30 seconds
+
+        return () => {
+            clearInterval(heartbeatInterval);
+        };
+    }, [socket]);
 
     // Fetch chat history
     useEffect(() => {
         const fetchMessages = async () => {
+            if (!friendId) {
+                console.error('No friendId provided, cannot fetch messages');
+                setIsLoading(false);
+                return;
+            }
+
             try {
                 setIsLoading(true);
                 console.log(`Fetching messages for friend ${friendId}, page ${page}`);
                 const response = await api.get(`/api/messages/${friendId}?page=${page}&limit=50`);
                 const fetchedMessages = response.data;
-                console.log(`Fetched ${fetchedMessages.length} messages`);
+                console.log(`Fetched ${fetchedMessages.length} messages for friend ${friendId}`);
 
                 if (fetchedMessages.length === 0) {
                     setHasMore(false);
                 } else {
                     setMessages(prev => {
-                        // Combine and deduplicate messages
-                        const combined = [...prev, ...fetchedMessages];
-                        const unique = combined.filter((message, index, self) =>
-                            index === self.findIndex(m => m._id === message._id)
+                        // Only combine messages if we're still on the same friend
+                        // This prevents messages from different conversations mixing
+                        const currentFriendMessages = prev.filter(msg =>
+                            (msg.sender === friendId && msg.recipient === user?.id) ||
+                            (msg.sender === user?.id && msg.recipient === friendId)
                         );
-                        return unique;
+
+                        // Combine messages
+                        const combined = [...currentFriendMessages];
+
+                        // Add only new messages that don't already exist
+                        fetchedMessages.forEach(newMsg => {
+                            const isDuplicate = combined.some(existingMsg =>
+                                existingMsg._id === newMsg._id ||
+                                (existingMsg.content === newMsg.content &&
+                                    existingMsg.sender === newMsg.sender &&
+                                    Math.abs(new Date(existingMsg.timestamp).getTime() - new Date(newMsg.timestamp).getTime()) < 5000)
+                            );
+
+                            if (!isDuplicate) {
+                                combined.push(newMsg);
+                            }
+                        });
+
+                        return combined;
                     });
                 }
             } catch (error) {
                 console.error('Error fetching messages:', error);
+                setHasMore(false);
             } finally {
                 setIsLoading(false);
             }
         };
 
-        fetchMessages();
-    }, [friendId, page]);
+        if (friendId) {
+            fetchMessages();
+        }
+    }, [friendId, page, user?.id]);
 
     // Scroll to bottom on initial load
     useEffect(() => {
@@ -212,38 +284,36 @@ export const FriendChat: React.FC<FriendChatProps> = ({
         }
     }, [isLoading]);
 
+    // Debounced send message function to prevent double-sends
+    const debouncedSendMessage = useRef(
+        debounce((content: string) => {
+            if (!socket) return;
+
+            try {
+                // Send message to server
+                socket.emit('private_message', {
+                    recipientId: friendId,
+                    content
+                });
+                console.log('Emitted private_message event with content:', content);
+            } catch (error) {
+                console.error('Error sending message:', error);
+            } finally {
+                setIsMessageSending(false);
+            }
+        }, 300)
+    ).current;
+
     const handleSendMessage = () => {
         if (!socket || !newMessage.trim()) return;
 
-        console.log('Sending message to friend:', friendId, 'Content:', newMessage);
-
-        // Create a temporary message object to show immediately
-        const tempMessage: Message = {
-            _id: `temp-${Date.now()}`,
-            sender: user?._id || '',
-            recipient: friendId,
-            content: newMessage,
-            timestamp: new Date(),
-            read: false
-        };
-
-        // Add message to UI immediately
-        setMessages(prev => [...prev, tempMessage]);
-        console.log('Added temporary message to UI:', tempMessage);
-
-        // Scroll to bottom
-        setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
-
-        // Send message to server
+        // Directly send the message to the server without any temporary UI updates.
         socket.emit('private_message', {
             recipientId: friendId,
-            content: newMessage
+            content: newMessage,
         });
-        console.log('Emitted private_message event');
 
-        setNewMessage('');
+        setNewMessage(''); // Clear input
     };
 
     const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -333,25 +403,44 @@ export const FriendChat: React.FC<FriendChatProps> = ({
 
                         <div className="space-y-3">
                             {messages.map((message) => {
-                                const isSentByMe = message.sender === user?._id;
+                                // Debug logging to understand the message structure
+                                console.log('Message:', message);
+
+                                // Try to determine if the message is sent by the current user
+                                const isSentByMe = message.sender === user?.id;
+
+                                // Debug logging
+                                console.log('Message sender ID:', message.sender);
+                                console.log('Current user ID:', user?.id);
+                                console.log('Is sent by me:', isSentByMe);
 
                                 return (
                                     <div
                                         key={message._id}
-                                        className={`flex ${isSentByMe ? 'justify-end' : 'justify-start'}`}
+                                        style={{
+                                            display: 'flex',
+                                            justifyContent: isSentByMe ? 'flex-end' : 'flex-start',
+                                            marginBottom: '12px'
+                                        }}
                                     >
                                         <div
-                                            className={`max-w-[70%] px-3 py-2 rounded-lg ${isSentByMe
-                                                ? 'bg-gradient-to-r from-primary-500 to-secondary-500 text-white'
-                                                : 'bg-white/10 text-white'
-                                                }`}
+                                            style={{
+                                                backgroundColor: isSentByMe ? '#3b82f6' : 'rgba(255, 255, 255, 0.1)',
+                                                color: 'white',
+                                                maxWidth: '70%',
+                                                padding: '0.75rem',
+                                                borderRadius: '0.5rem'
+                                            }}
                                         >
-                                            <div className="text-sm break-words">{message.content}</div>
+                                            <div style={{ fontSize: '0.875rem', wordBreak: 'break-word' }}>{message.content}</div>
                                             <div className="flex items-center justify-end gap-1 mt-1">
                                                 <span className="text-xs opacity-70">{formatTime(message.timestamp)}</span>
                                                 {isSentByMe && (
                                                     <span className="text-xs">
-                                                        {message.read ? '✓✓' : '✓'}
+                                                        {message.read ?
+                                                            <span style={{ color: '#60a5fa' }}>✓✓</span> : // Blue for read
+                                                            <span>✓✓</span> // Grey for delivered
+                                                        }
                                                     </span>
                                                 )}
                                             </div>
