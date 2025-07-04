@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Input Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: #121212;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            width: 500px;
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            color: white;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+        }
+
+        .output {
+            margin-top: 20px;
+            padding: 12px;
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+            min-height: 60px;
+        }
+
+        .button {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .button:hover {
+            background-color: #2563eb;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Input Test</h1>
+
+        <div class="input-group">
+            <label for="test-input">Type here (standard input):</label>
+            <input type="text" id="test-input" placeholder="Type something...">
+        </div>
+
+        <div class="input-group">
+            <label for="output">You typed:</label>
+            <div class="output" id="output"></div>
+        </div>
+
+        <button class="button" id="clear-btn">Clear</button>
+    </div>
+
+    <script>
+        // Simple script to update the output div with the input value
+        const input = document.getElementById('test-input');
+        const output = document.getElementById('output');
+        const clearBtn = document.getElementById('clear-btn');
+
+        // Update output when input changes
+        input.addEventListener('input', function () {
+            output.textContent = this.value;
+        });
+
+        // Clear input and output when button is clicked
+        clearBtn.addEventListener('click', function () {
+            input.value = '';
+            output.textContent = '';
+        });
+    </script>
+</body>
+
+</html>

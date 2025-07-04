@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { FriendChat } from './FriendChat';
 import { MinimizedChatBubble } from './MinimizedChatBubble';
-import api from '../../services/api';
+// Import removed to prevent accidental API calls
+// import api from '../../services/api';
 
 interface Friend {
     _id: string;
@@ -25,25 +26,11 @@ interface SimpleChatManagerProps {
 
 export const SimpleChatManager: React.FC<SimpleChatManagerProps> = ({ activeFriend, onClose }) => {
     const [chats, setChats] = useState<ChatState[]>([]);
-    const [unreadCounts, setUnreadCounts] = useState<{ [key: string]: number }>({});
+    // Remove unreadCounts state to prevent unnecessary renders
 
-    // Poll for unread message counts
-    useEffect(() => {
-        const fetchUnreadCounts = async () => {
-            try {
-                const response = await api.get('/api/messages/unread-count');
-                setUnreadCounts(response.data || {});
-            } catch (error) {
-                console.error('Failed to fetch unread counts:', error);
-            }
-        };
+    // Remove all API polling completely
 
-        fetchUnreadCounts();
-        const interval = setInterval(fetchUnreadCounts, 10000); // Poll every 10 seconds
-        return () => clearInterval(interval);
-    }, []);
-
-    // Handle new active friend
+    // Only handle friend management - no API calls
     useEffect(() => {
         if (activeFriend) {
             const existingChatIndex = chats.findIndex(chat => chat.friendId === activeFriend._id);
@@ -131,7 +118,7 @@ export const SimpleChatManager: React.FC<SimpleChatManagerProps> = ({ activeFrie
                         friendId={chat.friendId}
                         friendName={chat.friendName}
                         friendProfilePic={chat.friendProfilePic}
-                        hasUnreadMessages={unreadCounts[chat.friendId] > 0 || chat.hasUnread}
+                        hasUnreadMessages={false} // Always false to prevent API calls
                         onMaximize={handleMaximize}
                         onClose={handleClose}
                     />

@@ -68,7 +68,7 @@ export const Habits: React.FC = () => {
           return;
         }
 
-        const response = await api.get('/api/stats/getHabits');
+        const response = await api.get('/stats/getHabits');
         if (response.data && response.data.habits) {
           const transformedHabits = response.data.habits.map((habit: any) => {
             const categoryObj = categories.find(c => c.name === habit.category);
@@ -146,7 +146,7 @@ export const Habits: React.FC = () => {
           }
 
           // Fetch updated habits after reset
-          const response = await api.get('/api/stats/getHabits');
+          const response = await api.get('/stats/getHabits');
           if (response.data && response.data.habits) {
             const transformedHabits = response.data.habits.map((habit: any) => {
               const categoryObj = categories.find(c => c.name === habit.category);
@@ -365,7 +365,7 @@ export const Habits: React.FC = () => {
       console.log('Progress result:', progressResult);
 
       // Refresh habits after progress
-      const refreshResponse = await api.get('/api/stats/getHabits');
+      const refreshResponse = await api.get('/stats/getHabits');
       const refreshData = refreshResponse.data;
 
       if (refreshData && refreshData.habits) {

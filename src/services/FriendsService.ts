@@ -59,6 +59,13 @@ class FriendsService {
     async getFriendRequests(): Promise<FriendRequest[]> {
         try {
             const response = await api.get('/api/friends/requests');
+
+            // Check if response has the expected structure
+            if (!response.data || !response.data.requests || !Array.isArray(response.data.requests)) {
+                console.warn("Invalid friend requests response format:", response.data);
+                return [];
+            }
+
             return response.data.requests.map((req: any) => ({
                 id: req.id,
                 friendId: req.friendId,

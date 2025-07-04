@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Send, Smile, X, Image, Paperclip, Minus } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { io } from 'socket.io-client';
 import type { Socket } from 'socket.io-client';
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
+import debounce from 'lodash.debounce';
 
 interface Message {
     _id: string;
@@ -36,14 +37,46 @@ declare global {
     var globalSocket: Socket | null;
 }
 
-// Add a debounce utility function
-function debounce(func: Function, wait: number) {
-    let timeout: NodeJS.Timeout;
-    return function (...args: any[]) {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func(...args), wait);
+// Create a stable input component that doesn't cause re-renders
+const StableInput = React.memo(({ value, onChange, placeholder, className, onKeyDown }: {
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+    className?: string;
+    onKeyDown?: (e: React.KeyboardEvent) => void;
+}) => {
+    const [internalValue, setInternalValue] = useState(value);
+
+    // Update internal value when external value changes
+    useEffect(() => {
+        setInternalValue(value);
+    }, [value]);
+
+    // Create a stable debounced callback
+    const debouncedOnChange = useCallback(
+        debounce((newValue: string) => {
+            onChange(newValue);
+        }, 100),
+        [onChange]
+    );
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newValue = e.target.value;
+        setInternalValue(newValue);
+        debouncedOnChange(newValue);
     };
-}
+
+    return (
+        <input
+            type="text"
+            value={internalValue}
+            onChange={handleChange}
+            placeholder={placeholder}
+            onKeyDown={onKeyDown}
+            className={`bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-primary-400 ${className || ''}`}
+        />
+    );
+});
 
 export const FriendChat: React.FC<FriendChatProps> = ({
     friendId,
@@ -344,43 +377,39 @@ export const FriendChat: React.FC<FriendChatProps> = ({
     };
 
     return (
-        <Card className="flex flex-col h-[500px] w-[350px] shadow-lg border border-white/10 bg-black/50 backdrop-blur-lg rounded-lg overflow-hidden">
-            {/* Chat Header */}
-            <div className="flex items-center justify-between p-3 border-b border-white/10 bg-gradient-to-r from-primary-500/30 to-secondary-500/30">
+        <Card className="w-[320px] h-[400px] flex flex-col bg-white/5 backdrop-blur-md border border-white/10 shadow-lg rounded-xl overflow-hidden">
+            {/* Chat header */}
+            <div className="p-3 border-b border-white/10 bg-white/5 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <Avatar className="h-8 w-8">
                         <AvatarImage src={friendProfilePic} alt={friendName} />
-                        <AvatarFallback className="bg-primary-500 text-white">
-                            {getInitials(friendName)}
-                        </AvatarFallback>
+                        <AvatarFallback>{getInitials(friendName)}</AvatarFallback>
                     </Avatar>
                     <div>
-                        <h3 className="font-semibold text-white">{friendName}</h3>
-                        {!socketConnected && <span className="text-xs text-red-400">Reconnecting...</span>}
+                        <h3 className="text-sm font-medium text-white">{friendName}</h3>
+                        <p className="text-xs text-white/60">
+                            {socketConnected ? 'Online' : 'Offline'}
+                        </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" onClick={onMinimize} className="h-8 w-8 text-white/70 hover:text-white">
-                        <Minus className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 text-white/70 hover:text-white">
-                        <X className="h-4 w-4" />
-                    </Button>
+                <div className="flex items-center">
+                    <button
+                        onClick={onMinimize}
+                        className="text-white/60 hover:text-white p-1"
+                    >
+                        <Minus size={16} />
+                    </button>
+                    <button
+                        onClick={onClose}
+                        className="text-white/60 hover:text-white p-1"
+                    >
+                        <X size={16} />
+                    </button>
                 </div>
             </div>
 
-            {/* Messages */}
-            <ScrollArea
-                ref={scrollAreaRef}
-                className="flex-1 p-3"
-                onScrollCapture={(e) => {
-                    // Load more messages when scrolling to top
-                    const target = e.currentTarget as HTMLDivElement;
-                    if (target.scrollTop === 0 && hasMore && !isLoading) {
-                        loadMoreMessages();
-                    }
-                }}
-            >
+            {/* Chat messages */}
+            <ScrollArea className="flex-1 p-3" ref={scrollAreaRef}>
                 {isLoading && page === 0 ? (
                     <div className="flex justify-center p-4">
                         <div className="animate-spin h-6 w-6 border-2 border-primary-500 rounded-full border-t-transparent"></div>
@@ -454,49 +483,40 @@ export const FriendChat: React.FC<FriendChatProps> = ({
                 )}
             </ScrollArea>
 
-            {/* Message Input */}
-            <div className="p-3 border-t border-white/10 bg-black/30">
-                <div className="flex gap-2">
-                    <div className="flex-1 flex items-center gap-2 rounded-full bg-white/10 px-3 py-1">
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-white/70 hover:text-white">
-                                    <Smile className="h-4 w-4" />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-80 p-0 border-none bg-transparent" align="start">
-                                <Picker
-                                    data={data}
-                                    onEmojiSelect={handleEmojiSelect}
-                                    theme="dark"
-                                />
-                            </PopoverContent>
-                        </Popover>
+            {/* Chat input */}
+            <div className="p-3 border-t border-white/10 bg-white/5">
+                <div className="flex items-center gap-2">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-white/60 hover:text-white">
+                                <Smile size={18} />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent side="top" className="w-auto p-0 bg-transparent border-none">
+                            <Picker
+                                data={data}
+                                onEmojiSelect={handleEmojiSelect}
+                                theme="dark"
+                            />
+                        </PopoverContent>
+                    </Popover>
 
-                        <Input
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                            onKeyDown={handleKeyPress}
-                            placeholder="Type a message..."
-                            className="flex-1 border-none bg-transparent text-white focus-visible:ring-0 focus-visible:ring-offset-0"
-                            disabled={!socketConnected}
-                        />
-
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-white/70 hover:text-white">
-                            <Paperclip className="h-4 w-4" />
-                        </Button>
-
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-white/70 hover:text-white">
-                            <Image className="h-4 w-4" />
-                        </Button>
-                    </div>
+                    <StableInput
+                        value={newMessage}
+                        onChange={setNewMessage}
+                        placeholder="Type a message..."
+                        className="flex-1"
+                        onKeyDown={handleKeyPress}
+                    />
 
                     <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-white/60 hover:text-white"
                         onClick={handleSendMessage}
-                        className="rounded-full h-10 w-10 bg-gradient-to-r from-primary-500 to-secondary-500 p-0"
-                        disabled={!socketConnected || !newMessage.trim()}
+                        disabled={!newMessage.trim() || isMessageSending}
                     >
-                        <Send className="h-4 w-4" />
+                        <Send size={18} />
                     </Button>
                 </div>
             </div>

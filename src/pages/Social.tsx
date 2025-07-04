@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Plus, Search, Crown, Trophy, Target, Zap,
   MessageCircle, Heart, Share2, MoreHorizontal, Settings,
   Calendar, Clock, TrendingUp, Award, Star, UserPlus, UserX, Mail,
-  Check, X, UserCheck, User, UserMinus
+  Check, X, UserCheck, User, UserMinus, Edit, Trash2, Image, Send
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,6 +15,11 @@ import FriendsService, { FriendProfile, FriendRequest } from '../services/Friend
 import api from '../services/api';
 import { SimpleChatManager } from '../components/social/SimpleChatManager';
 import { FriendChat } from '../components/social/FriendChat';
+import { Input } from '../components/common/Input';
+import { useToast } from '../hooks/use-toast';
+import { UserProfile } from '../services/AuthService';
+import { SafeImage } from '../components/ui/SafeImage';
+import debounce from 'lodash.debounce';
 
 interface FocusGroup {
   id: string;
@@ -56,21 +61,105 @@ interface UnreadCounts {
   [friendId: string]: number;
 }
 
+interface Post {
+  _id: string;
+  userId: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    profilePicture: string | null;
+  };
+  content: string;
+  parentId: string | null;
+  timePosted: string;
+  attachment: {
+    included: boolean;
+    type: string;
+    content: string;
+  };
+  likes: {
+    users: string[];
+    count: number;
+  };
+  __v: number;
+}
+
+interface ExtendedUserProfile extends UserProfile {
+  _id: string;
+}
+
 const safeGet = (obj: any, path: string, fallback: any = undefined) => {
   try {
-    return path.split('.').reduce((o, key) => o?.[key], obj) ?? fallback;
+    return path.split('.').reduce((acc, part) => acc && acc[part], obj) ?? fallback;
   } catch (e) {
     return fallback;
   }
 };
 
+// Create a stable input component that doesn't cause re-renders
+const StableInput = React.memo(({ value, onChange, placeholder, className }: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
+}) => {
+  const [internalValue, setInternalValue] = useState(value);
+
+  // Update internal value when external value changes
+  useEffect(() => {
+    setInternalValue(value);
+  }, [value]);
+
+  // Create a stable debounced callback
+  const debouncedOnChange = useCallback(
+    debounce((newValue: string) => {
+      onChange(newValue);
+    }, 300),
+    [onChange]
+  );
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setInternalValue(newValue);
+    debouncedOnChange(newValue);
+  };
+
+  return (
+    <input
+      type="text"
+      value={internalValue}
+      onChange={handleChange}
+      placeholder={placeholder}
+      className={`bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-primary-400 ${className || ''}`}
+    />
+  );
+});
+
 export const Social: React.FC = () => {
   const { state } = useApp();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<'feed' | 'leaderboard' | 'friends'>('feed');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showJoinGroup, setShowJoinGroup] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Debug function to check auth status
+  const debugAuth = () => {
+    console.log('Auth status:', {
+      isAuthenticated,
+      user,
+      token: localStorage.getItem('token'),
+      headers: api.defaults.headers
+    });
+
+    // Test API connection
+    api.get('/api/auth/me')
+      .then(res => console.log('Auth check response:', res.data))
+      .catch(err => console.error('Auth check error:', err));
+  };
+
+  // Toast notifications
+  const { toast } = useToast();
 
   // Friends state
   const [friends, setFriends] = useState<FriendProfile[]>([]);
@@ -81,6 +170,19 @@ export const Social: React.FC = () => {
   const [selectedFriend, setSelectedFriend] = useState<FriendProfile | null>(null);
   const [showFriendDetails, setShowFriendDetails] = useState(false);
   const [friendDetailLoading, setFriendDetailLoading] = useState(false);
+
+  // Feed state
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [newPostContent, setNewPostContent] = useState('');
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editingPostContent, setEditingPostContent] = useState('');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [feedIsLoading, setFeedIsLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
+  const [showCommentInput, setShowCommentInput] = useState<string | null>(null);
+  const [commentContent, setCommentContent] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [newGroup, setNewGroup] = useState({
     name: '',
@@ -205,43 +307,112 @@ export const Social: React.FC = () => {
     }
   };
 
-  const PostCard: React.FC<{ post: SocialPost; index: number }> = ({ post, index }) => {
-    const PostIcon = getPostIcon(post.type);
+  const PostCard: React.FC<{ post: Post; index: number }> = ({ post, index }) => {
+    // Add safer null checking for user and post data
+    const userId = user ? (user as unknown as ExtendedUserProfile)._id : null;
+    const isLiked = userId && post.likes?.users ? post.likes.users.includes(userId) : false;
+    const isOwnPost = userId && post.userId?._id ? post.userId._id === userId : false;
+    const isComment = post.parentId !== null;
+
+    // Calculate the formatted time
+    const formatTimePosted = (timeString: string) => {
+      const postedDate = new Date(timeString);
+      const now = new Date();
+      const diffInHours = (now.getTime() - postedDate.getTime()) / (1000 * 60 * 60);
+
+      if (diffInHours < 1) return 'Just now';
+      if (diffInHours < 24) return `${Math.floor(diffInHours)}h ago`;
+      return postedDate.toLocaleDateString();
+    };
+
+    // If post data is invalid, don't render anything
+    if (!post) {
+      return null;
+    }
+
+    // Handle posts that don't have populated userId (just the ObjectId)
+    const userName = post.userId && typeof post.userId === 'object' ?
+      `${post.userId.firstName || 'Unknown'} ${post.userId.lastName || ''}` :
+      'Unknown User';
+
+    const profilePic = post.userId && typeof post.userId === 'object' ?
+      post.userId.profilePicture : null;
 
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: index * 0.1 }}
+        className={`${isComment ? 'ml-8' : ''}`}
       >
-        <Card variant="glass" className="p-6">
+        <Card variant="glass" className="p-6 mb-4">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-xl">
-              {post.user.avatar}
+              {profilePic ? (
+                <SafeImage src={profilePic} alt={userName} className="w-full h-full rounded-full object-cover" />
+              ) : (
+                <User className="w-6 h-6 text-white" />
+              )}
             </div>
 
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="font-semibold text-white">{post.user.name}</span>
-                <span className="text-xs text-white/60">Level {post.user.level}</span>
-                <PostIcon className="w-4 h-4 text-primary-400" />
-                <span className="text-xs text-white/40">{formatTimestamp(post.timestamp)}</span>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-white">
+                    {userName}
+                  </span>
+                  <span className="text-xs text-white/40">{formatTimePosted(post.timePosted)}</span>
+                </div>
+
+                {isOwnPost && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEditPost(post)}
+                      className="p-1 text-white/60 hover:text-white transition-colors"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => deletePost(post._id)}
+                      className="p-1 text-white/60 hover:text-error-400 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <p className="text-white/80 mb-4">{post.content}</p>
 
+              {post.attachment?.included && post.attachment.type === 'image' && post.attachment.content && (
+                <div className="mb-4 rounded-lg overflow-hidden">
+                  <SafeImage src={`http://localhost:5001/api/feed/attachment/${post.attachment.content}`} alt="Post attachment" className="w-full h-auto max-h-96 object-contain" />
+                </div>
+              )}
+
               <div className="flex items-center gap-6">
                 <button
-                  className={`flex items-center gap-2 text-sm transition-colors ${post.isLiked ? 'text-error-400' : 'text-white/60 hover:text-error-400'
-                    }`}
+                  onClick={() => isLiked ? unlikePost(post._id) : likePost(post._id)}
+                  className={`flex items-center gap-2 text-sm transition-colors ${isLiked ? 'text-error-400' : 'text-white/60 hover:text-error-400'}`}
                 >
-                  <Heart className={`w-4 h-4 ${post.isLiked ? 'fill-current' : ''}`} />
-                  {post.likes}
+                  <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+                  {post.likes?.count || 0}
                 </button>
 
-                <button className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors">
+                <button
+                  onClick={() => {
+                    if (!isComment) {
+                      setShowCommentInput(prevId => prevId === post._id ? null : post._id);
+                      // Load comments when comment button is clicked
+                      if (showCommentInput !== post._id) {
+                        fetchComments(post._id);
+                      }
+                    }
+                  }}
+                  className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors"
+                >
                   <MessageCircle className="w-4 h-4" />
-                  {post.comments}
+                  Comment
                 </button>
 
                 <button className="flex items-center gap-2 text-sm text-white/60 hover:text-white transition-colors">
@@ -249,9 +420,21 @@ export const Social: React.FC = () => {
                   Share
                 </button>
               </div>
-            </div>
 
-            <Button variant="ghost" size="sm" icon={MoreHorizontal} />
+              {showCommentInput === post._id && (
+                <div className="mt-4 flex gap-2">
+                  <Input
+                    value={commentContent}
+                    onChange={(e) => setCommentContent(e.target.value)}
+                    placeholder="Write a comment..."
+                    className="flex-1"
+                  />
+                  <Button onClick={() => createComment(post._id)} className="flex-shrink-0">
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </Card>
       </motion.div>
@@ -358,33 +541,22 @@ export const Social: React.FC = () => {
   };
 
   const fetchUnreadCounts = async () => {
-    try {
-      const response = await api.get('/api/messages/unread-count');
-      setUnreadCounts(response.data);
-    } catch (error) {
-      console.error("Failed to fetch unread counts", error);
-    }
+    // Disabled to prevent typing issues
+    return;
   };
 
   const fetchAllData = async () => {
-    setIsLoading(true);
-    try {
-      await Promise.all([
-        fetchFriends(),
-        fetchUnreadCounts(),
-        fetchFriendRequests()
-      ]);
-    } catch (error) {
-      console.error("Failed to fetch social data:", error);
-    } finally {
-      setIsLoading(false);
-    }
+    // No API calls to prevent typing issues
+    setIsLoading(false);
   };
 
   useEffect(() => {
-    fetchAllData();
-    const interval = setInterval(fetchUnreadCounts, 15000); // Poll every 15 seconds
-    return () => clearInterval(interval);
+    // Only load data once on component mount, with no polling
+    console.log('Social component mounted, fetching posts...');
+    fetchPosts();
+
+    // Debug auth status on mount
+    debugAuth();
   }, []);
 
   const sendFriendRequest = async () => {
@@ -463,7 +635,7 @@ export const Social: React.FC = () => {
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-xl">
                   {friend.profilePicture ?
-                    <img src={friend.profilePicture} alt={friend.firstName} className="w-full h-full object-cover rounded-full" /> :
+                    <SafeImage src={friend.profilePicture} alt={friend.firstName} className="w-full h-full object-cover rounded-full" /> :
                     <User className="w-6 h-6 text-white" />
                   }
                 </div>
@@ -524,11 +696,7 @@ export const Social: React.FC = () => {
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-xl">
                 {request.sender?.profilePicture ? (
-                  <img
-                    src={request.sender.profilePicture}
-                    alt={`${request.sender.firstName} ${request.sender.lastName}`}
-                    className="w-full h-full rounded-full object-cover"
-                  />
+                  <SafeImage src={request.sender.profilePicture} alt={`${request.sender.firstName} ${request.sender.lastName}`} className="w-full h-full rounded-full object-cover" />
                 ) : (
                   <User className="w-6 h-6 text-white" />
                 )}
@@ -563,7 +731,7 @@ export const Social: React.FC = () => {
         <div className="flex flex-col items-center gap-4 p-4">
           <div className="w-24 h-24 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center text-3xl">
             {friend.profilePicture ? (
-              <img src={friend.profilePicture} alt={friend.firstName} className="w-full h-full rounded-full object-cover" />
+              <SafeImage src={friend.profilePicture} alt={friend.firstName} className="w-full h-full rounded-full object-cover" />
             ) : (
               <User className="w-12 h-12 text-white" />
             )}
@@ -579,6 +747,373 @@ export const Social: React.FC = () => {
       </Modal>
     );
   };
+
+  // Feed functions
+  const fetchPosts = async (parentId: string | null = null) => {
+    try {
+      console.log('Fetching posts with parentId:', parentId);
+      setFeedIsLoading(true);
+      const response = await api.get(`/api/feed/get`, {
+        params: {
+          parentId: parentId || null,
+          page: 0,
+          limit: 50
+        }
+      });
+
+      console.log('API response:', response.data);
+
+      if (response.data && response.data.posts) {
+        console.log('Setting posts:', response.data.posts);
+
+        // Check if userId is populated correctly
+        response.data.posts.forEach((post: Post, index: number) => {
+          console.log(`Post ${index} userId:`, post.userId);
+        });
+
+        setPosts(response.data.posts);
+      } else {
+        console.log('No posts found in response');
+      }
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load posts',
+        variant: 'destructive',
+      });
+    } finally {
+      setFeedIsLoading(false);
+    }
+  };
+
+  const createPost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPostContent.trim()) return;
+
+    try {
+      const formData = new FormData();
+      formData.append('content', newPostContent);
+
+      if (selectedParentId) {
+        formData.append('parentId', selectedParentId);
+      }
+
+      if (selectedFile) {
+        formData.append('file', selectedFile);
+        formData.append('attachExists', 'true');
+        formData.append('attachType', 'image');
+      } else {
+        formData.append('attachExists', 'false');
+      }
+
+      const response = await api.post('/api/feed/post', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      // Clear the form
+      setNewPostContent('');
+      setSelectedFile(null);
+
+      // Refresh posts
+      fetchPosts();
+
+      toast({
+        title: "Success",
+        description: "Your post has been published!",
+      });
+    } catch (error) {
+      console.error('Error creating post:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to create post',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const createComment = async (postId: string) => {
+    if (!commentContent.trim()) return;
+
+    try {
+      const formData = new FormData();
+      formData.append('content', commentContent);
+      formData.append('parentId', postId);
+
+      // Use full path with /api prefix to ensure correct endpoint
+      const response = await api.post('/api/feed/post', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      setCommentContent('');
+      setShowCommentInput(null);
+
+      if (response.data && response.data.post) {
+        // Add the new comment to the posts array
+        setPosts([...posts, response.data.post]);
+      } else {
+        // Fallback to fetching comments if response doesn't include the new comment
+        fetchComments(postId);
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Comment added successfully',
+      });
+    } catch (error) {
+      console.error('Error creating comment:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to add comment',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const fetchComments = async (postId: string) => {
+    try {
+      const response = await api.get(`/api/feed/get`, {
+        params: {
+          parentId: postId,
+          page: 0,
+          limit: 50
+        }
+      });
+      // Update the state with these comments
+      // This is a simplified approach - in a production app you might
+      // want to maintain a nested structure for posts and their comments
+      const newPosts = [...posts];
+      const updatedPosts = newPosts.concat(response.data.posts);
+      setPosts(updatedPosts);
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+    }
+  };
+
+  const likePost = async (postId: string) => {
+    try {
+      // Check if user is authenticated
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to like posts",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Fixed: Use PUT instead of POST as required by the API route
+      await api.put('/feed/like', { postId });
+
+      // Get the user ID safely
+      const userId = (user as unknown as ExtendedUserProfile)._id;
+
+      // Update local state to reflect the like
+      setPosts(posts.map(post => {
+        if (post._id === postId) {
+          return {
+            ...post,
+            likes: {
+              users: [...post.likes.users, userId],
+              count: post.likes.count + 1
+            }
+          };
+        }
+        return post;
+      }));
+
+    } catch (error) {
+      console.error('Error liking post:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to like post',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const unlikePost = async (postId: string) => {
+    try {
+      // Check if user is authenticated
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to unlike posts",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Fixed: Use PUT instead of POST as required by the API route
+      await api.put('/feed/unlike', { postId });
+
+      // Get the user ID safely
+      const userId = (user as unknown as ExtendedUserProfile)._id;
+
+      // Update local state to reflect the unlike
+      setPosts(posts.map(post => {
+        if (post._id === postId) {
+          return {
+            ...post,
+            likes: {
+              users: post.likes.users.filter(id => id !== userId),
+              count: post.likes.count - 1
+            }
+          };
+        }
+        return post;
+      }));
+
+    } catch (error) {
+      console.error('Error unliking post:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to unlike post',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleEditPost = (post: Post) => {
+    setEditingPostId(post._id);
+    setEditingPostContent(post.content);
+    setShowEditModal(true);
+  };
+
+  const saveEditedPost = async () => {
+    if (!editingPostId || !editingPostContent.trim()) return;
+
+    try {
+      await api.post('/api/feed/edit', {
+        postId: editingPostId,
+        content: editingPostContent
+      });
+
+      // Update local state
+      setPosts(posts.map(post => {
+        if (post._id === editingPostId) {
+          return {
+            ...post,
+            content: editingPostContent
+          };
+        }
+        return post;
+      }));
+
+      setShowEditModal(false);
+      setEditingPostId(null);
+      setEditingPostContent('');
+
+      toast({
+        title: 'Success',
+        description: 'Post updated successfully',
+      });
+    } catch (error) {
+      console.error('Error editing post:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update post',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const deletePost = async (postId: string) => {
+    try {
+      await api.delete(`/api/feed/${postId}`);
+
+      // Remove the post from local state
+      setPosts(posts.filter(post => post._id !== postId));
+
+      toast({
+        title: 'Success',
+        description: 'Post deleted successfully',
+      });
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete post',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleFileSelect = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
+  // Add the CreatePost component
+  const CreatePostCard: React.FC = () => (
+    <Card variant="glass" className="p-6 mb-6">
+      <form onSubmit={createPost}>
+        <div className="flex gap-4">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center">
+            {user?.profilePicture ? (
+              <SafeImage src={user.profilePicture} alt={user.firstName} className="w-full h-full rounded-full object-cover" />
+            ) : (
+              <User className="w-6 h-6 text-white" />
+            )}
+          </div>
+          <div className="flex-1">
+            <StableInput
+              value={newPostContent}
+              onChange={setNewPostContent}
+              placeholder="What's on your mind?"
+              className="w-full mb-3"
+            />
+
+            {selectedFile && (
+              <div className="mb-3 p-2 bg-white/10 rounded flex justify-between items-center">
+                <span className="text-sm text-white/70 truncate max-w-[80%]">{selectedFile.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedFile(null)}
+                  className="text-white/70 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            <div className="flex justify-between">
+              <button
+                type="button"
+                onClick={handleFileSelect}
+                className="flex items-center gap-2 text-white/70 hover:text-white transition-colors"
+              >
+                <Image className="w-4 h-4" />
+                <span>Add Photo</span>
+              </button>
+
+              <Button type="submit" disabled={!newPostContent.trim()}>
+                Post
+              </Button>
+            </div>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept="image/*"
+              className="hidden"
+            />
+          </div>
+        </div>
+      </form>
+    </Card>
+  );
 
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8 text-white">
@@ -605,6 +1140,38 @@ export const Social: React.FC = () => {
               Chat Test
             </Button>
           </a>
+          <Button
+            variant="outline"
+            className="flex items-center gap-2"
+            onClick={debugAuth}
+          >
+            Debug Auth
+          </Button>
+          <Button
+            variant="outline"
+            className="flex items-center gap-2"
+            onClick={() => fetchPosts()}
+          >
+            Refresh Posts
+          </Button>
+          <Button
+            variant="outline"
+            className="flex items-center gap-2"
+            onClick={async () => {
+              try {
+                const response = await api.post('/api/feed/post', {
+                  content: 'This is a test post created from the UI',
+                  attachExists: 'false'
+                });
+                console.log('Test post created:', response.data);
+                fetchPosts();
+              } catch (error) {
+                console.error('Error creating test post:', error);
+              }
+            }}
+          >
+            Create Test Post
+          </Button>
         </div>
       </motion.div>
 
@@ -645,29 +1212,33 @@ export const Social: React.FC = () => {
           >
             {/* Main Feed */}
             <div className="lg:col-span-2 space-y-4">
-              {/* Create Post */}
-              <Card variant="glass" className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-r from-accent-500 to-primary-500 flex items-center justify-center text-xl">
-                    🎯
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Share your progress..."
-                    className="flex-1 bg-transparent text-white placeholder-white/40 focus:outline-none"
-                  />
-                  <Button variant="primary" size="sm">
-                    Post
-                  </Button>
-                </div>
-              </Card>
+              <CreatePostCard />
 
-              {/* Posts */}
-              <div className="space-y-4">
-                {socialPosts.map((post, index) => (
-                  <PostCard key={post.id} post={post} index={index} />
-                ))}
-              </div>
+              {feedIsLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
+                </div>
+              ) : posts.length > 0 ? (
+                <div>
+                  {posts
+                    .filter(post => post.parentId === null)
+                    .map((post, index) => (
+                      <React.Fragment key={post._id}>
+                        <PostCard post={post} index={index} />
+                        {/* Display comments for this post */}
+                        {posts
+                          .filter(comment => comment.parentId === post._id)
+                          .map((comment, commentIndex) => (
+                            <PostCard key={comment._id} post={comment} index={commentIndex} />
+                          ))}
+                      </React.Fragment>
+                    ))}
+                </div>
+              ) : (
+                <Card variant="glass" className="p-8 text-center">
+                  <p className="text-white/60">No posts yet. Be the first to post!</p>
+                </Card>
+              )}
             </div>
 
             {/* Sidebar */}
@@ -755,12 +1326,11 @@ export const Social: React.FC = () => {
                 <h3 className="text-lg font-semibold text-white mb-2">Your Friends</h3>
                 <div className="relative mb-4">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/40" />
-                  <input
-                    type="text"
-                    placeholder="Search friends..."
+                  <StableInput
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="input-field w-full pl-10"
+                    onChange={setSearchTerm}
+                    placeholder="Search friends..."
+                    className="w-full pl-10"
                   />
                 </div>
 
@@ -1097,6 +1667,29 @@ export const Social: React.FC = () => {
         activeFriend={activeChatFriend}
         onClose={handleCloseChat}
       />
+
+      {/* Edit Post Modal */}
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Edit Post"
+      >
+        <div className="p-4">
+          <Input
+            value={editingPostContent}
+            onChange={(e) => setEditingPostContent(e.target.value)}
+            className="mb-4"
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setShowEditModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveEditedPost}>
+              Save
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

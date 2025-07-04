@@ -221,7 +221,7 @@ export const PremiumStudySession: React.FC<PremiumStudySessionProps> = ({
 
     return (
         <div className="space-y-6">
-            <Card className="p-6 bg-gradient-to-r from-purple-500/20 to-blue-500/20 border-0">
+            <Card className="p-6 bg-gradient-to-r from-primary/20 to-secondary/20 border-0">
                 <div className="flex items-center gap-4 mb-4">
                     <div className="p-3 bg-primary/20 rounded-full">
                         <Sparkles className="h-6 w-6 text-primary" />
@@ -318,9 +318,17 @@ export const PremiumStudySession: React.FC<PremiumStudySessionProps> = ({
                                                         studyPlan.steps[currentStep].type === 'practice' ? 'Practice Application' :
                                                             'Test Your Knowledge'}
                                                 </h4>
-                                                <p className="text-muted-foreground whitespace-pre-wrap">
-                                                    {studyPlan.steps[currentStep].content}
-                                                </p>
+                                                {studyPlan.steps[currentStep].type === 'read' && studyPlan.steps[currentStep].title.toLowerCase().includes('revision') ? (
+                                                    <div className="space-y-2">
+                                                        {studyPlan.steps[currentStep].content.split(/\n|\r|\.|\*/).map((para, idx) => para.trim() && (
+                                                            <p key={idx} className="text-muted-foreground leading-relaxed">{para.replace(/\*+/g, '')}</p>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-muted-foreground whitespace-pre-wrap">
+                                                        {studyPlan.steps[currentStep].content}
+                                                    </p>
+                                                )}
                                             </div>
                                         )}
                                     </ColoredGlassCard>
@@ -352,7 +360,7 @@ export const PremiumStudySession: React.FC<PremiumStudySessionProps> = ({
                         <TabsContent value="content" className="space-y-4">
                             <h3 className="text-xl font-bold mb-4">Enhanced Learning Materials</h3>
 
-                            <div className="grid gap-4 md:grid-cols-2">
+                            <div className="grid gap-4">
                                 <ColoredGlassCard className="p-6">
                                     <h4 className="text-lg font-medium mb-4 flex items-center gap-2">
                                         <Target className="h-5 w-5 text-primary" />
@@ -364,32 +372,18 @@ export const PremiumStudySession: React.FC<PremiumStudySessionProps> = ({
                                         </p>
                                         <ul className="list-disc pl-5 space-y-2">
                                             {Array.isArray(summary) ?
-                                                summary.slice(0, 5).map((point, i) => (
+                                                summary.map((point, i) => (
                                                     <li key={i} className="text-sm">{point}</li>
                                                 )) :
-                                                summary.split('.').slice(0, 5).map((point, i) => (
-                                                    point.trim() && <li key={i} className="text-sm">{point.trim()}.</li>
-                                                ))
+                                                typeof summary === 'string' ?
+                                                    summary.split(/\.|\n/).filter(point => point.trim()).map((point, i) => (
+                                                        <li key={i} className="text-sm">{point.trim().replace(/\*\*/g, '')}</li>
+                                                    )) : []
                                             }
                                         </ul>
                                     </div>
                                     <p className="text-sm text-muted-foreground">
                                         Understanding these core concepts will help you build a solid foundation for more advanced topics.
-                                    </p>
-                                </ColoredGlassCard>
-
-                                <ColoredGlassCard className="p-6">
-                                    <h4 className="text-lg font-medium mb-4 flex items-center gap-2">
-                                        <Lightbulb className="h-5 w-5 text-yellow-500" />
-                                        Visual Explanations
-                                    </h4>
-                                    <div className="aspect-video bg-accent/30 rounded-lg flex items-center justify-center mb-4">
-                                        <p className="text-sm text-muted-foreground">
-                                            Visual diagram would be displayed here
-                                        </p>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground">
-                                        Visual representations help reinforce your understanding of complex relationships between concepts.
                                     </p>
                                 </ColoredGlassCard>
                             </div>
@@ -479,7 +473,7 @@ export const PremiumStudySession: React.FC<PremiumStudySessionProps> = ({
 
                                 <div className="p-4 bg-accent/30 rounded-lg mb-4">
                                     <p className="text-muted-foreground">
-                                        {studyPlan?.steps[currentStep].content || "Focus on understanding the core concepts."}
+                                        {studyPlan?.steps?.[currentStep]?.content || "Focus on understanding the core concepts."}
                                     </p>
                                 </div>
 
@@ -491,30 +485,6 @@ export const PremiumStudySession: React.FC<PremiumStudySessionProps> = ({
                                     <Button variant="outline" size="sm">
                                         Mark Complete
                                     </Button>
-                                </div>
-                            </Card>
-
-                            <Card className="p-6">
-                                <h4 className="text-lg font-medium mb-4">Voice-Guided Explanations</h4>
-                                <p className="text-muted-foreground mb-4">
-                                    Listen to AI-generated explanations of complex topics.
-                                </p>
-
-                                <div className="flex gap-2 mb-4">
-                                    <Button variant="outline" className="flex-1 gap-2">
-                                        <PlayCircle className="h-4 w-4" />
-                                        Key Concepts
-                                    </Button>
-                                    <Button variant="outline" className="flex-1 gap-2">
-                                        <PlayCircle className="h-4 w-4" />
-                                        Difficult Topics
-                                    </Button>
-                                </div>
-
-                                <div className="p-4 bg-accent/30 rounded-lg">
-                                    <p className="text-sm text-muted-foreground">
-                                        Voice guidance helps reinforce learning through auditory channels, complementing visual learning.
-                                    </p>
                                 </div>
                             </Card>
                         </TabsContent>
