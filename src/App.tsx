@@ -18,7 +18,7 @@ import { Settings } from './pages/Settings';
 import Auth from './pages/Auth';
 import PDFViewer from './pages/PDFViewer';
 import Library from './pages/Library';
-import CollaborationRoomApp from './pages/CollaborationRoom';
+import CollaborationRoom from './pages/CollaborationRoom';
 import SearchResults from './pages/SearchResults';
 import LandingPage from './pages/LandingPage';
 import ResetPassword from './pages/ResetPassword';
@@ -78,7 +78,7 @@ const ProtectedRoutes = () => {
         <Route path="/ai-coach" element={<AICoach />} />
         <Route path="/achievements" element={<Achievements />} />
         <Route path="/settings" element={<Settings />} />
-        <Route path="/collaboration" element={<CollaborationRoomApp />} />
+        <Route path="/collaboration" element={<CollaborationRoom />} />
         <Route path="/search" element={<SearchResults />} />
         <Route path="/notifications" element={<div className="p-6"><h1 className="text-3xl font-bold text-gradient">Notifications</h1><p className="mt-4 text-white/60">No new notifications</p></div>} />
         <Route path="/activity" element={<div className="p-6"><h1 className="text-3xl font-bold text-gradient">Activity History</h1><p className="mt-4 text-white/60">Your recent activity will appear here</p></div>} />

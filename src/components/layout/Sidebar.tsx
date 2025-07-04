@@ -18,7 +18,7 @@ const navigationItems = [
   { icon: Zap, label: 'Habits', path: '/habits' },
   { icon: Users, label: 'Social', path: '/social' },
   { icon: LibraryIcon, label: 'Library', path: '/library' },
-  { icon: Users, label: 'Collaboration', path: '/collaboration' },
+  { icon: Users, label: 'Collaboration', path: '/collaboration', comingSoon: true },
   { icon: Music, label: 'Soundscapes', path: '/soundscapes' },
   { icon: Brain, label: 'AI Coach', path: '/ai-coach' },
   { icon: Award, label: 'Achievements', path: '/achievements' },

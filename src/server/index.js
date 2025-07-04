@@ -6,9 +6,6 @@
  * In production, it would connect to real backend services.
  */
 
-console.log('Starting collaboration server...');
-
-// Load the collaboration server module
-require('./collaboration-server');
+console.log('Starting server...');
 
 console.log('Server initialization complete. Check logs above for details.');
