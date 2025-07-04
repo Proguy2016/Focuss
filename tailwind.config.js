@@ -92,7 +92,8 @@ export default {
                 float: 'float 6s ease-in-out infinite',
                 'gradient-x': 'gradient-x 15s ease infinite',
                 'gradient-y': 'gradient-y 15s ease infinite',
-                'gradient-xy': 'gradient-xy 15s ease infinite'
+                'gradient-xy': 'gradient-xy 15s ease infinite',
+                'gradient-slow': 'gradient 8s linear infinite',
             },
             keyframes: {
                 glow: {
@@ -178,7 +179,17 @@ export default {
                         'background-size': '400% 400%',
                         'background-position': 'right center'
                     }
-                }
+                },
+                gradient: {
+                    '0%, 100%': {
+                        'background-size': '200% 200%',
+                        'background-position': 'left center'
+                    },
+                    '50%': {
+                        'background-size': '200% 200%',
+                        'background-position': 'right center'
+                    },
+                },
             },
             backdropBlur: {
                 xs: '2px'
