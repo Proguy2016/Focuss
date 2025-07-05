@@ -14,6 +14,7 @@ interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
   fullWidth?: boolean;
   glow?: boolean;
   className?: string;
+  type?: 'button' | 'submit' | 'reset';
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -28,6 +29,7 @@ export const Button: React.FC<ButtonProps> = ({
   className = '',
   disabled,
   onClick,
+  type = 'button', // Set default type to 'button' to prevent form submission
   ...props
 }) => {
   const getVariantClasses = () => {
@@ -68,6 +70,13 @@ export const Button: React.FC<ButtonProps> = ({
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (onClick && !disabled && !loading) {
+      // Stop event propagation to prevent bubbling
+      e.stopPropagation();
+
+      // Prevent default action which might cause page refresh
+      e.preventDefault();
+
+      // Call the original onClick handler
       onClick(e);
     }
   };
@@ -87,6 +96,7 @@ export const Button: React.FC<ButtonProps> = ({
       whileTap={{ scale: disabled || loading ? 1 : 0.95 }}
       disabled={disabled || loading}
       onClick={handleClick}
+      type={type}
       {...props}
     >
       {loading && (
@@ -96,13 +106,13 @@ export const Button: React.FC<ButtonProps> = ({
           transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
         />
       )}
-      
+
       {Icon && iconPosition === 'left' && !loading && (
         <Icon size={variant === 'primary' ? (size === 'sm' ? 20 : size === 'lg' ? 28 : 24) : (size === 'sm' ? 16 : size === 'lg' ? 24 : 20)} />
       )}
-      
+
       {children}
-      
+
       {Icon && iconPosition === 'right' && !loading && (
         <Icon size={variant === 'primary' ? (size === 'sm' ? 20 : size === 'lg' ? 28 : 24) : (size === 'sm' ? 16 : size === 'lg' ? 24 : 20)} />
       )}

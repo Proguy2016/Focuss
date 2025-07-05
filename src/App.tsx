@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-
 import { AnimatePresence } from 'framer-motion';
 import { AppProvider } from './contexts/AppContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AudioProvider } from './contexts/AudioContext';
 import { AnimatedBackground } from './components/common/AnimatedBackground';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
@@ -132,8 +133,10 @@ function App() {
     <Router>
       <AuthProvider>
         <AppProvider>
-          <AnimatedBackground variant="particles" />
-          <AppContent />
+          <AudioProvider>
+            <AnimatedBackground variant="particles" />
+            <AppContent />
+          </AudioProvider>
         </AppProvider>
       </AuthProvider>
     </Router>
