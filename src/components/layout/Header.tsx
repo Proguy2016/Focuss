@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, Bell, Search, Sun, Moon, LogOut, ChevronDown, Music, VolumeX } from 'lucide-react';
+import { Menu, Bell, Search, Sun, Moon, LogOut, ChevronDown, Music, VolumeX, Clock } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAudio } from '../../contexts/AudioContext';
+import { useFloatingTimer } from '../../contexts/FloatingTimerContext';
 import { Button } from '../common/Button';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -11,6 +12,7 @@ export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const { state, dispatch } = useApp();
   const { user } = useAuth();
   const { audioState, stopAllTracks } = useAudio();
+  const { showTimer, hideTimer, timerState } = useFloatingTimer();
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -85,6 +87,34 @@ export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
               <div className="w-2 h-2 bg-success-500 rounded-full animate-pulse" />
               <span className="text-sm text-white/80">Focus Session Active</span>
             </motion.div>
+          )}
+
+          {/* Floating Timer Toggle */}
+          {state.currentSession && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                // Use our new timer context functions
+                if (timerState.isVisible) {
+                  hideTimer();
+                } else {
+                  // Get session info from current session
+                  const sessionName = state.currentSession?.tags?.[0] || 'Focus Session';
+                  const duration = state.currentSession?.duration ? state.currentSession.duration * 60 : 25 * 60;
+                  showTimer(sessionName, duration);
+                }
+              }}
+              className={`relative ${timerState.isVisible ? 'text-emerald-400' : 'text-white/70'}`}
+              title={timerState.isVisible ? "Hide floating timer" : "Show floating timer"}
+            >
+              <Clock size={16} />
+              <motion.div
+                className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full"
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              />
+            </Button>
           )}
 
           {/* Stop Music button - only show when audio is playing */}

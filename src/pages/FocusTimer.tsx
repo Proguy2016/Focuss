@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, RotateCcw, Settings, Volume2, VolumeX, Brain, Target, Clock, Zap, SkipForward, RefreshCw, Book } from 'lucide-react';
+import { Play, Pause, RotateCcw, Settings, Volume2, VolumeX, Brain, Target, Clock, Zap, SkipForward, RefreshCw, Book, Minimize } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import { useFloatingTimer } from '../contexts/FloatingTimerContext';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Modal } from '../components/common/Modal';
@@ -26,6 +27,7 @@ interface TimerSettings {
 
 export const FocusTimer: React.FC = () => {
   const { state, dispatch, dataService, refreshStats } = useApp();
+  const { showTimer, hideTimer, timerState } = useFloatingTimer();
   const navigate = useNavigate();
   const location = useLocation();
   const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes in seconds
@@ -148,6 +150,21 @@ export const FocusTimer: React.FC = () => {
     }
   }, [settings.workDuration, settings.shortBreakDuration, settings.longBreakDuration, sessionType, isRunning]);
 
+  // Show floating timer when a session starts
+  useEffect(() => {
+    if (isRunning && sessionType === 'work') {
+      showTimer(
+        currentTask?.title || 'Focus Session',
+        settings.workDuration * 60,
+        currentTask?.id
+      );
+    } else if (isRunning && sessionType === 'shortBreak') {
+      showTimer('Short Break', settings.shortBreakDuration * 60);
+    } else if (isRunning && sessionType === 'longBreak') {
+      showTimer('Long Break', settings.longBreakDuration * 60);
+    }
+  }, [isRunning, sessionType, currentTask]);
+
   const handleSessionComplete = async () => {
     setIsRunning(false);
 
@@ -229,6 +246,13 @@ export const FocusTimer: React.FC = () => {
 
     const now = new Date();
     setSessionStartTime(now);
+
+    // Show floating timer
+    showTimer(
+      currentTask?.title || 'Focus Session',
+      settings.workDuration * 60,
+      currentTask?.id
+    );
 
     // Create a new focus session
     try {
@@ -350,219 +374,230 @@ export const FocusTimer: React.FC = () => {
   const sessionsUntilLongBreak = settings.sessionsUntilLongBreak - (sessionsCompleted % settings.sessionsUntilLongBreak);
 
   return (
-    <div className="p-6 space-y-8">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center"
-      >
-        <h1 className="text-4xl font-bold text-gradient mb-2">Focus Timer</h1>
-        <p className="text-white/60 text-lg">
-          Time to focus and get things done
-        </p>
-        <Button
-          variant="secondary"
-          className="mt-4"
-          onClick={() => navigate('/settings?tab=preferences')}
-        >
-          Edit Session Time
-        </Button>
-      </motion.div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Timer */}
-        <div className="lg:col-span-2">
-          <Card variant="glass" className="p-8 flex flex-col items-center">
-            <div className="flex items-center justify-center gap-4 mb-6">
-              <SessionIcon className="w-8 h-8 text-white" />
-              <h2 className="text-2xl font-semibold text-white capitalize">
-                Focus Session
-              </h2>
-            </div>
-
-            {/* Focus Task */}
-            {currentTask && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-8 text-center">
-                <p className="text-white/60">Focusing on:</p>
-                <p className="font-semibold text-lg">{currentTask.title}</p>
-              </motion.div>
-            )}
-
-            {/* Timer Display */}
-            <div className="my-8 flex justify-center">
-              <CircularProgressBar
-                progress={progress}
-                size={300}
-                strokeWidth={15}
-                gradient={getSessionColor()}
-              >
-                <div className="text-center">
-                  <motion.div
-                    key={sessionType}
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-2xl font-semibold uppercase tracking-widest text-white/70 mb-2"
-                  >
-                    {sessionType.replace('Break', ' Break')}
-                  </motion.div>
-                  <div className="text-7xl font-bold text-white tabular-nums">
-                    {formatTime(timeLeft)}
-                  </div>
-                </div>
-              </CircularProgressBar>
-            </div>
-
-            {/* Controls */}
-            <div className="flex justify-center items-center gap-4">
-              <Button variant="secondary" size="icon" onClick={resetTimer} title="Reset Timer">
-                <RotateCcw className="w-8 h-8" />
-              </Button>
-              <Button
-                size="lg"
-                onClick={isRunning ? () => setIsRunning(false) : startNewWorkSession}
-                className="w-32 h-32 rounded-full text-2xl"
-              >
-                {isRunning ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8" />}
-              </Button>
-              <Button variant="secondary" size="icon" onClick={skipSession} title="Skip Session">
-                <SkipForward className="w-6 h-6" />
-              </Button>
-            </div>
-
-            <div className="mt-8 text-center text-white/50">
-              <p>Sessions completed: {sessionsCompleted}</p>
-            </div>
-
-            {/* Quick Stats */}
-            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-              <StatCard icon={Target} label="Current Task" value={currentTask?.title || 'None'} />
-              <StatCard icon={RefreshCw} label="Sessions" value={`${sessionsCompleted} / ${settings.sessionsUntilLongBreak}`} />
-              <StatCard icon={Zap} label="Distractions" value={distractions} />
-            </div>
-          </Card>
+    <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="flex flex-col gap-8">
+        <div className="flex flex-col md:flex-row gap-4 md:items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-white">Focus Timer</h1>
+            <p className="text-white/60">Stay focused and track your productivity</p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowSettings(true)}
+              className="flex items-center gap-2"
+            >
+              <Settings size={16} />
+              Settings
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (timerState.isVisible) {
+                  hideTimer();
+                } else {
+                  showTimer(
+                    currentTask?.title || 'Focus Session',
+                    settings.workDuration * 60
+                  );
+                }
+              }}
+              className="flex items-center gap-2"
+              title={timerState.isVisible ? "Hide floating timer" : "Show floating timer"}
+            >
+              <Minimize size={16} />
+              {timerState.isVisible ? "Hide Timer" : "Floating Timer"}
+            </Button>
+          </div>
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Session Progress */}
-          <Card variant="glass" className="p-6">
-            <h3 className="text-xl font-semibold text-white mb-4">Session Progress</h3>
-            <div className="space-y-4">
-              <div className="flex justify-between">
-                <span className="text-white/60">Completed Sessions</span>
-                <span className="text-white font-semibold">{sessionsCompleted}</span>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Timer */}
+          <div className="lg:col-span-2">
+            <Card variant="glass" className="p-8 flex flex-col items-center">
+              <div className="flex items-center justify-center gap-4 mb-6">
+                <SessionIcon className="w-8 h-8 text-white" />
+                <h2 className="text-2xl font-semibold text-white capitalize">
+                  Focus Session
+                </h2>
               </div>
-              <div className="flex justify-between">
-                <span className="text-white/60">Until Long Break</span>
-                <span className="text-white font-semibold">{sessionsUntilLongBreak}</span>
+
+              {/* Focus Task */}
+              {currentTask && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-8 text-center">
+                  <p className="text-white/60">Focusing on:</p>
+                  <p className="font-semibold text-lg">{currentTask.title}</p>
+                </motion.div>
+              )}
+
+              {/* Timer Display */}
+              <div className="my-8 flex justify-center">
+                <CircularProgressBar
+                  progress={progress}
+                  size={300}
+                  strokeWidth={15}
+                  gradient={getSessionColor()}
+                >
+                  <div className="text-center">
+                    <motion.div
+                      key={sessionType}
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-2xl font-semibold uppercase tracking-widest text-white/70 mb-2"
+                    >
+                      {sessionType.replace('Break', ' Break')}
+                    </motion.div>
+                    <div className="text-7xl font-bold text-white tabular-nums">
+                      {formatTime(timeLeft)}
+                    </div>
+                  </div>
+                </CircularProgressBar>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-white/60">Distractions</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-white font-semibold">{distractions}</span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={addDistraction}
-                    disabled={!isRunning || sessionType !== 'work'}
-                  >
-                    +1
-                  </Button>
+
+              {/* Controls */}
+              <div className="flex justify-center items-center gap-4">
+                <Button variant="secondary" size="icon" onClick={resetTimer} title="Reset Timer">
+                  <RotateCcw className="w-8 h-8" />
+                </Button>
+                <Button
+                  size="lg"
+                  onClick={isRunning ? () => setIsRunning(false) : startNewWorkSession}
+                  className="w-32 h-32 rounded-full text-2xl"
+                >
+                  {isRunning ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8" />}
+                </Button>
+                <Button variant="secondary" size="icon" onClick={skipSession} title="Skip Session">
+                  <SkipForward className="w-6 h-6" />
+                </Button>
+              </div>
+
+              <div className="mt-8 text-center text-white/50">
+                <p>Sessions completed: {sessionsCompleted}</p>
+              </div>
+
+              {/* Quick Stats */}
+              <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+                <StatCard icon={Target} label="Current Task" value={currentTask?.title || 'None'} />
+                <StatCard icon={RefreshCw} label="Sessions" value={`${sessionsCompleted} / ${settings.sessionsUntilLongBreak}`} />
+                <StatCard icon={Zap} label="Distractions" value={distractions} />
+              </div>
+            </Card>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Session Progress */}
+            <Card variant="glass" className="p-6">
+              <h3 className="text-xl font-semibold text-white mb-4">Session Progress</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between">
+                  <span className="text-white/60">Completed Sessions</span>
+                  <span className="text-white font-semibold">{sessionsCompleted}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/60">Until Long Break</span>
+                  <span className="text-white font-semibold">{sessionsUntilLongBreak}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-white/60">Distractions</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-white font-semibold">{distractions}</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={addDistraction}
+                      disabled={!isRunning || sessionType !== 'work'}
+                    >
+                      +1
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          </Card>
+            </Card>
 
-          {/* Quick Settings */}
-          <Card variant="glass" className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-white">Quick Settings</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={Settings}
-                onClick={() => setShowSettings(true)}
-              />
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-white/60">Sound</span>
+            {/* Quick Settings */}
+            <Card variant="glass" className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold text-white">Quick Settings</h3>
                 <Button
                   variant="ghost"
                   size="sm"
-                  icon={settings.soundEnabled ? Volume2 : VolumeX}
-                  onClick={() => setSettings(prev => ({ ...prev, soundEnabled: !prev.soundEnabled }))}
+                  icon={Settings}
+                  onClick={() => setShowSettings(true)}
                 />
               </div>
 
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-white/60">Volume</span>
-                  <span className="text-white">{settings.volume}%</span>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-white/60">Sound</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={settings.soundEnabled ? Volume2 : VolumeX}
+                    onClick={() => setSettings(prev => ({ ...prev, soundEnabled: !prev.soundEnabled }))}
+                  />
                 </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={settings.volume}
-                  onChange={(e) => setSettings(prev => ({ ...prev, volume: parseInt(e.target.value) }))}
-                  className="w-full"
-                />
+
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-white/60">Volume</span>
+                    <span className="text-white">{settings.volume}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={settings.volume}
+                    onChange={(e) => setSettings(prev => ({ ...prev, volume: parseInt(e.target.value) }))}
+                    className="w-full"
+                  />
+                </div>
               </div>
-            </div>
-          </Card>
+            </Card>
 
-          {/* AI Insights */}
-          <Card variant="glass" className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Brain className="w-5 h-5 text-primary-400" />
-              <h3 className="text-xl font-semibold text-white">AI Insights</h3>
-            </div>
+            {/* AI Insights */}
+            <Card variant="glass" className="p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Brain className="w-5 h-5 text-primary-400" />
+                <h3 className="text-xl font-semibold text-white">AI Insights</h3>
+              </div>
 
-            <div className="space-y-3 text-sm">
-              <p className="text-white/80">
-                Your focus is strongest between 9-11 AM. Consider scheduling important tasks during this time.
-              </p>
-              <p className="text-white/80">
-                You've completed 87% of your sessions this week. Great consistency!
-              </p>
-              <p className="text-white/80">
-                Try the 52-17 technique for your next session - 52 minutes work, 17 minutes break.
-              </p>
-            </div>
-          </Card>
+              <div className="space-y-3 text-sm">
+                <p className="text-white/80">
+                  Your focus is strongest between 9-11 AM. Consider scheduling important tasks during this time.
+                </p>
+                <p className="text-white/80">
+                  You've completed 87% of your sessions this week. Great consistency!
+                </p>
+                <p className="text-white/80">
+                  Try the 52-17 technique for your next session - 52 minutes work, 17 minutes break.
+                </p>
+              </div>
+            </Card>
+          </div>
         </div>
+
+        {/* Settings Modal */}
+        <Modal
+          isOpen={showSettings}
+          onClose={() => setShowSettings(false)}
+          title="Timer Settings"
+        >
+          <SettingsPanel
+            settings={settings}
+            onSave={updateSettings}
+            onCancel={() => setShowSettings(false)}
+          />
+        </Modal>
+
+        <AnimatePresence>
+          {isRunning && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute top-4 right-4">
+              {/* Removed the Capture Thought button as requested */}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-
-      {/* Settings Modal */}
-      <Modal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-        title="Timer Settings"
-      >
-        <SettingsPanel
-          settings={settings}
-          onSave={updateSettings}
-          onCancel={() => setShowSettings(false)}
-        />
-      </Modal>
-
-      <AnimatePresence>
-        {isRunning && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute top-4 right-4">
-            <Button
-              variant="glass"
-              size="sm"
-              onClick={addDistraction}
-              icon={Book}
-            >
-              Capture Thought
-            </Button>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

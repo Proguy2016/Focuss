@@ -4,6 +4,7 @@ import { AnimatePresence } from 'framer-motion';
 import { AppProvider } from './contexts/AppContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AudioProvider } from './contexts/AudioContext';
+import { FloatingTimerProvider } from './contexts/FloatingTimerContext';
 import { AnimatedBackground } from './components/common/AnimatedBackground';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
@@ -25,6 +26,7 @@ import LandingPage from './pages/LandingPage';
 import ResetPassword from './pages/ResetPassword';
 import EmailSentConfirmation from './pages/EmailSentConfirmation';
 import { FriendChatManager } from './components/social/FriendChatManager';
+import TimerTest from './pages/TimerTest';
 
 const LoadingScreen: React.FC = () => (
   <div className="flex h-screen items-center justify-center bg-dark">
@@ -81,6 +83,7 @@ const ProtectedRoutes = () => {
         <Route path="/settings" element={<Settings />} />
         <Route path="/collaboration" element={<CollaborationRoom />} />
         <Route path="/search" element={<SearchResults />} />
+        <Route path="/timer-test" element={<TimerTest />} />
         <Route path="/notifications" element={<div className="p-6"><h1 className="text-3xl font-bold text-gradient">Notifications</h1><p className="mt-4 text-white/60">No new notifications</p></div>} />
         <Route path="/activity" element={<div className="p-6"><h1 className="text-3xl font-bold text-gradient">Activity History</h1><p className="mt-4 text-white/60">Your recent activity will appear here</p></div>} />
         {/* Catch-all for protected routes: if authenticated, redirect to dashboard for unknown paths */}
@@ -116,6 +119,7 @@ function AppContent() {
           <Route path="/signup" element={<Auth initialView="signup" />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/email-sent" element={<EmailSentConfirmation />} />
+          <Route path="/timer-test-public" element={<TimerTest />} />
 
           {/* Protected Routes */}
           <Route path="/*" element={<ProtectedRoutes />} />
@@ -134,8 +138,10 @@ function App() {
       <AuthProvider>
         <AppProvider>
           <AudioProvider>
-            <AnimatedBackground variant="particles" />
-            <AppContent />
+            <FloatingTimerProvider>
+              <AnimatedBackground variant="particles" />
+              <AppContent />
+            </FloatingTimerProvider>
           </AudioProvider>
         </AppProvider>
       </AuthProvider>

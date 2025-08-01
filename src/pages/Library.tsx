@@ -530,7 +530,7 @@ const LibraryPage: React.FC<LibraryPageProps> = ({
         <p className="text-sm text-muted-foreground">Organize and study your university subjects</p>
         <Dialog>
           <DialogTrigger asChild>
-            <Button className="w-full mt-4">Add Subject</Button>
+            <Button className="w-full mt-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">Add Subject</Button>
           </DialogTrigger>
           <AddSubjectDialog onAddSubject={handleAddSubject} />
         </Dialog>
@@ -2207,34 +2207,28 @@ const AddSubjectDialog: React.FC<AddSubjectDialogProps> = ({ onAddSubject }) => 
     if (name.trim()) {
       onAddSubject(name.trim());
       setName('');
-      // Close dialog if it's open
     }
   };
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="w-full mt-4">Add Subject</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add New Subject</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <Input
-            placeholder="Subject name (e.g., Quantum Physics)"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="my-4"
-          />
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="submit">Add Subject</Button>
-            </DialogClose>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <DialogContent className="bg-black/80 backdrop-blur-md border border-white/10 text-white shadow-xl">
+      <DialogHeader>
+        <DialogTitle className="text-white text-xl">Add New Subject</DialogTitle>
+      </DialogHeader>
+      <form onSubmit={handleSubmit}>
+        <Input
+          placeholder="Subject name (e.g., Quantum Physics)"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="my-4 bg-white/5 border border-white/20 text-white placeholder:text-white/50 focus-visible:ring-primary-400"
+        />
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="submit" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white">Add Subject</Button>
+          </DialogClose>
+        </DialogFooter>
+      </form>
+    </DialogContent>
   );
 };
 

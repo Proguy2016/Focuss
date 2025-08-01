@@ -116,7 +116,7 @@ const MemoizedSidebarContent = React.memo(({
           >
             {({ isActive }) => (
               <>
-                <div className={`p-1.5 rounded-lg transition-colors duration-200 ${isActive ? 'bg-teal-900/50' : 'group-hover/nav:bg-teal-600/30'}`}>
+                <div className={`p-1.5 rounded-lg transition-colors duration-200 flex items-center justify-center ${isActive ? 'bg-teal-900/50' : 'group-hover/nav:bg-teal-600/30'}`}>
                   <item.icon size={20} className={`${isActive ? 'text-white' : 'text-teal-400'}`} />
                 </div>
                 <AnimatePresence>

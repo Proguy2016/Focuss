@@ -19,17 +19,30 @@ console.log('Initializing server...');
 
 // Connect to MongoDB (replace with your actual MongoDB URI)
 mongoose.connect('mongodb://localhost:27017/focuss', {
-        useNewUrlParser: true,
-        useUnifiedTopology: true
-    })
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+})
     .then(() => console.log('Connected to MongoDB'))
     .catch(err => console.error('MongoDB connection error:', err));
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-    console.log(`Created uploads directory at ${uploadsDir}`);
+    try {
+        fs.mkdirSync(uploadsDir, { recursive: true, mode: 0o755 });
+        console.log(`Created uploads directory at ${uploadsDir}`);
+    } catch (error) {
+        console.error(`Failed to create uploads directory: ${error.message}`);
+        process.exit(1); // Exit if we can't create the directory
+    }
+} else {
+    console.log(`Using existing uploads directory at ${uploadsDir}`);
+    // Ensure proper permissions
+    try {
+        fs.chmodSync(uploadsDir, 0o755);
+    } catch (error) {
+        console.warn(`Failed to set permissions on uploads directory: ${error.message}`);
+    }
 }
 
 // Create library directory for file storage
@@ -45,14 +58,41 @@ const profileStorage = multer.diskStorage({
         cb(null, uploadsDir);
     },
     filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname}`);
+        // Generate a unique filename
+        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+        const ext = path.extname(file.originalname);
+        cb(null, `profile-${uniqueSuffix}${ext}`);
     }
 });
 
-const profileUpload = multer({
+// Create multer instance without .single() yet
+const profileMulter = multer({
     storage: profileStorage,
-    limits: { fileSize: 2 * 1024 * 1024 } // 2MB limit
+    limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit
+    fileFilter: (req, file, cb) => {
+        // Accept only image files
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only image files are allowed'), false);
+        }
+    }
 });
+
+// Wrap profileUpload middleware to handle errors
+const handleProfileUpload = (req, res, next) => {
+    // Apply the single file upload middleware
+    profileMulter.single('pfp')(req, res, (err) => {
+        if (err) {
+            console.error('Profile upload error:', err);
+            return res.status(400).json({
+                success: false,
+                message: err.message || 'File upload error'
+            });
+        }
+        next();
+    });
+};
 
 // Configure multer for library file uploads
 const libraryStorage = multer.diskStorage({
@@ -106,23 +146,23 @@ let mockUser = {
 
 // Mock library data
 let libraryItems = [{
-        id: 'folder-1',
-        type: 'folder',
-        name: 'Documents',
-        parentId: null,
-        path: '/',
-        createdAt: new Date(),
-        modifiedAt: new Date()
-    },
-    {
-        id: 'folder-2',
-        type: 'folder',
-        name: 'Images',
-        parentId: null,
-        path: '/',
-        createdAt: new Date(),
-        modifiedAt: new Date()
-    }
+    id: 'folder-1',
+    type: 'folder',
+    name: 'Documents',
+    parentId: null,
+    path: '/',
+    createdAt: new Date(),
+    modifiedAt: new Date()
+},
+{
+    id: 'folder-2',
+    type: 'folder',
+    name: 'Images',
+    parentId: null,
+    path: '/',
+    createdAt: new Date(),
+    modifiedAt: new Date()
+}
 ];
 
 // In-memory file tracking
@@ -222,28 +262,47 @@ app.put('/api/update/bio', (req, res) => {
 });
 
 // Update profile picture endpoint
-app.put('/api/update/pfp', profileUpload.single('pfp'), (req, res) => {
-    console.log('Update profile picture request');
+app.put('/api/update/pfp', handleProfileUpload, (req, res) => {
+    console.log('Update profile picture request received');
 
-    if (!req.file) {
-        return res.status(400).json({ success: false, message: 'No file uploaded' });
+    try {
+        if (!req.file) {
+            console.error('No file received in the request');
+            return res.status(400).json({
+                success: false,
+                message: 'No file uploaded'
+            });
+        }
+
+        console.log('File successfully uploaded:', {
+            filename: req.file.filename,
+            originalname: req.file.originalname,
+            mimetype: req.file.mimetype,
+            size: req.file.size
+        });
+
+        // Update profile picture URL
+        const imageUrl = `http://localhost:${PORT}/uploads/${req.file.filename}`;
+        console.log('Profile picture URL:', imageUrl);
+
+        // Update mock user
+        mockUser = {
+            ...mockUser,
+            profilePicture: imageUrl
+        };
+
+        res.json({
+            success: true,
+            user: mockUser
+        });
+    } catch (error) {
+        console.error('Error processing profile picture:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error while processing profile picture',
+            error: error.message
+        });
     }
-
-    console.log('Uploaded file:', req.file);
-
-    // Update profile picture URL
-    const imageUrl = `http://localhost:${PORT}/uploads/${req.file.filename}`;
-
-    // Update mock user
-    mockUser = {
-        ...mockUser,
-        profilePicture: imageUrl
-    };
-
-    res.json({
-        success: true,
-        user: mockUser
-    });
 });
 
 app.put('/api/update/privacy', (req, res) => {

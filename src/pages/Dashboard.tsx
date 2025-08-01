@@ -14,6 +14,9 @@ import { AxiosError } from 'axios';
 import { TodaysHabits } from '../components/dashboard/TodaysHabits';
 import { useLocation } from 'react-router-dom';
 import { getXpToLevelUp } from '../utils/leveling';
+import { useFloatingTimer } from '../contexts/FloatingTimerContext';
+import { FloatingTimer } from '../components/common/FloatingTimer';
+import FloatingTimerTest from '../components/common/FloatingTimerTest';
 
 interface ErrorResponse {
   message: string;
@@ -22,6 +25,8 @@ interface ErrorResponse {
 export const Dashboard: React.FC = () => {
   const { state, dispatch, refreshStats } = useApp();
   const location = useLocation();
+  const { showTimer, hideTimer, timerState } = useFloatingTimer();
+  const [showDirectTimer, setShowDirectTimer] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -52,6 +57,8 @@ export const Dashboard: React.FC = () => {
   };
 
   const overallAnalytics = state.analytics?.overall;
+
+  console.log("Dashboard rendering, timerState:", timerState);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8 min-h-screen relative text-white">
@@ -112,6 +119,29 @@ export const Dashboard: React.FC = () => {
 
       {/* Motivational Quote */}
       <MotivationalQuote />
+
+      {/* Test buttons */}
+      <div className="fixed bottom-4 left-4 flex flex-col gap-3">
+        <button
+          onClick={() => {
+            console.log("Context method button clicked");
+            showTimer('Focus Session', 25 * 60);
+          }}
+          className="bg-primary hover:bg-primary-light text-dark font-medium py-2 px-4 rounded-md transition-all duration-300 z-10"
+        >
+          Start Timer (Context)
+        </button>
+
+      </div>
+
+      {/* Direct timer component for testing */}
+      {showDirectTimer && (
+        <FloatingTimer
+          sessionName="Direct Timer"
+          initialDuration={25 * 60}
+          onClose={() => setShowDirectTimer(false)}
+        />
+      )}
     </div>
   );
 };

@@ -20,13 +20,26 @@ export const ProfileSettings: React.FC = () => {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        // Validate file type and size
+        if (!file.type.startsWith('image/')) {
+            alert('Please select an image file');
+            return;
+        }
+
+        if (file.size > 2 * 1024 * 1024) { // 2MB limit
+            alert('File size should be less than 2MB');
+            return;
+        }
+
         const formData = new FormData();
-        formData.append('pfp', file, file.name);
+        formData.append('pfp', file);
 
         try {
             await updatePfp(formData);
-        } catch (error) {
+            console.log('Profile picture updated successfully');
+        } catch (error: any) {
             console.error("Failed to upload new avatar", error);
+            alert(`Failed to upload avatar: ${error.response?.data?.message || error.message || 'Unknown error'}`);
         }
     };
 

@@ -470,26 +470,12 @@ export const Soundscapes: React.FC = () => {
             <h3 className="font-medium text-white">{layer.name}</h3>
             <p className="text-white/60 text-sm">{layer.volume}%</p>
           </div>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              updateLayerVolume(layer.id, layer.volume > 0 ? 0 : 50);
-            }}
-            className="p-2 rounded-full flex items-center justify-center bg-black/20 hover:bg-black/40 focus:outline-none"
-          >
-            {layer.isPlaying ? (
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
-                <rect width="4" height="16" x="6" y="4"></rect>
-                <rect width="4" height="16" x="14" y="4"></rect>
-              </svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
-                <polygon points="5 3 19 12 5 21 5 3"></polygon>
-              </svg>
-            )}
-          </button>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={layer.isPlaying ? Pause : Play}
+            onClick={handleButtonClick(() => updateLayerVolume(layer.id, layer.volume > 0 ? 0 : 50))}
+          />
         </div>
 
         <div className="space-y-2">
@@ -503,7 +489,7 @@ export const Soundscapes: React.FC = () => {
             onMouseDown={(e) => e.stopPropagation()}
             className="w-full h-2 rounded-lg appearance-none cursor-pointer"
             style={{
-              background: `linear-gradient(to right, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.8) ${layer.volume}%, rgba(255,255,255,0.2) ${layer.volume}%, rgba(255,255,255,0.2) 100%)`
+              background: `linear-gradient(to right, ${layer.color} 0%, ${layer.color} ${layer.volume}%, rgba(255,255,255,0.1) ${layer.volume}%, rgba(255,255,255,0.1) 100%)`
             }}
           />
         </div>
@@ -644,23 +630,18 @@ export const Soundscapes: React.FC = () => {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <button
-              type="button"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 togglePlayPause();
               }}
-              className="w-16 h-16 rounded-full flex items-center justify-center border-2 border-white/30 bg-black/20 hover:bg-black/40 shadow-lg focus:outline-none"
+              className="w-16 h-16 rounded-full flex items-center justify-center border-2 border-white/30 bg-black/20 hover:bg-black/40 shadow-lg text-white focus:outline-none"
+              type="button"
             >
               {isPlaying ? (
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
-                  <rect width="4" height="16" x="6" y="4"></rect>
-                  <rect width="4" height="16" x="14" y="4"></rect>
-                </svg>
+                <Pause size={28} strokeWidth={2} />
               ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
-                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                </svg>
+                <Play size={28} strokeWidth={2} />
               )}
             </button>
             <div>
@@ -705,10 +686,7 @@ export const Soundscapes: React.FC = () => {
               onChange={handleMasterVolumeChange}
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
-              className="w-full h-2 rounded-lg appearance-none cursor-pointer"
-              style={{
-                background: `linear-gradient(to right, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.8) ${masterVolume}%, rgba(255,255,255,0.2) ${masterVolume}%, rgba(255,255,255,0.2) 100%)`
-              }}
+              className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gradient-to-r from-primary-500 to-secondary-500"
             />
           </div>
           <Volume2 className="w-5 h-5 text-white/60" />
