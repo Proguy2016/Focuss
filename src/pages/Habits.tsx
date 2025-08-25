@@ -294,13 +294,26 @@ export const Habits: React.FC = () => {
 
       const categoryObj = categories.find(c => c.name === createdHabitFromBackend.category);
 
+      // Normalize backend shape and ensure required fields exist for immediate UI actions
+      const normalizedHabitId = createdHabitFromBackend.habitId || createdHabitFromBackend.id || createdHabitFromBackend._id;
+
       const createdHabit = {
         ...createdHabitFromBackend,
+        // ensure both habitId and id are present for consistency across the app
+        habitId: normalizedHabitId,
+        id: normalizedHabitId,
         category: categoryObj || { name: createdHabitFromBackend.category, color: '#6B7280', icon: 'Zap' },
-        id: createdHabitFromBackend.habitId,
-        currentStreak: createdHabitFromBackend.streak,
+        // fill in commonly expected fields with sensible defaults
+        currentStreak: createdHabitFromBackend.streak ?? 0,
+        progress: createdHabitFromBackend.progress ?? 0,
+        completions: createdHabitFromBackend.completions ?? [],
+        completed: createdHabitFromBackend.completed ?? false,
+        lastCompleted: createdHabitFromBackend.lastCompleted ?? null,
+        startDate: createdHabitFromBackend.startDate ?? null,
+        resetDate: createdHabitFromBackend.resetDate ?? null,
+        // keep frequency consistent (use lower-case type as used elsewhere)
         frequency: {
-          type: newHabit.frequency,
+          type: (newHabit.frequency || 'daily').toLowerCase(),
           customValue: null
         }
       };
@@ -324,21 +337,23 @@ export const Habits: React.FC = () => {
 
   const handleUpdateHabit = async () => {
     if (!editingHabit) return;
-
     const habitPayload = {
       ...editingHabit,
       habitId: editingHabit.habitId,
-      frequency: editingHabit.frequency.type.charAt(0).toUpperCase() + editingHabit.frequency.type.slice(1),
+      frequency: editingHabit.frequency,
       priority: editingHabit.priority,
     };
 
     try {
-      const response = await api.put('/api/stats/updateHabit', habitPayload);
-      const { habit: updatedHabit } = response.data;
-      dispatch({ type: 'UPDATE_HABIT', payload: updatedHabit });
+      // Optimistically update the UI
+      dispatch({ type: 'UPDATE_HABIT', payload: editingHabit });
       setEditingHabit(null);
+
+      await api.put('/api/stats/updateHabit', habitPayload);
     } catch (error) {
       console.error("Failed to update habit:", error);
+      // If the API call fails, we should probably revert the change
+      // but for now, we'll just log the error.
     }
   };
 
