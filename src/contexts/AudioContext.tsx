@@ -24,57 +24,58 @@ interface AudioContextType {
     addTrack: (track: Omit<SoundscapeTrack, 'isPlaying'>) => void;
 }
 
-// Define the initial tracks based on the Supabase URLs
+// Define the initial tracks - temporarily disabled due to Supabase URL issues
 const initialTracks: SoundscapeTrack[] = [
-    {
-        id: 'coffee-shop',
-        name: 'Coffee Shop',
-        url: 'https://cohbdsowxwwzxhkjmkpt.supabase.co/storage/v1/object/public/focusritual//coffee%20shop.mp3',
-        volume: 60, // Increased from 70
-        isPlaying: false,
-    },
-    {
-        id: 'fireplace',
-        name: 'Fireplace',
-        url: 'https://cohbdsowxwwzxhkjmkpt.supabase.co/storage/v1/object/public/focusritual//fireplace.mp3',
-        volume: 60, // Increased from 70
-        isPlaying: false,
-    },
-    {
-        id: 'forest',
-        name: 'Forest',
-        url: 'https://cohbdsowxwwzxhkjmkpt.supabase.co/storage/v1/object/public/focusritual//forest.mp3',
-        volume: 50, // Decreased from 70
-        isPlaying: false,
-    },
-    {
-        id: 'rain',
-        name: 'Rain',
-        url: 'https://cohbdsowxwwzxhkjmkpt.supabase.co/storage/v1/object/public/focusritual//rain.mp3',
-        volume: 30, // Significantly lowered from 70
-        isPlaying: false,
-    },
-    {
-        id: 'waves',
-        name: 'Waves',
-        url: 'https://cohbdsowxwwzxhkjmkpt.supabase.co/storage/v1/object/public/focusritual//waves.mp3',
-        volume: 50, // Decreased from 70
-        isPlaying: false,
-    },
-    {
-        id: 'wind',
-        name: 'Wind',
-        url: 'https://cohbdsowxwwzxhkjmkpt.supabase.co/storage/v1/object/public/focusritual//wind.mp3',
-        volume: 25, // Significantly lowered from 70
-        isPlaying: false,
-    },
-    {
-        id: 'night',
-        name: 'Night Sounds',
-        url: 'https://cohbdsowxwwzxhkjmkpt.supabase.co/storage/v1/object/public/focusritual//night.mov',
-        volume: 40,
-        isPlaying: false,
-    },
+    // Temporarily commented out until Supabase URLs are fixed
+    // {
+    //     id: 'coffee-shop',
+    //     name: 'Coffee Shop',
+    //     url: 'https://cohbdsowxwwzxhkjmkpt.supabase.co/storage/v1/object/public/focusritual//coffee%20shop.mp3',
+    //     volume: 60,
+    //     isPlaying: false,
+    // },
+    // {
+    //     id: 'fireplace',
+    //     name: 'Fireplace',
+    //     url: 'https://cohbdsowxwwzxhkjmkpt.supabase.co/storage/v1/object/public/focusritual//fireplace.mp3',
+    //     volume: 60,
+    //     isPlaying: false,
+    // },
+    // {
+    //     id: 'forest',
+    //     name: 'Forest',
+    //     url: 'https://cohbdsowxwwzxhkjmkpt.supabase.co/storage/v1/object/public/focusritual//forest.mp3',
+    //     volume: 50,
+    //     isPlaying: false,
+    // },
+    // {
+    //     id: 'rain',
+    //     name: 'Rain',
+    //     url: 'https://cohbdsowxwwzxhkjmkpt.supabase.co/storage/v1/object/public/focusritual//rain.mp3',
+    //     volume: 30,
+    //     isPlaying: false,
+    // },
+    // {
+    //     id: 'waves',
+    //     name: 'Waves',
+    //     url: 'https://cohbdsowxwwzxhkjmkpt.supabase.co/storage/v1/object/public/focusritual//waves.mp3',
+    //     volume: 50,
+    //     isPlaying: false,
+    // },
+    // {
+    //     id: 'wind',
+    //     name: 'Wind',
+    //     url: 'https://cohbdsowxwwzxhkjmkpt.supabase.co/storage/v1/object/public/focusritual//wind.mp3',
+    //     volume: 25,
+    //     isPlaying: false,
+    // },
+    // {
+    //     id: 'night',
+    //     name: 'Night Sounds',
+    //     url: 'https://cohbdsowxwwzxhkjmkpt.supabase.co/storage/v1/object/public/focusritual//night.mov',
+    //     volume: 40,
+    //     isPlaying: false,
+    // },
 ];
 
 export const AudioContext = createContext<AudioContextType | null>(null);

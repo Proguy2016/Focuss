@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, RotateCcw, Play, Pause, Settings, SkipForward } from 'lucide-react';
+import { X, RotateCcw, Play, Pause, Settings } from 'lucide-react';
 import api from '../../services/api';
 import { useApp } from '../../contexts/AppContext';
 import { FocusSession } from '../../types';
@@ -253,11 +253,6 @@ export const FloatingTimer: React.FC<FloatingTimerProps> = ({
     const resetTimer = () => {
         pauseTimer();
         setRemainingSeconds(totalSeconds);
-    };
-
-    const skipSession = () => {
-        pauseTimer();
-        sessionComplete();
     };
 
     const playNotificationSound = () => {
@@ -614,25 +609,6 @@ export const FloatingTimer: React.FC<FloatingTimerProps> = ({
                 >
                     {isRunning ? <Pause size={16} /> : <Play size={16} />}
                     {isRunning ? 'Pause' : 'Start'}
-                </button>
-                <button
-                    onClick={skipSession}
-                    style={{
-                        background: '#ef4444', // Explicit color instead of var(--red)
-                        border: 'none',
-                        borderRadius: '8px',
-                        padding: '6px 12px',
-                        color: '#ffffff', // Explicit color instead of var(--light)
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        fontSize: '12px',
-                    }}
-                >
-                    <SkipForward size={16} />
-                    Skip
                 </button>
             </div>
 

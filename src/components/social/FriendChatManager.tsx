@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FriendChat } from './FriendChat';
 import { useAuth } from '../../contexts/AuthContext';
-import { io, type Socket } from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 import { MessageCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FriendProfile } from '../../services/FriendsService';
@@ -24,8 +24,8 @@ interface Message {
 }
 
 interface FriendChatManagerProps {
-    activeChat: FriendProfile | null;
-    onClose: (friendId: string) => void;
+    activeChat?: FriendProfile | null;
+    onClose?: (friendId: string) => void;
 }
 
 // Access the same global socket instance used in FriendChat
@@ -33,7 +33,10 @@ declare global {
     var globalSocket: Socket | undefined;
 }
 
-export const FriendChatManager: React.FC<FriendChatManagerProps> = ({ activeChat, onClose }) => {
+export const FriendChatManager: React.FC<FriendChatManagerProps> = ({
+    activeChat = null,
+    onClose = () => { }
+}) => {
     const { user } = useAuth();
     const [activeChats, setActiveChats] = useState<ActiveChat[]>([]);
     const [socket, setSocket] = useState<Socket | null>(null);

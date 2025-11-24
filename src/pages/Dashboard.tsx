@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useApp } from '../contexts/AppContext';
 import { StatsGrid } from '../components/dashboard/StatsGrid';
@@ -13,20 +13,23 @@ import api from '../services/api';
 import { AxiosError } from 'axios';
 import { TodaysHabits } from '../components/dashboard/TodaysHabits';
 import { useLocation } from 'react-router-dom';
-import { getXpToLevelUp } from '../utils/leveling';
-import { useFloatingTimer } from '../contexts/FloatingTimerContext';
-import { FloatingTimer } from '../components/common/FloatingTimer';
-import FloatingTimerTest from '../components/common/FloatingTimerTest';
-
-interface ErrorResponse {
-  message: string;
-}
+import { TimerSettings, TimerSettingsData } from '../components/common/TimerSettings';
 
 export const Dashboard: React.FC = () => {
   const { state, dispatch, refreshStats } = useApp();
   const location = useLocation();
-  const { showTimer, hideTimer, timerState } = useFloatingTimer();
-  const [showDirectTimer, setShowDirectTimer] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [timerSettings, setTimerSettings] = useState<TimerSettingsData>(() => {
+    const stored = localStorage.getItem('timerSettings');
+    return stored ? JSON.parse(stored) : {
+      workDuration: 25,
+      shortBreak: 5,
+      longBreak: 15,
+      sessionsUntilLongBreak: 4,
+      autoStartBreaks: false,
+      autoStartWork: false,
+    };
+  });
 
   useEffect(() => {
     const loadData = async () => {
@@ -58,7 +61,7 @@ export const Dashboard: React.FC = () => {
 
   const overallAnalytics = state.analytics?.overall;
 
-  console.log("Dashboard rendering, timerState:", timerState);
+
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8 min-h-screen relative text-white">
@@ -120,28 +123,46 @@ export const Dashboard: React.FC = () => {
       {/* Motivational Quote */}
       <MotivationalQuote />
 
-      {/* Test buttons */}
-      <div className="fixed bottom-4 left-4 flex flex-col gap-3">
-        <button
-          onClick={() => {
-            console.log("Context method button clicked");
-            showTimer('Focus Session', 25 * 60);
-          }}
-          className="bg-primary hover:bg-primary-light text-dark font-medium py-2 px-4 rounded-md transition-all duration-300 z-10"
+      {/* Timer Settings Button */}
+      <button
+        type="button"
+        className="fixed bottom-4 right-4 inline-flex items-center justify-center gap-2 rounded-xl font-semibold
+          transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary-400/80
+          disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer
+          text-white hover:bg-white/10 px-3 py-2 text-sm text-white/80"
+        onClick={() => setIsSettingsOpen(true)}
+        title="Timer Settings"
+        tabIndex={0}
+        style={{ transform: 'none' }}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="lucide lucide-settings"
         >
-          Start Timer (Context)
-        </button>
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      </button>
 
-      </div>
-
-      {/* Direct timer component for testing */}
-      {showDirectTimer && (
-        <FloatingTimer
-          sessionName="Direct Timer"
-          initialDuration={25 * 60}
-          onClose={() => setShowDirectTimer(false)}
-        />
-      )}
+      {/* Timer Settings Dialog */}
+      <TimerSettings
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onSave={(newSettings) => {
+          setTimerSettings(newSettings);
+          localStorage.setItem('timerSettings', JSON.stringify(newSettings));
+          setIsSettingsOpen(false);
+        }}
+        initialSettings={timerSettings}
+      />
     </div>
   );
 };

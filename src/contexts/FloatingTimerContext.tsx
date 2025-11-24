@@ -1,61 +1,131 @@
-import React, { createContext, useContext, useState } from 'react';
-import { FloatingTimer } from '../components/common/FloatingTimer';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 
 interface TimerState {
-    isVisible: boolean;
+    isActive: boolean;
+    isRunning: boolean;
     sessionName: string;
-    duration: number; // in seconds
+    totalDuration: number; // in seconds
+    timeRemaining: number; // in seconds
+    sessionType: 'work' | 'shortBreak' | 'longBreak';
 }
 
 interface FloatingTimerContextType {
     timerState: TimerState;
-    showTimer: (sessionName?: string, duration?: number) => void;
-    hideTimer: () => void;
+    startTimer: (sessionName: string, duration: number, sessionType?: 'work' | 'shortBreak' | 'longBreak') => void;
+    pauseTimer: () => void;
+    resumeTimer: () => void;
+    stopTimer: () => void;
+    resetTimer: () => void;
 }
 
 const FloatingTimerContext = createContext<FloatingTimerContextType>({
     timerState: {
-        isVisible: false,
+        isActive: false,
+        isRunning: false,
         sessionName: 'Focus Session',
-        duration: 25 * 60, // 25 minutes in seconds
+        totalDuration: 25 * 60,
+        timeRemaining: 25 * 60,
+        sessionType: 'work',
     },
-    showTimer: () => { },
-    hideTimer: () => { },
+    startTimer: () => { },
+    pauseTimer: () => { },
+    resumeTimer: () => { },
+    stopTimer: () => { },
+    resetTimer: () => { },
 });
 
 export const FloatingTimerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [timerState, setTimerState] = useState<TimerState>({
-        isVisible: false,
+        isActive: false,
+        isRunning: false,
         sessionName: 'Focus Session',
-        duration: 25 * 60, // 25 minutes in seconds
+        totalDuration: 25 * 60,
+        timeRemaining: 25 * 60,
+        sessionType: 'work',
     });
 
-    const showTimer = (sessionName?: string, duration?: number) => {
-        console.log("showTimer called", { sessionName, duration });
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    // Timer countdown effect
+    useEffect(() => {
+        if (timerState.isRunning && timerState.timeRemaining > 0) {
+            intervalRef.current = setInterval(() => {
+                setTimerState(prev => ({
+                    ...prev,
+                    timeRemaining: Math.max(0, prev.timeRemaining - 1),
+                }));
+            }, 1000);
+        } else {
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+                intervalRef.current = null;
+            }
+        }
+
+        return () => {
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+            }
+        };
+    }, [timerState.isRunning, timerState.timeRemaining]);
+
+    const startTimer = (sessionName: string, duration: number, sessionType: 'work' | 'shortBreak' | 'longBreak' = 'work') => {
+        console.log("startTimer called", { sessionName, duration, sessionType });
         setTimerState({
-            isVisible: true,
-            sessionName: sessionName || 'Focus Session',
-            duration: duration || 25 * 60,
+            isActive: true,
+            isRunning: true,
+            sessionName,
+            totalDuration: duration,
+            timeRemaining: duration,
+            sessionType,
         });
     };
 
-    const hideTimer = () => {
-        console.log("hideTimer called");
-        setTimerState(prev => ({ ...prev, isVisible: false }));
+    const pauseTimer = () => {
+        console.log("pauseTimer called");
+        setTimerState(prev => ({ ...prev, isRunning: false }));
     };
 
-    console.log("FloatingTimerProvider rendering with state:", timerState);
+    const resumeTimer = () => {
+        console.log("resumeTimer called");
+        setTimerState(prev => ({ ...prev, isRunning: true }));
+    };
+
+    const stopTimer = () => {
+        console.log("stopTimer called");
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+        }
+        setTimerState({
+            isActive: false,
+            isRunning: false,
+            sessionName: 'Focus Session',
+            totalDuration: 25 * 60,
+            timeRemaining: 25 * 60,
+            sessionType: 'work',
+        });
+    };
+
+    const resetTimer = () => {
+        console.log("resetTimer called");
+        setTimerState(prev => ({
+            ...prev,
+            timeRemaining: prev.totalDuration,
+            isRunning: false,
+        }));
+    };
 
     return (
-        <FloatingTimerContext.Provider value={{ timerState, showTimer, hideTimer }}>
+        <FloatingTimerContext.Provider value={{
+            timerState,
+            startTimer,
+            pauseTimer,
+            resumeTimer,
+            stopTimer,
+            resetTimer
+        }}>
             {children}
-            {timerState.isVisible && (
-                <FloatingTimer
-                    sessionName={timerState.sessionName}
-                    initialDuration={timerState.duration}
-                    onClose={hideTimer}
-                />
-            )}
         </FloatingTimerContext.Provider>
     );
 };

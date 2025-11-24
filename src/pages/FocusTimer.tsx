@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, RotateCcw, Settings, Volume2, VolumeX, Brain, Target, Clock, Zap, SkipForward, RefreshCw, Book, Minimize } from 'lucide-react';
+import { Play, Pause, RotateCcw, Settings, Volume2, VolumeX, Brain, Target, Clock, Zap, SkipForward, RefreshCw } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { useFloatingTimer } from '../contexts/FloatingTimerContext';
 import { Card } from '../components/common/Card';
@@ -27,7 +27,7 @@ interface TimerSettings {
 
 export const FocusTimer: React.FC = () => {
   const { state, dispatch, dataService, refreshStats } = useApp();
-  const { showTimer, hideTimer, timerState } = useFloatingTimer();
+  const { startTimer, pauseTimer, resumeTimer, stopTimer, resetTimer: resetContextTimer, timerState } = useFloatingTimer();
   const navigate = useNavigate();
   const location = useLocation();
   const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes in seconds
@@ -150,23 +150,46 @@ export const FocusTimer: React.FC = () => {
     }
   }, [settings.workDuration, settings.shortBreakDuration, settings.longBreakDuration, sessionType, isRunning]);
 
-  // Show floating timer when a session starts
+  // Sync local timer with navbar timer state
+  useEffect(() => {
+    if (timerState.isActive && timerState.timeRemaining !== timeLeft) {
+      setTimeLeft(timerState.timeRemaining);
+    }
+  }, [timerState.timeRemaining, timerState.isActive]);
+
+  // Sync local state when navigating back to focus timer page with active navbar timer
+  useEffect(() => {
+    if (timerState.isActive && !isRunning && timerState.isRunning) {
+      // Navbar timer is running, sync local state
+      setIsRunning(true);
+      setTimeLeft(timerState.timeRemaining);
+
+      // Set the correct session type based on navbar timer
+      if (timerState.sessionType !== sessionType) {
+        setSessionType(timerState.sessionType);
+      }
+    }
+  }, [timerState.isActive, timerState.isRunning, isRunning, sessionType]);
+
+  // Sync navbar timer when a session starts
   useEffect(() => {
     if (isRunning && sessionType === 'work') {
-      showTimer(
+      startTimer(
         currentTask?.title || 'Focus Session',
         settings.workDuration * 60,
-        currentTask?.id
+        'work'
       );
     } else if (isRunning && sessionType === 'shortBreak') {
-      showTimer('Short Break', settings.shortBreakDuration * 60);
+      startTimer('Short Break', settings.shortBreakDuration * 60, 'shortBreak');
     } else if (isRunning && sessionType === 'longBreak') {
-      showTimer('Long Break', settings.longBreakDuration * 60);
+      startTimer('Long Break', settings.longBreakDuration * 60, 'longBreak');
     }
-  }, [isRunning, sessionType, currentTask]);
+    // Remove the auto-pause logic that was interfering with navigation
+  }, [isRunning, sessionType, currentTask, settings]);
 
   const handleSessionComplete = async () => {
     setIsRunning(false);
+    stopTimer(); // Stop the navbar timer
 
     if (sessionType === 'work' && currentSession) {
       // Complete current work session
@@ -247,11 +270,11 @@ export const FocusTimer: React.FC = () => {
     const now = new Date();
     setSessionStartTime(now);
 
-    // Show floating timer
-    showTimer(
+    // Start the navbar timer
+    startTimer(
       currentTask?.title || 'Focus Session',
       settings.workDuration * 60,
-      currentTask?.id
+      'work'
     );
 
     // Create a new focus session
@@ -282,6 +305,12 @@ export const FocusTimer: React.FC = () => {
       startNewWorkSession();
     } else {
       setIsRunning(!isRunning);
+      // Toggle navbar timer
+      if (isRunning) {
+        pauseTimer();
+      } else {
+        resumeTimer();
+      }
     }
   };
 
@@ -293,6 +322,11 @@ export const FocusTimer: React.FC = () => {
         ? settings.shortBreakDuration * 60
         : settings.longBreakDuration * 60
     );
+
+    // Reset the navbar timer as well
+    if (timerState.isActive) {
+      resetContextTimer();
+    }
 
     if (currentSession) {
       // Cancel current session
@@ -390,24 +424,6 @@ export const FocusTimer: React.FC = () => {
               <Settings size={16} />
               Settings
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (timerState.isVisible) {
-                  hideTimer();
-                } else {
-                  showTimer(
-                    currentTask?.title || 'Focus Session',
-                    settings.workDuration * 60
-                  );
-                }
-              }}
-              className="flex items-center gap-2"
-              title={timerState.isVisible ? "Hide floating timer" : "Show floating timer"}
-            >
-              <Minimize size={16} />
-              {timerState.isVisible ? "Hide Timer" : "Floating Timer"}
-            </Button>
           </div>
         </div>
 
@@ -461,7 +477,7 @@ export const FocusTimer: React.FC = () => {
                 </Button>
                 <Button
                   size="lg"
-                  onClick={isRunning ? () => setIsRunning(false) : startNewWorkSession}
+                  onClick={toggleTimer}
                   className="w-32 h-32 rounded-full text-2xl"
                 >
                   {isRunning ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8" />}
