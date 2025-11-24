@@ -130,7 +130,12 @@ export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
 
           {/* Theme toggle */}
           <label className="cosmic-toggle">
-            <input className="toggle" type="checkbox" />
+            <input
+              className="toggle"
+              type="checkbox"
+              checked={state.theme === 'dark'}
+              onChange={toggleTheme}
+            />
             <div className="slider">
               <div className="cosmos"></div>
               <div className="energy-line"></div>
@@ -141,12 +146,12 @@ export const Header: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
                 <div className="ring"></div>
               </div>
               <div className="particles">
-                <div style={{ "--angle": '30deg' }} className="particle"></div>
-                <div style={{ "--angle": '60deg' }} className="particle"></div>
-                <div style={{ "--angle": '90deg' }} className="particle"></div>
-                <div style={{ "--angle": '120deg' }} className="particle"></div>
-                <div style={{ "--angle": '150deg' }} className="particle"></div>
-                <div style={{ "--angle": '180deg' }} className="particle"></div>
+                <div style={{ '--angle': '30deg' } as React.CSSProperties} className="particle"></div>
+                <div style={{ '--angle': '60deg' } as React.CSSProperties} className="particle"></div>
+                <div style={{ '--angle': '90deg' } as React.CSSProperties} className="particle"></div>
+                <div style={{ '--angle': '120deg' } as React.CSSProperties} className="particle"></div>
+                <div style={{ '--angle': '150deg' } as React.CSSProperties} className="particle"></div>
+                <div style={{ '--angle': '180deg' } as React.CSSProperties} className="particle"></div>
               </div>
             </div>
           </label>

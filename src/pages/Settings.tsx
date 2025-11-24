@@ -10,6 +10,8 @@ import { AppearanceSettings } from '../components/settings/AppearanceSettings';
 import { DataSettings } from '../components/settings/DataSettings';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useApp } from '../contexts/AppContext';
+import { useTheme } from '../hooks/useTheme';
 
 type SettingsTab = 'profile' | 'preferences' | 'notifications' | 'appearance' | 'data';
 
@@ -23,7 +25,9 @@ const SETTINGS_TABS = [
 
 export const Settings: React.FC = () => {
     const { user } = useAuth();
+    const { state, dispatch } = useApp();
     const LOCAL_STORAGE_PREFS_KEY = `focus-ritual-preferences-${user?.id || 'default'}`;
+    const LOCAL_STORAGE_APPEARANCE_KEY = `focus-ritual-appearance-${user?.id || 'default'}`;
     const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
 
     // Mock state for demonstration. In a real app, this would come from context or a server.
@@ -38,19 +42,34 @@ export const Settings: React.FC = () => {
         marketingEmails: false, reminderSound: 'default', quietHours: { enabled: false, start: '22:00', end: '07:00' }
     });
     const [appearance, setAppearance] = useState({
-        theme: 'dark' as 'light' | 'dark' | 'auto',
+        theme: state.theme || 'dark' as 'light' | 'dark' | 'auto',
         accentColor: '#34D399',
         backgroundAnimation: 'default',
         reducedMotion: false,
         compactMode: false,
         fontSize: 'medium',
         highContrast: false,
+        colorTheme: 'default',
     });
+
+    // Apply theme on mount and when colorTheme changes
+    useTheme(appearance.colorTheme);
 
     useEffect(() => {
         const savedPrefs = localStorage.getItem(LOCAL_STORAGE_PREFS_KEY);
         if (savedPrefs) {
             setPreferences(JSON.parse(savedPrefs));
+        }
+
+        // Load saved appearance settings
+        const savedAppearance = localStorage.getItem(LOCAL_STORAGE_APPEARANCE_KEY);
+        if (savedAppearance) {
+            const parsedAppearance = JSON.parse(savedAppearance);
+            setAppearance(parsedAppearance);
+            // Sync with global theme
+            if (parsedAppearance.theme && parsedAppearance.theme !== state.theme) {
+                dispatch({ type: 'SET_THEME', payload: parsedAppearance.theme });
+            }
         }
     }, [user?.id]);
 
@@ -69,7 +88,16 @@ export const Settings: React.FC = () => {
         localStorage.setItem(LOCAL_STORAGE_PREFS_KEY, JSON.stringify(newPrefs));
     };
     const handleNotificationChange = (key: any, value: any) => setNotifications(prev => ({ ...prev, [key]: value }));
-    const handleAppearanceChange = (key: any, value: any) => setAppearance(prev => ({ ...prev, [key]: value }));
+    const handleAppearanceChange = (key: any, value: any) => {
+        const newAppearance = { ...appearance, [key]: value };
+        setAppearance(newAppearance);
+        localStorage.setItem(LOCAL_STORAGE_APPEARANCE_KEY, JSON.stringify(newAppearance));
+
+        // Sync light/dark theme with global state
+        if (key === 'theme') {
+            dispatch({ type: 'SET_THEME', payload: value });
+        }
+    };
 
     const handleExport = () => alert("Exporting data...");
     const handleDelete = () => confirm("Are you sure you want to delete your account?") && alert("Account deleted.");

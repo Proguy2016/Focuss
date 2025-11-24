@@ -1,0 +1,282 @@
+/* Theme Enhancements with 3D Effects */
+
+/* Global 3D Transform Setup */
+.theme-card-3d {
+    transform-style: preserve-3d;
+    perspective: 1000px;
+}
+
+/* Glassmorphism Effects */
+.glass-morphism {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-morphism-strong {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(30px) saturate(200%);
+    -webkit-backdrop-filter: blur(30px) saturate(200%);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* 3D Card Effect */
+.card-3d {
+    transform: translateZ(0);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card-3d:hover {
+    transform: translateZ(20px) rotateX(2deg) rotateY(2deg);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* Floating Animation */
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translateY(0px) translateZ(0px);
+    }
+
+    50% {
+        transform: translateY(-10px) translateZ(10px);
+    }
+}
+
+.float-animation {
+    animation: float 3s ease-in-out infinite;
+}
+
+/* Glow Effect */
+.glow-effect {
+    position: relative;
+}
+
+.glow-effect::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    padding: 2px;
+    background: linear-gradient(45deg, var(--primary), var(--secondary), var(--emerald));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.glow-effect:hover::before {
+    opacity: 1;
+}
+
+/* Shimmer Effect */
+@keyframes shimmer {
+    0% {
+        background-position: -1000px 0;
+    }
+
+    100% {
+        background-position: 1000px 0;
+    }
+}
+
+.shimmer {
+    background: linear-gradient(90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.1) 50%,
+            transparent 100%);
+    background-size: 1000px 100%;
+    animation: shimmer 2s infinite;
+}
+
+/* Neon Glow */
+.neon-glow {
+    text-shadow:
+        0 0 5px currentColor,
+        0 0 10px currentColor,
+        0 0 20px currentColor,
+        0 0 40px currentColor;
+}
+
+/* 3D Button Effect */
+.button-3d {
+    position: relative;
+    transform: translateZ(0);
+    transition: all 0.2s ease;
+}
+
+.button-3d::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, transparent 100%);
+    transform: translateZ(1px);
+}
+
+.button-3d:hover {
+    transform: translateY(-2px) translateZ(5px);
+}
+
+.button-3d:active {
+    transform: translateY(0px) translateZ(0px);
+}
+
+/* Gradient Border Animation */
+@keyframes gradient-rotate {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+.gradient-border-animated {
+    background: linear-gradient(90deg, var(--primary), var(--secondary), var(--emerald), var(--primary));
+    background-size: 200% 200%;
+    animation: gradient-rotate 3s ease infinite;
+}
+
+/* Parallax Effect */
+.parallax-layer {
+    transform-style: preserve-3d;
+    transition: transform 0.1s ease-out;
+}
+
+/* Color Orb Effect */
+.color-orb {
+    position: relative;
+    overflow: hidden;
+}
+
+.color-orb::after {
+    content: '';
+    position: absolute;
+    width: 150%;
+    height: 150%;
+    top: -25%;
+    left: -25%;
+    background: radial-gradient(circle, currentColor 0%, transparent 70%);
+    opacity: 0.15;
+    pointer-events: none;
+}
+
+/* Holographic Effect */
+@keyframes holographic {
+
+    0%,
+    100% {
+        background-position: 0% 50%;
+        filter: hue-rotate(0deg);
+    }
+
+    50% {
+        background-position: 100% 50%;
+        filter: hue-rotate(30deg);
+    }
+}
+
+.holographic {
+    background: linear-gradient(135deg,
+            var(--primary) 0%,
+            var(--secondary) 25%,
+            var(--emerald) 50%,
+            var(--secondary) 75%,
+            var(--primary) 100%);
+    background-size: 200% 200%;
+    animation: holographic 4s ease-in-out infinite;
+}
+
+/* Depth Layer Effect */
+.depth-layer-1 {
+    transform: translateZ(10px);
+}
+
+.depth-layer-2 {
+    transform: translateZ(20px);
+}
+
+.depth-layer-3 {
+    transform: translateZ(30px);
+}
+
+/* Metallic Surface */
+.metallic {
+    background: linear-gradient(135deg,
+            rgba(255, 255, 255, 0.1) 0%,
+            rgba(255, 255, 255, 0.05) 25%,
+            transparent 50%,
+            rgba(0, 0, 0, 0.05) 75%,
+            rgba(0, 0, 0, 0.1) 100%);
+}
+
+/* Smooth Transitions */
+.smooth-transition {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.smooth-transition-slow {
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Shadow Layers for Depth */
+.shadow-depth-1 {
+    box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.12),
+        0 1px 2px rgba(0, 0, 0, 0.24);
+}
+
+.shadow-depth-2 {
+    box-shadow:
+        0 3px 6px rgba(0, 0, 0, 0.16),
+        0 3px 6px rgba(0, 0, 0, 0.23);
+}
+
+.shadow-depth-3 {
+    box-shadow:
+        0 10px 20px rgba(0, 0, 0, 0.19),
+        0 6px 6px rgba(0, 0, 0, 0.23);
+}
+
+.shadow-depth-4 {
+    box-shadow:
+        0 14px 28px rgba(0, 0, 0, 0.25),
+        0 10px 10px rgba(0, 0, 0, 0.22);
+}
+
+.shadow-depth-5 {
+    box-shadow:
+        0 19px 38px rgba(0, 0, 0, 0.30),
+        0 15px 12px rgba(0, 0, 0, 0.22);
+}
+
+/* Inset Shadow for Depth */
+.shadow-inset {
+    box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Colored Shadows based on Theme */
+.shadow-colored {
+    box-shadow:
+        0 10px 30px -5px var(--primary),
+        0 0 50px -10px var(--secondary);
+}
+
+/* Perspective Container */
+.perspective-container {
+    perspective: 2000px;
+    perspective-origin: center center;
+}

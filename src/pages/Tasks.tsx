@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, Filter, Calendar, Clock, Flag, CheckCircle2,
   Circle, MoreHorizontal, Edit, Trash2, Star, Target,
-  ArrowUp, ArrowDown, Minus, Grid, List, Kanban, X, Play, ChevronDown, Move
+  ArrowUp, ArrowDown, Minus, Grid, List, Kanban, X, Play, ChevronDown, Move, AlertCircle, Zap
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { Button } from '../components/common/Button';
@@ -22,13 +22,75 @@ const PRIORITY_COLORS: Record<string, string> = {
   high: '#EF4444',
   medium: '#FBBF24',
   low: '#3B82F6',
-  urgent: '#EF4444',
+  urgent: '#DC2626',
 };
+
 const PRIORITY_LABELS: Record<string, string> = {
   high: 'High',
   medium: 'Medium',
   low: 'Low',
   urgent: 'Urgent',
+};
+
+// Priority icon component with colors and animations
+const PriorityIcon: React.FC<{ priority: string }> = ({ priority }) => {
+  const priorityLower = priority.toLowerCase();
+
+  const getIconAndStyle = () => {
+    switch (priorityLower) {
+      case 'urgent':
+        return {
+          icon: Zap,
+          color: '#DC2626',
+          bgColor: 'rgba(220, 38, 38, 0.1)',
+          animate: true
+        };
+      case 'high':
+        return {
+          icon: AlertCircle,
+          color: '#EF4444',
+          bgColor: 'rgba(239, 68, 68, 0.1)',
+          animate: false
+        };
+      case 'medium':
+        return {
+          icon: Flag,
+          color: '#FBBF24',
+          bgColor: 'rgba(251, 191, 36, 0.1)',
+          animate: false
+        };
+      case 'low':
+        return {
+          icon: Minus,
+          color: '#3B82F6',
+          bgColor: 'rgba(59, 130, 246, 0.1)',
+          animate: false
+        };
+      default:
+        return {
+          icon: Flag,
+          color: '#9CA3AF',
+          bgColor: 'rgba(156, 163, 175, 0.1)',
+          animate: false
+        };
+    }
+  };
+
+  const { icon: Icon, color, bgColor, animate } = getIconAndStyle();
+
+  return (
+    <motion.div
+      className="flex items-center gap-1.5 px-2 py-1 rounded-md"
+      style={{ backgroundColor: bgColor }}
+      animate={animate ? { scale: [1, 1.05, 1] } : {}}
+      transition={animate ? { duration: 1.5, repeat: Infinity } : {}}
+    >
+      <Icon className="w-3.5 h-3.5" style={{ color }} />
+      <span className="text-xs font-medium" style={{ color }}>
+        {PRIORITY_LABELS[priorityLower] || priority}
+      </span>
+    </motion.div>
+  );
 };
 
 const TasksHeader: React.FC<{
@@ -120,8 +182,11 @@ const TaskCard = ({ task, onEdit, onDelete }: { task: Task, onEdit: () => void, 
       className="bg-white/5 backdrop-blur-sm p-4 rounded-md shadow-lg border-l-4"
       style={{ borderColor: PRIORITY_COLORS[task.priority] }}
     >
-      <div className="flex justify-between items-start">
-        <p className="font-semibold pr-2">{task.title}</p>
+      <div className="flex justify-between items-start mb-2">
+        <div className="flex items-center gap-2 flex-1">
+          <p className="font-semibold pr-2">{task.title}</p>
+          <PriorityIcon priority={task.priority} />
+        </div>
         <div className="relative" ref={menuRef}>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsMenuOpen(!isMenuOpen)}>
             <MoreHorizontal className="w-5 h-5" />
@@ -164,14 +229,22 @@ const TaskCard = ({ task, onEdit, onDelete }: { task: Task, onEdit: () => void, 
                 className="overflow-hidden"
               >
                 <div className="pl-2 space-y-1 mt-1">
-                  {task.subtasks.map((sub, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center text-sm group"
-                    >
-                      <span className="ml-2 text-white/80">{sub}</span>
-                    </div>
-                  ))}
+                  {task.subtasks.map((sub: any, idx) => {
+                    // Handle both string and object subtasks for backwards compatibility
+                    const subtaskText = typeof sub === 'string' ? sub : sub.title;
+                    const isCompleted = typeof sub === 'object' && sub.completed;
+
+                    return (
+                      <div
+                        key={idx}
+                        className="flex items-center text-sm group"
+                      >
+                        <span className={`ml-2 ${isCompleted ? 'line-through text-white/40' : 'text-white/80'}`}>
+                          {subtaskText}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </motion.div>
             )}
@@ -229,7 +302,7 @@ const TaskRow = ({ task, onFocus, onEdit, onDelete, onStatusToggle, onUpdateTask
           </button>
         </td>
         <td className="p-4">
-          <div className="flex items-center">
+          <div>
             <p className={`font-medium ${task.completed ? 'line-through text-white/50' : ''}`}>
               {task.title}
             </p>
@@ -237,11 +310,15 @@ const TaskRow = ({ task, onFocus, onEdit, onDelete, onStatusToggle, onUpdateTask
           {task.description && <p className="text-sm text-white/40 mt-1 hidden sm:block">{task.description}</p>}
           {task.subtasks && task.subtasks.length > 0 && (
             <div className="pl-4 mt-2 space-y-1">
-              {task.subtasks.map((sub, idx) => (
-                <div key={idx} className="flex items-center text-sm">
-                  <span className="text-white/80">{sub}</span>
-                </div>
-              ))}
+              {task.subtasks.map((sub: any, idx) => {
+                const subtaskText = typeof sub === 'string' ? sub : sub.title;
+                const isCompleted = typeof sub === 'object' && sub.completed;
+                return (
+                  <div key={idx} className="flex items-center text-sm">
+                    <span className={`text-white/80 ${isCompleted ? 'line-through text-white/50' : ''}`}>{subtaskText}</span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </td>
@@ -249,10 +326,7 @@ const TaskRow = ({ task, onFocus, onEdit, onDelete, onStatusToggle, onUpdateTask
           {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No date'}
         </td>
         <td className="p-4 hidden sm:table-cell">
-          <span className="flex items-center gap-2">
-            <Flag className="w-4 h-4" style={{ color: PRIORITY_COLORS[task.priority] }} />
-            {PRIORITY_LABELS[task.priority]}
-          </span>
+          <PriorityIcon priority={task.priority} />
         </td>
         <td className="p-4 hidden lg:table-cell">
           <span
@@ -435,6 +509,20 @@ export const Tasks: React.FC = () => {
         'Authorization': `Bearer ${token}`,
       };
 
+      // Transform subtasks to the format expected by backend
+      const transformedSubtasks = (taskData.subtasks || []).map((sub: any) => {
+        // If it's already an object with title property, return as is
+        if (typeof sub === 'object' && sub.title) {
+          return sub;
+        }
+        // If it's a string, convert to object format
+        if (typeof sub === 'string') {
+          return { title: sub, completed: false };
+        }
+        // Fallback for any other case
+        return { title: String(sub), completed: false };
+      });
+
       const payload: any = {
         ...(taskData.id && { taskId: taskData.id }),
         taskTitle: taskData.title,
@@ -444,7 +532,7 @@ export const Tasks: React.FC = () => {
         estimatedTime: taskData.estimatedTime,
         dueDate: taskData.dueDate || null,
         tags: taskData.tags || [],
-        subTasks: (taskData.subtasks || []),
+        subTasks: transformedSubtasks,
         completed: taskData.completed || false,
       };
 
@@ -682,8 +770,14 @@ const TaskModal = ({ isOpen, onClose, onSave, task }: { isOpen: boolean, onClose
 
   useEffect(() => {
     if (task) {
+      // Convert subtask objects to strings for editing in the dialog
+      const subtasksForEditing = (task.subtasks || []).map((sub: any) =>
+        typeof sub === 'string' ? sub : sub.title
+      );
+
       setTaskData({
         ...task,
+        subtasks: subtasksForEditing,
         dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
         priority: task.priority || 'Medium',
         category: task.category || '',

@@ -1,4 +1,5 @@
 @import url('./theme.css');
+@import url('./styles/theme-enhancements.css');
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 /* Custom emerald scrollbar for the whole app */
@@ -91,6 +92,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 @layer base {
     body {
         @apply text-light bg-background text-foreground;
@@ -98,11 +100,13 @@
         font-family: 'Inter', sans-serif;
         background-attachment: fixed;
     }
+
     /* Apply the same cosmic gradient to containers that use the `animated-bg` utility */
     .animated-bg {
         background: linear-gradient(135deg, var(--dark) 0%, var(--dark-light) 100%);
         background-attachment: fixed;
     }
+
     html {
         scroll-behavior: smooth;
     }
@@ -112,6 +116,7 @@
     .glass-pane {
         @apply bg-white/10 backdrop-blur-md border border-white/10;
     }
+
     .input-field {
         @apply bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-primary-500;
     }
@@ -304,11 +309,13 @@
 /* Анимации */
 
 @keyframes ringPulse {
+
     0%,
     100% {
         transform: scale(1);
         opacity: 0.3;
     }
+
     50% {
         transform: scale(1.02);
         opacity: 0.6;
@@ -319,6 +326,7 @@
     0% {
         transform: rotate(0deg);
     }
+
     100% {
         transform: rotate(360deg);
     }
@@ -329,10 +337,12 @@
         transform: scaleX(0) translateX(0);
         opacity: 0;
     }
+
     50% {
         transform: scaleX(1) translateX(50%);
         opacity: 1;
     }
+
     100% {
         transform: scaleX(0) translateX(100%);
         opacity: 0;
@@ -344,6 +354,7 @@
         transform: translate(0, 0) scale(1);
         opacity: 1;
     }
+
     100% {
         transform: translate(calc(cos(var(--angle)) * 20px), calc(sin(var(--angle)) * 20px)) scale(0);
         opacity: 0;
@@ -367,6 +378,7 @@
     0% {
         background-position: 0% 0%;
     }
+
     100% {
         background-position: 200% 200%;
     }
@@ -403,10 +415,12 @@
 }
 
 @keyframes glowFollow {
+
     0%,
     100% {
         opacity: 0.2;
     }
+
     50% {
         opacity: 0.5;
     }
@@ -577,11 +591,13 @@
 }
 
 @-webkit-keyframes moveFlame {
+
     0%,
     100% {
         -webkit-transform: translateX(-50%) rotate(-2deg);
         transform: translateX(-50%) rotate(-2deg);
     }
+
     50% {
         -webkit-transform: translateX(-50%) rotate(2deg);
         transform: translateX(-50%) rotate(2deg);
@@ -589,11 +605,13 @@
 }
 
 @keyframes moveFlame {
+
     0%,
     100% {
         -webkit-transform: translateX(-50%) rotate(-2deg);
         transform: translateX(-50%) rotate(-2deg);
     }
+
     50% {
         -webkit-transform: translateX(-50%) rotate(2deg);
         transform: translateX(-50%) rotate(2deg);
@@ -601,20 +619,24 @@
 }
 
 @-webkit-keyframes enlargeFlame {
+
     0%,
     100% {
         height: 120px;
     }
+
     50% {
         height: 140px;
     }
 }
 
 @keyframes enlargeFlame {
+
     0%,
     100% {
         height: 120px;
     }
+
     50% {
         height: 140px;
     }

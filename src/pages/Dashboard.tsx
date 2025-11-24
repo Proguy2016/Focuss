@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useApp } from '../contexts/AppContext';
 import { StatsGrid } from '../components/dashboard/StatsGrid';
-import { QuickActions } from '../components/dashboard/QuickActions';
 import { RecentActivity } from '../components/dashboard/RecentActivity';
 import { UpcomingTasks } from '../components/dashboard/UpcomingTasks';
 import { AiInsights } from '../components/dashboard/AiInsights';
@@ -99,9 +98,6 @@ export const Dashboard: React.FC = () => {
           />
         </div>
       </motion.header>
-
-      {/* Quick Actions */}
-      <QuickActions />
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
