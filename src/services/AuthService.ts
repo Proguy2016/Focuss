@@ -1,5 +1,4 @@
 import api from './api';
-import axios, { AxiosError } from 'axios';
 
 // Define types for authentication data
 export interface RegisterData {
@@ -30,11 +29,6 @@ export interface UserProfile {
     settings?: any;
     level?: number;
     xp?: number;
-}
-
-// Error response interface
-interface ErrorResponse {
-    message?: string;
 }
 
 // Create the AuthService class
@@ -99,7 +93,8 @@ class AuthService {
 
     // Reset password
     async resetPassword(data: { token: string; newPassword: string }): Promise<void> {
-        await api.post('/api/auth/reset-password', data);
+        // Use PUT for reset-password endpoint instead of POST
+        await api.put('/api/auth/reset-password', data);
     }
 
     // Logout a user
@@ -120,4 +115,4 @@ class AuthService {
 }
 
 // Export a singleton instance
-export default new AuthService(); 
+export default new AuthService();
