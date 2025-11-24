@@ -145,6 +145,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const headers: Record<string, string> = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
 
+      // Fetch stats
       const res = await fetch('http://localhost:5001/api/stats/get', {
         method: 'GET',
         credentials: 'include',
@@ -152,6 +153,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
 
       const data = await res.json();
+
+      // Fetch tasks
+      try {
+        const tasksRes = await fetch('http://localhost:5001/api/stats/getTasks', {
+          method: 'GET',
+          credentials: 'include',
+          headers,
+        });
+
+        if (tasksRes.ok) {
+          const tasksData = await tasksRes.json();
+          if (tasksData && Array.isArray(tasksData.tasks)) {
+            // Map backend task format to frontend Task interface
+            const mappedTasks = tasksData.tasks
+              .filter((t: any) => typeof t === 'object' && t.taskTitle)
+              .map((task: any) => ({
+                id: task._id || task.taskId || task.id,
+                title: task.taskTitle || task.title,
+                description: task.taskDescription || task.description || '',
+                priority: task.priority || 'Medium',
+                dueDate: task.dueDate,
+                completed: task.completed || false,
+                subtasks: Array.isArray(task.subTasks) ? [...task.subTasks] : (Array.isArray(task.subtasks) ? [...task.subtasks] : []),
+                category: task.category || '',
+                tags: task.tags || [],
+                estimatedTime: task.estimatedTime || 0,
+              }));
+
+            dispatch({ type: 'SET_TASKS', payload: mappedTasks });
+          }
+        }
+      } catch (taskError) {
+        console.error('Failed to fetch tasks:', taskError);
+        // Don't fail the whole refresh if tasks fail
+      }
+
       if (data && data.stats) {
         const totalXp = Math.max(0, data.stats.xp || 0);
         const level = getLevelFromXp(totalXp);

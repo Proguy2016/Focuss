@@ -10,9 +10,9 @@ export const UpcomingTasks: React.FC = () => {
   const { state } = useApp();
   const navigate = useNavigate();
 
-  // Get upcoming tasks (next 5 tasks with due dates)
+  // Get upcoming tasks (next 5 incomplete tasks with due dates, sorted by due date)
   const upcomingTasks = state.tasks
-    .filter(task => task.dueDate && task.status.type !== 'completed')
+    .filter(task => task.dueDate && !task.completed)
     .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
     .slice(0, 5);
 
@@ -30,13 +30,32 @@ export const UpcomingTasks: React.FC = () => {
   };
 
   const getPriorityColor = (priority: string) => {
-    switch (priority) {
+    const priorityLower = priority?.toLowerCase() || 'low';
+    switch (priorityLower) {
+      case 'urgent':
+        return 'text-red-400 bg-red-500/10';
       case 'high':
-        return 'text-error-400 bg-error-500/10';
+        return 'text-orange-400 bg-orange-500/10';
       case 'medium':
-        return 'text-warning-400 bg-warning-500/10';
+        return 'text-yellow-400 bg-yellow-500/10';
+      case 'low':
       default:
-        return 'text-success-400 bg-success-500/10';
+        return 'text-green-400 bg-green-500/10';
+    }
+  };
+
+  const getPriorityDotColor = (priority: string) => {
+    const priorityLower = priority?.toLowerCase() || 'low';
+    switch (priorityLower) {
+      case 'urgent':
+        return 'bg-red-400';
+      case 'high':
+        return 'bg-orange-400';
+      case 'medium':
+        return 'bg-yellow-400';
+      case 'low':
+      default:
+        return 'bg-green-400';
     }
   };
 
@@ -67,7 +86,7 @@ export const UpcomingTasks: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
             >
-              <div className={`p-2 rounded-lg ${getPriorityColor(task.priority.level)}`}>
+              <div className={`p-2 rounded-lg ${getPriorityColor(task.priority)}`}>
                 <AlertCircle size={16} />
               </div>
 
@@ -87,7 +106,7 @@ export const UpcomingTasks: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${task.priority.color === '#EF4444' ? 'bg-error-400' : task.priority.color === '#F59E0B' ? 'bg-warning-400' : 'bg-success-400'}`} />
+                <div className={`w-2 h-2 rounded-full ${getPriorityDotColor(task.priority)}`} />
               </div>
             </motion.div>
           ))}
